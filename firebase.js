@@ -8,14 +8,18 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const firebaseConfig = {
-  // ⚠️ ZAMIEŃ TE DANE NA SWOJE Z FIREBASE CONSOLE ⚠️
-  apiKey: "TUTAJ_WKLEJ_SWOJ_API_KEY",
-  authDomain: "TUTAJ_WKLEJ_SWOJ_AUTH_DOMAIN",
-  projectId: "TUTAJ_WKLEJ_SWOJ_PROJECT_ID",
-  storageBucket: "TUTAJ_WKLEJ_SWOJ_STORAGE_BUCKET",
-  messagingSenderId: "TUTAJ_WKLEJ_SWOJ_MESSAGING_SENDER_ID",
-  appId: "TUTAJ_WKLEJ_SWOJ_APP_ID"
+  // Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
+  authDomain: "herraton-332d0.firebaseapp.com",
+  projectId: "herraton-332d0",
+  storageBucket: "herraton-332d0.firebasestorage.app",
+  messagingSenderId: "620331362290",
+  appId: "1:620331362290:web:6ce157738f7ae7e2f02d6b",
+  measurementId: "G-SES7Z9T5VZ"
 };
+
 
 // Inicjalizacja Firebase
 const app = initializeApp(firebaseConfig);
