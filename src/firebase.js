@@ -8,9 +8,6 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const firebaseConfig = {
-  // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
   apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
   authDomain: "herraton-332d0.firebaseapp.com",
   projectId: "herraton-332d0",
