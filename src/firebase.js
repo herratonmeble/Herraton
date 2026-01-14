@@ -1,14 +1,23 @@
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot,
+  query,
+  orderBy,
+  addDoc
+} from 'firebase/firestore';
+
 // ============================================
 // KONFIGURACJA FIREBASE
 // ============================================
-// INSTRUKCJA: Zamień poniższe dane na swoje z Firebase Console
-// (Krok 6 w instrukcji)
-
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+// WAŻNE: Zamień na swoje dane z Firebase Console!
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
+   apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
   authDomain: "herraton-332d0.firebaseapp.com",
   projectId: "herraton-332d0",
   storageBucket: "herraton-332d0.firebasestorage.app",
@@ -17,153 +26,232 @@ const firebaseConfig = {
   measurementId: "G-SES7Z9T5VZ"
 };
 
-
-// Inicjalizacja Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Referencje do kolekcji
-const ordersRef = collection(db, 'orders');
-const usersRef = collection(db, 'users');
-const producersRef = collection(db, 'producers');
-const settingsRef = collection(db, 'settings');
-
 // ============================================
-// FUNKCJE DO OBSŁUGI ZAMÓWIEŃ
+// KOLEKCJE
 // ============================================
 
-// Nasłuchuj zmian w zamówieniach (real-time)
+const ordersCollection = collection(db, 'orders');
+const usersCollection = collection(db, 'users');
+const producersCollection = collection(db, 'producers');
+const notificationsCollection = collection(db, 'notifications');
+
+// ============================================
+// ZAMÓWIENIA
+// ============================================
+
 export const subscribeToOrders = (callback) => {
-  const q = query(ordersRef, orderBy('dataZlecenia', 'desc'));
+  const q = query(ordersCollection, orderBy('dataZlecenia', 'desc'));
   return onSnapshot(q, (snapshot) => {
-    const orders = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(orders);
+  }, (error) => {
+    console.error('Error subscribing to orders:', error);
+    callback([]);
   });
 };
 
-// Dodaj zamówienie
-export const addOrder = async (orderData) => {
-  const docRef = await addDoc(ordersRef, {
-    ...orderData,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  });
-  return docRef.id;
+export const addOrder = async (order) => {
+  try {
+    const docRef = await addDoc(ordersCollection, order);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding order:', error);
+    throw error;
+  }
 };
 
-// Aktualizuj zamówienie
-export const updateOrder = async (orderId, orderData) => {
-  const orderDoc = doc(db, 'orders', orderId);
-  await updateDoc(orderDoc, {
-    ...orderData,
-    updatedAt: new Date().toISOString()
-  });
+export const updateOrder = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'orders', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    throw error;
+  }
 };
 
-// Usuń zamówienie
-export const deleteOrder = async (orderId) => {
-  const orderDoc = doc(db, 'orders', orderId);
-  await deleteDoc(orderDoc);
+export const deleteOrder = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'orders', id));
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    throw error;
+  }
 };
 
 // ============================================
-// FUNKCJE DO OBSŁUGI UŻYTKOWNIKÓW
+// UŻYTKOWNICY
 // ============================================
 
 export const subscribeToUsers = (callback) => {
-  return onSnapshot(usersRef, (snapshot) => {
-    const users = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+  return onSnapshot(usersCollection, (snapshot) => {
+    const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(users);
+  }, (error) => {
+    console.error('Error subscribing to users:', error);
+    callback([]);
   });
 };
 
-export const addUser = async (userData) => {
-  const docRef = await addDoc(usersRef, userData);
-  return docRef.id;
+export const addUser = async (user) => {
+  try {
+    const id = user.id || user.username;
+    await setDoc(doc(db, 'users', id), user);
+    return id;
+  } catch (error) {
+    console.error('Error adding user:', error);
+    throw error;
+  }
 };
 
-export const updateUser = async (userId, userData) => {
-  const userDoc = doc(db, 'users', userId);
-  await updateDoc(userDoc, userData);
+export const updateUser = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'users', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
 };
 
-export const deleteUser = async (userId) => {
-  const userDoc = doc(db, 'users', userId);
-  await deleteDoc(userDoc);
+export const deleteUser = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'users', id));
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
 };
 
 // ============================================
-// FUNKCJE DO OBSŁUGI PRODUCENTÓW
+// PRODUCENCI
 // ============================================
 
 export const subscribeToProducers = (callback) => {
-  return onSnapshot(producersRef, (snapshot) => {
+  return onSnapshot(producersCollection, (snapshot) => {
     const producers = {};
     snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      producers[data.id || doc.id] = { id: doc.id, ...data };
+      producers[doc.id] = { id: doc.id, ...doc.data() };
     });
     callback(producers);
+  }, (error) => {
+    console.error('Error subscribing to producers:', error);
+    callback({});
   });
 };
 
-export const addProducer = async (producerData) => {
-  const docRef = await addDoc(producersRef, producerData);
-  return docRef.id;
+export const addProducer = async (producer) => {
+  try {
+    const id = producer.id || producer.name.toLowerCase().replace(/\s+/g, '_');
+    await setDoc(doc(db, 'producers', id), { ...producer, id });
+    return id;
+  } catch (error) {
+    console.error('Error adding producer:', error);
+    throw error;
+  }
 };
 
-export const updateProducer = async (producerId, producerData) => {
-  const producerDoc = doc(db, 'producers', producerId);
-  await updateDoc(producerDoc, producerData);
+export const updateProducer = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'producers', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating producer:', error);
+    throw error;
+  }
 };
 
-export const deleteProducer = async (producerId) => {
-  const producerDoc = doc(db, 'producers', producerId);
-  await deleteDoc(producerDoc);
+export const deleteProducer = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'producers', id));
+  } catch (error) {
+    console.error('Error deleting producer:', error);
+    throw error;
+  }
 };
 
 // ============================================
-// INICJALIZACJA DOMYŚLNYCH DANYCH
+// POWIADOMIENIA (NOWE!)
+// ============================================
+
+export const subscribeToNotifications = (callback) => {
+  const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(notifications);
+  }, (error) => {
+    console.error('Error subscribing to notifications:', error);
+    callback([]);
+  });
+};
+
+export const addNotification = async (notification) => {
+  try {
+    const data = {
+      ...notification,
+      createdAt: notification.createdAt || new Date().toISOString(),
+      resolved: notification.resolved || false
+    };
+    const docRef = await addDoc(notificationsCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding notification:', error);
+    throw error;
+  }
+};
+
+export const updateNotification = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'notifications', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    throw error;
+  }
+};
+
+export const deleteNotification = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'notifications', id));
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
 export const initializeDefaultData = async () => {
-  // Sprawdź czy są już użytkownicy
-  const usersSnapshot = await getDocs(usersRef);
-  
-  if (usersSnapshot.empty) {
-    // Dodaj domyślnych użytkowników
+  try {
+    // Domyślni użytkownicy
     const defaultUsers = [
-      { username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
-      { username: 'jan', password: 'jan123', name: 'Jan Kowalski', role: 'worker' },
-      { username: 'kierowca1', password: 'kierowca123', name: 'Marek Transportowy', role: 'driver', phone: '+48 600 100 200' },
+      { id: 'admin', username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
+      { id: 'jan', username: 'jan', password: 'jan123', name: 'Jan Kowalski', role: 'worker' },
+      { id: 'kierowca1', username: 'kierowca1', password: 'kierowca123', name: 'Marek Transportowy', role: 'driver', phone: '+48 600 100 200' },
+      { id: 'kontrahent1', username: 'kontrahent1', password: 'kontr123', name: 'Firma ABC', role: 'contractor', companyName: 'Meble ABC Sp. z o.o.' },
     ];
-    
-    for (const user of defaultUsers) {
-      await addDoc(usersRef, user);
-    }
-    console.log('✅ Dodano domyślnych użytkowników');
-  }
 
-  // Sprawdź czy są producenci
-  const producersSnapshot = await getDocs(producersRef);
-  
-  if (producersSnapshot.empty) {
+    // Domyślni producenci
     const defaultProducers = [
-      { id: 'tomek', name: 'Tomek', email: 'tomek@example.com', phone: '+48 123 456 789', deliveryWeeks: { min: 2, max: 4 } },
-      { id: 'brattex', name: 'Brattex', email: 'zamowienia@brattex.pl', phone: '+48 234 567 890', deliveryWeeks: { min: 3, max: 4 } },
-      { id: 'furntex', name: 'FURNTEX', email: 'biuro@furntex.pl', phone: '+48 345 678 901', deliveryWeeks: { min: 2, max: 3 } },
+      { id: 'tomek_meble', name: 'Tomek Meble', email: 'tomek@meble.pl', phone: '+48 123 456 789', address: 'ul. Fabryczna 1, 61-001 Poznań' },
+      { id: 'brattex', name: 'Brattex', email: 'zamowienia@brattex.pl', phone: '+48 234 567 890', address: 'ul. Przemysłowa 15, 90-001 Łódź' },
+      { id: 'furntex', name: 'FURNTEX', email: 'biuro@furntex.pl', phone: '+48 345 678 901', address: 'ul. Meblowa 8, 02-001 Warszawa' },
     ];
-    
-    for (const producer of defaultProducers) {
-      await addDoc(producersRef, producer);
+
+    // Dodaj użytkowników jeśli nie istnieją
+    for (const user of defaultUsers) {
+      await setDoc(doc(db, 'users', user.id), user, { merge: true });
     }
-    console.log('✅ Dodano domyślnych producentów');
+
+    // Dodaj producentów jeśli nie istnieją
+    for (const producer of defaultProducers) {
+      await setDoc(doc(db, 'producers', producer.id), producer, { merge: true });
+    }
+
+    console.log('Default data initialized');
+  } catch (error) {
+    console.error('Error initializing default data:', error);
   }
 };
 
