@@ -101,10 +101,10 @@ const getDaysUntilPickup = (dateStr) => {
 
 const getUrgencyStyle = (days) => {
   if (days === null) return null;
-  if (days <= 0) return { bg: '#FEE2E2', color: '#DC2626', label: days === 0 ? 'DZIŚ!' : `${Math.abs(days)}d temu`, blink: days === 0 };
-  if (days <= 3) return { bg: '#FEE2E2', color: '#DC2626', label: `${days}d`, blink: false };
-  if (days <= 7) return { bg: '#FFEDD5', color: '#EA580C', label: `${days}d`, blink: false };
-  return { bg: '#D1FAE5', color: '#059669', label: `${days}d`, blink: false };
+  if (days <= 0) return { bg: '#FEE2E2', color: '#DC2626', label: days === 0 ? 'DZIŚ!' : Math.abs(days) + 'd temu', blink: days === 0 };
+  if (days <= 3) return { bg: '#FEE2E2', color: '#DC2626', label: days + 'd', blink: false };
+  if (days <= 7) return { bg: '#FFEDD5', color: '#EA580C', label: days + 'd', blink: false };
+  return { bg: '#D1FAE5', color: '#059669', label: days + 'd', blink: false };
 };
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
@@ -112,30 +112,27 @@ const formatDateTime = (d) => d ? new Date(d).toLocaleString('pl-PL', { day: '2-
 const formatCurrency = (amt, cur = 'PLN') => {
   if (amt === null || amt === undefined) return '—';
   const currency = getCurrency(cur);
-  return `${amt.toLocaleString('pl-PL')} ${currency.symbol}`;
+  return amt.toLocaleString('pl-PL') + ' ' + currency.symbol;
 };
 
-// Generowanie numeru zamówienia: [licznik]/[miesiąc]/[rok]/[kraj]
 const generateOrderNumber = (orders, countryCode) => {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = String(now.getFullYear()).slice(-2);
   const prefix = `/${month}/${year}/${countryCode}`;
-
   let maxNum = 0;
-  (orders || []).forEach(o => {
+  orders.forEach(o => {
     if (o.nrWlasny?.includes(prefix)) {
       const match = o.nrWlasny.match(/^(\d+)\//);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
     }
   });
   return `${maxNum + 1}${prefix}`;
 };
 
-// Oblicz sumy do pobrania per waluta
 const calcPaymentSums = (orders) => {
   const sums = {};
-  (orders || []).forEach(o => {
+  orders.forEach(o => {
     if (o.platnosci?.doZaplaty > 0) {
       const cur = o.platnosci.waluta || 'PLN';
       sums[cur] = (sums[cur] || 0) + o.platnosci.doZaplaty;
@@ -144,7 +141,6 @@ const calcPaymentSums = (orders) => {
   return sums;
 };
 
-// Dźwięk powiadomienia
 const playNotificationSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -156,13 +152,11 @@ const playNotificationSound = () => {
     gain.gain.value = 0.3;
     osc.start();
     osc.stop(ctx.currentTime + 0.15);
-  } catch {
-    // ignore
-  }
+  } catch (e) { }
 };
 
 // ============================================
-// KOMPONENTY - EKRAN LOGOWANIA
+// EKRAN LOGOWANIA
 // ============================================
 
 const LoginScreen = ({ onLogin, users, loading }) => {
@@ -171,10 +165,10 @@ const LoginScreen = ({ onLogin, users, loading }) => {
   const [error, setError] = useState('');
 
   const handleLogin = () => {
-    const u = (users || []).find(x => x.username === username && x.password === password);
-    if (u) {
-      localStorage.setItem('herratonUser', JSON.stringify(u));
-      onLogin(u);
+    const user = users.find(u => u.username === username && u.password === password);
+    if (user) {
+      localStorage.setItem('herratonUser', JSON.stringify(user));
+      onLogin(user);
     } else {
       setError('Nieprawidłowy login lub hasło');
     }
@@ -199,35 +193,16 @@ const LoginScreen = ({ onLogin, users, loading }) => {
         <div className="login-logo">📦</div>
         <h1>Herraton</h1>
         <p className="login-subtitle">System Zarządzania Zamówieniami v2</p>
-
         <div className="form-group">
           <label>LOGIN</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            placeholder="Wpisz login..."
-          />
+          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} placeholder="Wpisz login..." />
         </div>
-
         <div className="form-group">
           <label>HASŁO</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            placeholder="Wpisz hasło..."
-          />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} placeholder="Wpisz hasło..." />
         </div>
-
         {error && <div className="error-message">⚠️ {error}</div>}
-
-        <button className="btn-primary btn-full" onClick={handleLogin}>
-          Zaloguj się
-        </button>
-
+        <button className="btn-primary btn-full" onClick={handleLogin}>Zaloguj się</button>
         <div className="login-demo">
           <strong>Konta demo:</strong><br />
           👑 admin / admin123<br />
@@ -241,25 +216,29 @@ const LoginScreen = ({ onLogin, users, loading }) => {
 };
 
 // ============================================
-// PANEL POWIADOMIEŃ
+// PANEL POWIADOMIEŃ - POPRAWIONY
 // ============================================
 
-const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrderClick }) => {
+const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrderClick, onClearAll }) => {
   const [expanded, setExpanded] = useState(null);
-  const unresolved = (notifications || []).filter(n => !n.resolved).length;
+  const unresolved = notifications.filter(n => !n.resolved).length;
 
   return (
     <div className="notifications-panel">
       <div className="notifications-header">
         <h3>🔔 Powiadomienia ({unresolved})</h3>
-        <button className="btn-close" onClick={onClose}>×</button>
+        <div className="notifications-header-actions">
+          {notifications.length > 0 && (
+            <button className="btn-small btn-danger" onClick={onClearAll}>🗑️ Wyczyść wszystko</button>
+          )}
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
       </div>
-
       <div className="notifications-list">
-        {(notifications || []).length === 0 ? (
+        {notifications.length === 0 ? (
           <div className="notifications-empty">Brak powiadomień</div>
         ) : (
-          (notifications || []).map(n => (
+          notifications.map(n => (
             <div key={n.id} className={`notification-item ${n.resolved ? 'resolved' : ''}`}>
               <div className="notification-main" onClick={() => setExpanded(expanded === n.id ? null : n.id)}>
                 <span className="notification-icon">{n.icon || '🔔'}</span>
@@ -269,30 +248,38 @@ const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrd
                 </div>
                 <span className="notification-arrow">{expanded === n.id ? '▲' : '▼'}</span>
               </div>
-
               {expanded === n.id && (
                 <div className="notification-details">
                   <p className="notification-message">{n.message}</p>
                   <div className="notification-actions">
                     {n.orderId && (
-                      <button className="btn-small" onClick={() => onOrderClick(n.orderId)}>
-                        📋 Zobacz zamówienie
-                      </button>
+                      <button className="btn-small" onClick={() => onOrderClick(n.orderId)}>📋 Zobacz zamówienie</button>
                     )}
                     {!n.resolved && (
-                      <button className="btn-small btn-success" onClick={() => onResolve(n.id)}>
-                        ✓ Załatwione
-                      </button>
+                      <button className="btn-small btn-success" onClick={() => onResolve(n.id)}>✓ Załatwione</button>
                     )}
-                    <button className="btn-small btn-danger" onClick={() => onDelete(n.id)}>
-                      🗑️ Usuń
-                    </button>
+                    <button className="btn-small btn-danger" onClick={() => onDelete(n.id)}>🗑️ Usuń</button>
                   </div>
                 </div>
               )}
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// MODAL PODGLĄDU ZDJĘCIA - NOWY
+// ============================================
+
+const ImagePreviewModal = ({ src, onClose }) => {
+  return (
+    <div className="modal-overlay image-preview-overlay" onClick={onClose}>
+      <div className="image-preview-content" onClick={e => e.stopPropagation()}>
+        <button className="btn-close image-close" onClick={onClose}>×</button>
+        <img src={src} alt="Podgląd" className="image-preview-img" />
       </div>
     </div>
   );
@@ -316,7 +303,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
             <span className="label">UTWORZONO</span>
             <div><strong>{utworzonePrzez?.nazwa}</strong> • {formatDateTime(utworzonePrzez?.data)}</div>
           </div>
-          {(historia || []).slice().reverse().slice(0, 10).map((h, i) => (
+          {historia?.slice().reverse().slice(0, 10).map((h, i) => (
             <div key={i} className="history-item">
               <div className="history-date">{formatDateTime(h.data)}</div>
               <div><strong>{h.uzytkownik}:</strong> {h.akcja}</div>
@@ -329,16 +316,24 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 };
 
 // ============================================
-// MODAL SZCZEGÓŁÓW ZAMÓWIENIA
+// MODAL SZCZEGÓŁÓW ZAMÓWIENIA - Z POWIĘKSZANIEM ZDJĘĆ
 // ============================================
 
-const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
+const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
+  const [previewImage, setPreviewImage] = useState(null);
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
   const urgency = getUrgencyStyle(days);
-  const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
-  const driver = (drivers || []).find(d => d.id === order.przypisanyKierowca);
+  const producer = Object.values(producers).find(p => p.id === order.zaladunek);
+  const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+
+  const handleDelete = () => {
+    if (window.confirm(`Czy na pewno chcesz usunąć zamówienie ${order.nrWlasny}?`)) {
+      onDelete(order.id);
+      onClose();
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -348,18 +343,9 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
             <div className="modal-title-row">
               <span style={{ fontSize: '20px' }}>{country?.flag}</span>
               <h2>{order.nrWlasny || 'Bez numeru'}</h2>
-              {urgency && (
-                <span
-                  className={`urgency-badge ${urgency.blink ? 'blink' : ''}`}
-                  style={{ background: urgency.bg, color: urgency.color }}
-                >
-                  ⏰ {urgency.label}
-                </span>
-              )}
+              {urgency && <span className={`urgency-badge ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰ {urgency.label}</span>}
             </div>
-            <span className="status-badge" style={{ background: status?.bgColor, color: status?.color }}>
-              {status?.icon} {status?.name}
-            </span>
+            <span className="status-badge" style={{ background: status?.bgColor, color: status?.color }}>{status?.icon} {status?.name}</span>
           </div>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
@@ -394,9 +380,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               </div>
               <div>
                 <span className="payment-label">Pozostało</span>
-                <span className={`payment-value ${order.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}`}>
-                  {formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}
-                </span>
+                <span className={`payment-value ${order.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}`}>{formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}</span>
               </div>
             </div>
             {order.platnosci?.metodaZaplaty && <div className="payment-method">Metoda: {order.platnosci.metodaZaplaty}</div>}
@@ -437,36 +421,28 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
             </div>
           )}
 
-          {order.uwagi && (
-            <div className="detail-notes">
-              📝 {order.uwagi}
-            </div>
-          )}
+          {order.uwagi && <div className="detail-notes">📝 {order.uwagi}</div>}
+          {order.uwagiKierowcy && <div className="detail-notes driver-notes">🚚 Uwagi kierowcy: {order.uwagiKierowcy}</div>}
 
-          {order.uwagiKierowcy && (
-            <div className="detail-notes driver-notes">
-              🚚 Uwagi kierowcy: {order.uwagiKierowcy}
-            </div>
-          )}
-
+          {/* DOKUMENTACJA ZE ZDJĘCIAMI - KLIKALNE DO POWIĘKSZENIA */}
           {(order.zdjeciaOdbioru?.length > 0 || order.zdjeciaDostawy?.length > 0 || order.podpisKlienta) && (
             <div className="detail-section">
-              <label>📷 DOKUMENTACJA</label>
+              <label>📷 DOKUMENTACJA (kliknij aby powiększyć)</label>
               <div className="photos-grid">
-                {(order.zdjeciaOdbioru || []).map((p, i) => (
-                  <div key={`o${i}`} className="photo-item">
+                {order.zdjeciaOdbioru?.map((p, i) => (
+                  <div key={`o${i}`} className="photo-item" onClick={() => setPreviewImage(p.url)}>
                     <img src={p.url} alt={`Odbiór ${i + 1}`} />
                     <span>Odbiór - {formatDateTime(p.timestamp)}</span>
                   </div>
                 ))}
-                {(order.zdjeciaDostawy || []).map((p, i) => (
-                  <div key={`d${i}`} className="photo-item">
+                {order.zdjeciaDostawy?.map((p, i) => (
+                  <div key={`d${i}`} className="photo-item" onClick={() => setPreviewImage(p.url)}>
                     <img src={p.url} alt={`Dostawa ${i + 1}`} />
                     <span>Dostawa - {formatDateTime(p.timestamp)}</span>
                   </div>
                 ))}
                 {order.podpisKlienta && (
-                  <div className="photo-item signature">
+                  <div className="photo-item signature" onClick={() => setPreviewImage(order.podpisKlienta.url)}>
                     <img src={order.podpisKlienta.url} alt="Podpis klienta" />
                     <span>✍️ Podpis - {formatDateTime(order.podpisKlienta.timestamp)}</span>
                   </div>
@@ -477,13 +453,21 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
 
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
         </div>
+
+        <div className="modal-footer">
+          <button className="btn-danger" onClick={handleDelete}>🗑️ Usuń zamówienie</button>
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
       </div>
+
+      {/* Modal podglądu zdjęcia */}
+      {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
     </div>
   );
 };
 
 // ============================================
-// MODAL EDYCJI ZAMÓWIENIA
+// MODAL EDYCJI ZAMÓWIENIA - POPRAWIONY (zamyka się po zapisie)
 // ============================================
 
 const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor }) => {
@@ -502,7 +486,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     przypisanyKierowca: null,
     kontrahentId: isContractor ? currentUser.id : null
   });
-
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -513,7 +496,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   }, [form.kraj, order, orders]);
 
   const updateKlient = (k, v) => setForm({ ...form, klient: { ...form.klient, [k]: v } });
-
   const updatePlatnosci = (k, v) => {
     const p = { ...form.platnosci, [k]: v };
     if (k === 'cenaCalkowita' || k === 'zaplacono') {
@@ -526,6 +508,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     setSaving(true);
     await onSave(form, currentUser);
     setSaving(false);
+    onClose(); // ZAMKNIJ MODAL PO ZAPISIE
   };
 
   return (
@@ -544,12 +527,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
               </select>
             </div>
-
             <div className="form-group">
               <label>NR ZAMÓWIENIA</label>
               <input value={form.nrWlasny} onChange={e => setForm({ ...form, nrWlasny: e.target.value })} placeholder="Auto" />
             </div>
-
             {!isContractor && (
               <div className="form-group">
                 <label>STATUS</label>
@@ -558,7 +539,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 </select>
               </div>
             )}
-
             <div className="form-group">
               <label>DATA ZLECENIA</label>
               <input type="date" value={form.dataZlecenia} onChange={e => setForm({ ...form, dataZlecenia: e.target.value })} />
@@ -571,18 +551,14 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <label>PRODUCENT</label>
                 <select value={form.zaladunek} onChange={e => setForm({ ...form, zaladunek: e.target.value })}>
                   <option value="">-- Wybierz producenta --</option>
-                  {Object.values(producers || {}).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-
               <div className="form-group">
                 <label>KIEROWCA</label>
-                <select
-                  value={form.przypisanyKierowca || ''}
-                  onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}
-                >
+                <select value={form.przypisanyKierowca || ''} onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}>
                   <option value="">-- Wybierz kierowcę --</option>
-                  {(drivers || []).map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
+                  {drivers.map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
                 </select>
               </div>
             </div>
@@ -600,22 +576,18 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <label>IMIĘ I NAZWISKO</label>
                 <input value={form.klient?.imie || ''} onChange={e => updateKlient('imie', e.target.value)} placeholder="Jan Kowalski" />
               </div>
-
               <div className="form-group">
                 <label>TELEFON</label>
                 <input value={form.klient?.telefon || ''} onChange={e => updateKlient('telefon', e.target.value)} placeholder="+48 123 456 789" />
               </div>
-
               <div className="form-group span-2">
                 <label>ADRES DOSTAWY</label>
                 <input value={form.klient?.adres || ''} onChange={e => updateKlient('adres', e.target.value)} placeholder="ul. Przykładowa 1, 00-000 Miasto" />
               </div>
-
               <div className="form-group">
                 <label>EMAIL</label>
                 <input value={form.klient?.email || ''} onChange={e => updateKlient('email', e.target.value)} placeholder="email@example.com" />
               </div>
-
               <div className="form-group">
                 <label>LINK DO FACEBOOK</label>
                 <input value={form.klient?.facebookUrl || ''} onChange={e => updateKlient('facebookUrl', e.target.value)} placeholder="https://facebook.com/..." />
@@ -632,25 +604,14 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
                 </select>
               </div>
-
               <div className="form-group">
                 <label>CENA CAŁKOWITA</label>
-                <input
-                  type="number"
-                  value={form.platnosci?.cenaCalkowita || ''}
-                  onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)}
-                />
+                <input type="number" value={form.platnosci?.cenaCalkowita || ''} onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)} />
               </div>
-
               <div className="form-group">
                 <label>ZAPŁACONO</label>
-                <input
-                  type="number"
-                  value={form.platnosci?.zaplacono || ''}
-                  onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)}
-                />
+                <input type="number" value={form.platnosci?.zaplacono || ''} onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)} />
               </div>
-
               <div className="form-group">
                 <label>METODA PŁATNOŚCI</label>
                 <select value={form.platnosci?.metodaZaplaty || ''} onChange={e => updatePlatnosci('metodaZaplaty', e.target.value)}>
@@ -658,20 +619,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
-
               <div className="form-group">
                 <label>DATA PŁATNOŚCI</label>
                 <input type="date" value={form.platnosci?.dataZaplaty || ''} onChange={e => updatePlatnosci('dataZaplaty', e.target.value)} />
               </div>
-
               <div className="form-group">
                 <label>DO ZAPŁATY</label>
-                <input
-                  type="number"
-                  value={form.platnosci?.doZaplaty || 0}
-                  readOnly
-                  className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}
-                />
+                <input type="number" value={form.platnosci?.doZaplaty || 0} readOnly className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'} />
               </div>
             </div>
           </div>
@@ -709,14 +663,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
 // ============================================
 
 const ProducersModal = ({ producers, onSave, onClose }) => {
-  const [list, setList] = useState(Object.values(producers || {}));
+  const [list, setList] = useState(Object.values(producers));
   const [newP, setNewP] = useState({ name: '', email: '', phone: '', address: '' });
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setList(Object.values(producers || {}));
-  }, [producers]);
 
   const handleAdd = () => {
     if (newP.name) {
@@ -743,7 +693,6 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
           <h2>🏭 Zarządzanie producentami</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-
         <div className="modal-body">
           {list.map(p => (
             <div key={p.id} className="list-item">
@@ -763,29 +712,25 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
                     <div className="list-item-subtitle">📍 {p.address || '—'}</div>
                   </div>
                   <div className="list-item-actions">
-                    <button className="btn-small" onClick={() => setEditingId(p.id)}>✏️ Edytuj</button>
-                    <button className="btn-delete" onClick={() => setList(list.filter(x => x.id !== p.id))}>🗑️</button>
+                    <button className="btn-small" onClick={() => setEditingId(p.id)}>✏️</button>
+                    <button className="btn-small btn-danger" onClick={() => setList(list.filter(x => x.id !== p.id))}>🗑️</button>
                   </div>
                 </>
               )}
             </div>
           ))}
-
           <div className="add-form">
             <h4>➕ Dodaj producenta</h4>
             <input placeholder="Nazwa *" value={newP.name} onChange={e => setNewP({ ...newP, name: e.target.value })} />
             <input placeholder="Email" value={newP.email} onChange={e => setNewP({ ...newP, email: e.target.value })} />
             <input placeholder="Telefon" value={newP.phone} onChange={e => setNewP({ ...newP, phone: e.target.value })} />
             <input placeholder="Adres" value={newP.address} onChange={e => setNewP({ ...newP, address: e.target.value })} />
-            <button className="btn-add" onClick={handleAdd}>➕ Dodaj producenta</button>
+            <button className="btn-add" onClick={handleAdd}>➕ Dodaj</button>
           </div>
         </div>
-
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? '⏳ Zapisuję...' : '💾 Zapisz zmiany'}
-          </button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
         </div>
       </div>
     </div>
@@ -793,23 +738,24 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
 };
 
 // ============================================
-// MODAL UŻYTKOWNIKÓW
+// MODAL UŻYTKOWNIKÓW - Z RESETOWANIEM HASŁA
 // ============================================
 
-const UsersModal = ({ users, onSave, onClose }) => {
-  const [list, setList] = useState(users || []);
-  const [newU, setNewU] = useState({ username: '', password: '', name: '', role: 'worker', companyName: '' });
+const UsersModal = ({ users, onSave, onClose, isAdmin }) => {
+  const [list, setList] = useState(users);
+  const [newU, setNewU] = useState({ username: '', password: '', name: '', role: 'worker', companyName: '', phone: '' });
+  const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setList(users || []);
-  }, [users]);
 
   const handleAdd = () => {
     if (newU.username && newU.password && newU.name) {
       setList([...list, { ...newU, id: 'new_' + Date.now() }]);
-      setNewU({ username: '', password: '', name: '', role: 'worker', companyName: '' });
+      setNewU({ username: '', password: '', name: '', role: 'worker', companyName: '', phone: '' });
     }
+  };
+
+  const handleUpdate = (id, field, value) => {
+    setList(list.map(u => u.id === id ? { ...u, [field]: value } : u));
   };
 
   const handleSave = async () => {
@@ -826,49 +772,62 @@ const UsersModal = ({ users, onSave, onClose }) => {
           <h2>👥 Zarządzanie użytkownikami</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-
         <div className="modal-body">
           {list.map(u => {
             const role = getRole(u.role);
             return (
               <div key={u.id} className="list-item">
-                <div>
-                  <div className="list-item-title">{role.icon} {u.name}</div>
-                  <div className="list-item-subtitle">@{u.username} • {role.name}</div>
-                  {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
-                </div>
-                {u.username !== 'admin' && (
-                  <button className="btn-delete" onClick={() => setList(list.filter(x => x.id !== u.id))}>🗑️</button>
+                {editingId === u.id ? (
+                  <div className="edit-form">
+                    <input value={u.name} onChange={e => handleUpdate(u.id, 'name', e.target.value)} placeholder="Imię i nazwisko" />
+                    <input value={u.username} onChange={e => handleUpdate(u.id, 'username', e.target.value)} placeholder="Login" disabled={u.username === 'admin'} />
+                    <input value={u.password} onChange={e => handleUpdate(u.id, 'password', e.target.value)} placeholder="Nowe hasło" type="text" />
+                    <input value={u.phone || ''} onChange={e => handleUpdate(u.id, 'phone', e.target.value)} placeholder="Telefon" />
+                    <select value={u.role} onChange={e => handleUpdate(u.id, 'role', e.target.value)} disabled={u.username === 'admin'}>
+                      {USER_ROLES.map(r => <option key={r.id} value={r.id}>{r.icon} {r.name}</option>)}
+                    </select>
+                    {u.role === 'contractor' && (
+                      <input value={u.companyName || ''} onChange={e => handleUpdate(u.id, 'companyName', e.target.value)} placeholder="Nazwa firmy" />
+                    )}
+                    <button className="btn-small btn-success" onClick={() => setEditingId(null)}>✓ Gotowe</button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="list-item-title">{role.icon} {u.name}</div>
+                      <div className="list-item-subtitle">@{u.username} • {role.name}</div>
+                      {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
+                      {u.phone && <div className="list-item-subtitle">📞 {u.phone}</div>}
+                    </div>
+                    <div className="list-item-actions">
+                      {isAdmin && <button className="btn-small" onClick={() => setEditingId(u.id)}>✏️ Edytuj</button>}
+                      {u.username !== 'admin' && <button className="btn-small btn-danger" onClick={() => setList(list.filter(x => x.id !== u.id))}>🗑️</button>}
+                    </div>
+                  </>
                 )}
               </div>
             );
           })}
-
           <div className="add-form">
             <h4>➕ Dodaj użytkownika</h4>
             <input placeholder="Imię i nazwisko *" value={newU.name} onChange={e => setNewU({ ...newU, name: e.target.value })} />
             <div className="form-row">
               <input placeholder="Login *" value={newU.username} onChange={e => setNewU({ ...newU, username: e.target.value })} />
-              <input placeholder="Hasło *" type="password" value={newU.password} onChange={e => setNewU({ ...newU, password: e.target.value })} />
+              <input placeholder="Hasło *" type="text" value={newU.password} onChange={e => setNewU({ ...newU, password: e.target.value })} />
             </div>
-
+            <input placeholder="Telefon" value={newU.phone} onChange={e => setNewU({ ...newU, phone: e.target.value })} />
             <select value={newU.role} onChange={e => setNewU({ ...newU, role: e.target.value })}>
               {USER_ROLES.map(r => <option key={r.id} value={r.id}>{r.icon} {r.name}</option>)}
             </select>
-
             {newU.role === 'contractor' && (
               <input placeholder="Nazwa firmy" value={newU.companyName} onChange={e => setNewU({ ...newU, companyName: e.target.value })} />
             )}
-
-            <button className="btn-add" onClick={handleAdd}>➕ Dodaj użytkownika</button>
+            <button className="btn-add" onClick={handleAdd}>➕ Dodaj</button>
           </div>
         </div>
-
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? '⏳ Zapisuję...' : '💾 Zapisz zmiany'}
-          </button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
         </div>
       </div>
     </div>
@@ -876,7 +835,7 @@ const UsersModal = ({ users, onSave, onClose }) => {
 };
 
 // ============================================
-// MODAL USTAWIEŃ
+// MODAL USTAWIEŃ - TYLKO DLA ADMINA
 // ============================================
 
 const SettingsModal = ({ onClose }) => {
@@ -896,20 +855,14 @@ const SettingsModal = ({ onClose }) => {
           <h2>⚙️ Ustawienia</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-
         <div className="modal-body">
           <div className="form-group">
             <label>URL Google Apps Script</label>
-            <input
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              placeholder="https://script.google.com/macros/s/..."
-            />
+            <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." />
             <small>Wklej URL z kroku 10 instrukcji</small>
           </div>
           {saved && <div className="success-message">✅ Zapisano!</div>}
         </div>
-
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
           <button className="btn-primary" onClick={handleSave}>💾 Zapisz</button>
@@ -933,7 +886,6 @@ const EmailModal = ({ order, producer, onClose }) => {
           <h2>📧 Kontakt z producentem</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-
         <div className="modal-body">
           <div className="contact-info">
             <strong>{producer?.name}</strong>
@@ -941,17 +893,9 @@ const EmailModal = ({ order, producer, onClose }) => {
             <span>📞 {producer?.phone || '—'}</span>
             {producer?.address && <span>📍 {producer.address}</span>}
           </div>
-
           <div className="contact-actions">
             {producer?.phone && <a href={`tel:${producer.phone}`} className="btn-secondary">📞 Zadzwoń</a>}
-            {producer?.email && (
-              <a
-                href={`mailto:${producer.email}?subject=Zamówienie ${order.nrWlasny}&body=${encodeURIComponent(body)}`}
-                className="btn-primary"
-              >
-                ✉️ Email
-              </a>
-            )}
+            {producer?.email && <a href={`mailto:${producer.email}?subject=Zamówienie ${order.nrWlasny}&body=${encodeURIComponent(body)}`} className="btn-primary">✉️ Email</a>}
           </div>
         </div>
       </div>
@@ -963,13 +907,20 @@ const EmailModal = ({ order, producer, onClose }) => {
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
   const urgency = getUrgencyStyle(days);
-  const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
-  const driver = (drivers || []).find(d => d.id === order.przypisanyKierowca);
+  const producer = Object.values(producers).find(p => p.id === order.zaladunek);
+  const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (window.confirm(`Czy na pewno chcesz usunąć zamówienie ${order.nrWlasny}?`)) {
+      onDelete(order.id);
+    }
+  };
 
   return (
     <div className="order-card" onClick={() => onClick(order)}>
@@ -977,16 +928,8 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         <div className="order-card-title">
           <span className="country-flag">{country?.flag}</span>
           <span className="order-number">{order.nrWlasny || '—'}</span>
-          {urgency && (
-            <span
-              className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`}
-              style={{ background: urgency.bg, color: urgency.color }}
-            >
-              ⏰{urgency.label}
-            </span>
-          )}
+          {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
         </div>
-
         <select
           value={order.status}
           onClick={e => e.stopPropagation()}
@@ -1039,6 +982,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <div className="order-actions">
             <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
             {producer && <button onClick={e => { e.stopPropagation(); onEmailClick(order, producer); }} className="btn-icon btn-email">📧</button>}
+            <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>
           </div>
         </div>
       </div>
@@ -1047,7 +991,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 };
 
 // ============================================
-// PANEL KIEROWCY
+// PANEL KIEROWCY - POPRAWIONE ZDJĘCIA MOBILNE
 // ============================================
 
 const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification, onLogout }) => {
@@ -1057,12 +1001,11 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [notes, setNotes] = useState('');
   const [estPickup, setEstPickup] = useState('');
   const [estDelivery, setEstDelivery] = useState('');
-  const fileRef = useRef(null);
   const [photoTarget, setPhotoTarget] = useState(null);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const myOrders = (orders || []).filter(o => o.przypisanyKierowca === user.id);
+  const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
   const pickedUp = myOrders.filter(o => o.status === 'odebrane');
   const inTransit = myOrders.filter(o => o.status === 'w_transporcie');
@@ -1095,27 +1038,21 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     onAddNotification({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `Kierowca ${user.name} zmienił status na: ${statusName}`, orderId: order.id });
   };
 
-  const handlePhoto = (order, type) => {
-    setPhotoTarget({ orderId: order.id, type });
-    fileRef.current?.click();
-  };
+  // POPRAWIONE - używamy input file bezpośrednio zamiast ref
+  const handlePhotoCapture = async (order, type, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const onPhotoSelect = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !photoTarget) return;
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const ord = (orders || []).find(o => o.id === photoTarget.orderId);
-      if (!ord) return;
       const photo = { url: reader.result, timestamp: new Date().toISOString(), by: user.name };
-      const field = photoTarget.type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
-      await onUpdateOrder(ord.id, {
-        ...ord,
-        [field]: [...(ord[field] || []), photo],
-        historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+      const field = type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
+      await onUpdateOrder(order.id, {
+        ...order,
+        [field]: [...(order[field] || []), photo],
+        historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
       });
-      onAddNotification({ icon: '📷', title: `Zdjęcie: ${ord.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: ord.id });
-      setPhotoTarget(null);
+      onAddNotification({ icon: '📷', title: `Zdjęcie: ${order.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: order.id });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -1129,18 +1066,17 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   };
 
   const saveNotes = async () => {
-    const ord = (orders || []).find(o => o.id === showNotes);
-    if (!ord) return;
+    const order = orders.find(o => o.id === showNotes);
+    if (!order) return;
+    const hist = [...(order.historia || [])];
+    if (notes !== order.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
+    if (estPickup !== order.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
+    if (estDelivery !== order.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
 
-    const hist = [...(ord.historia || [])];
-    if (notes !== ord.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
-    if (estPickup !== ord.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
-    if (estDelivery !== ord.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
+    await onUpdateOrder(order.id, { ...order, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
 
-    await onUpdateOrder(ord.id, { ...ord, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
-
-    if (notes && notes !== ord.uwagiKierowcy) {
-      onAddNotification({ icon: '📝', title: `Uwagi: ${ord.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: ord.id });
+    if (notes && notes !== order.uwagiKierowcy) {
+      onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: order.id });
     }
     setShowNotes(null);
   };
@@ -1181,15 +1117,15 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   };
 
   const saveSignature = async () => {
-    const ord = (orders || []).find(o => o.id === showSignature);
-    if (!ord) return;
+    const order = orders.find(o => o.id === showSignature);
+    if (!order) return;
     const dataUrl = canvasRef.current.toDataURL();
-    await onUpdateOrder(ord.id, {
-      ...ord,
+    await onUpdateOrder(order.id, {
+      ...order,
       podpisKlienta: { url: dataUrl, timestamp: new Date().toISOString(), by: user.name },
-      historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Podpis klienta' }]
+      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Podpis klienta' }]
     });
-    onAddNotification({ icon: '✍️', title: `Podpis: ${ord.nrWlasny}`, message: `Kierowca ${user.name} zebrał podpis klienta`, orderId: ord.id });
+    onAddNotification({ icon: '✍️', title: `Podpis: ${order.nrWlasny}`, message: `Kierowca ${user.name} zebrał podpis klienta`, orderId: order.id });
     setShowSignature(null);
   };
 
@@ -1216,15 +1152,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   return (
     <div className="driver-panel">
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        ref={fileRef}
-        style={{ display: 'none' }}
-        onChange={onPhotoSelect}
-      />
-
       <header className="header driver-header">
         <div className="header-content">
           <div className="header-brand">
@@ -1252,11 +1179,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
         <div className="driver-tabs">
           {tabs.map(t => (
-            <button
-              key={t.id}
-              className={`driver-tab ${activeTab === t.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.id)}
-            >
+            <button key={t.id} className={`driver-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
               <span className="tab-count">{t.count}</span>
               <span className="tab-label">{t.icon} {t.label}</span>
             </button>
@@ -1272,7 +1195,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           <div className="driver-orders">
             {getTabOrders().map(order => {
               const status = getStatus(order.status);
-              const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
+              const producer = Object.values(producers).find(p => p.id === order.zaladunek);
               const country = getCountry(order.kraj);
 
               return (
@@ -1336,10 +1259,14 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     </div>
                   )}
 
+                  {/* POPRAWIONE PRZYCISKI ZDJĘĆ - input file jako label */}
                   <div className="driver-actions">
                     {activeTab === 'pickup' && (
                       <>
-                        <button className="btn-driver photo" onClick={() => handlePhoto(order, 'pickup')}>📷 Zdjęcie odbioru</button>
+                        <label className="btn-driver photo">
+                          📷 Zdjęcie odbioru
+                          <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                        </label>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'odebrane')}>✅ Oznacz jako odebrane</button>
                       </>
@@ -1352,7 +1279,10 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     )}
                     {activeTab === 'transit' && (
                       <>
-                        <button className="btn-driver photo" onClick={() => handlePhoto(order, 'delivery')}>📷 Zdjęcie dostawy</button>
+                        <label className="btn-driver photo">
+                          📷 Zdjęcie dostawy
+                          <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                        </label>
                         <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
                         <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
@@ -1437,325 +1367,53 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     </div>
   );
 };
-
-// ============================================
-// APP (GŁÓWNY)
-// ============================================
-
-const App = () => {
-  const [loading, setLoading] = useState(true);
-
-  const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [producers, setProducers] = useState({});
-  const [notifications, setNotifications] = useState([]);
-
-  const [user, setUser] = useState(null);
-
-  // UI state
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showUsersModal, setShowUsersModal] = useState(false);
-  const [showProducersModal, setShowProducersModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-
-  const [editingOrder, setEditingOrder] = useState(null);
-  const [viewingOrder, setViewingOrder] = useState(null);
-  const [emailModal, setEmailModal] = useState(null);
-
-  // filters
-  const [filter, setFilter] = useState('all'); // status
-  const [countryFilter, setCountryFilter] = useState('all');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
-  const [creatorFilter, setCreatorFilter] = useState('all');
-  const [search, setSearch] = useState('');
-
-  // bootstrap login
-  useEffect(() => {
-    const saved = localStorage.getItem('herratonUser');
-    if (saved) {
-      try { setUser(JSON.parse(saved)); } catch { /* ignore */ }
-    }
-  }, []);
-
-  // subscriptions
-  useEffect(() => {
-    let unsubOrders = null;
-    let unsubUsers = null;
-    let unsubProducers = null;
-    let unsubNotifs = null;
-
-    (async () => {
-      try {
-        await initializeDefaultData();
-      } catch {
-        // ignore
-      }
-
-      try {
-        unsubOrders = subscribeToOrders((arr) => setOrders(arr || []));
-        unsubUsers = subscribeToUsers((arr) => setUsers(arr || []));
-        unsubProducers = subscribeToProducers((obj) => setProducers(obj || {}));
-        unsubNotifs = subscribeToNotifications((arr) => setNotifications(arr || []));
-      } finally {
-        setLoading(false);
-      }
-    })();
-
-    return () => {
-      if (typeof unsubOrders === 'function') unsubOrders();
-      if (typeof unsubUsers === 'function') unsubUsers();
-      if (typeof unsubProducers === 'function') unsubProducers();
-      if (typeof unsubNotifs === 'function') unsubNotifs();
-    };
-  }, []);
-
-  // autosync (jeśli masz to gotowe w export.js)
-  useEffect(() => {
-    const url = getGoogleScriptUrl();
-    if (!url) return;
-    try {
-      autoSyncToGoogleSheets(orders);
-    } catch {
-      // ignore
-    }
-  }, [orders]);
-
-  const isContractor = user?.role === 'contractor';
-  const drivers = (users || []).filter(u => u.role === 'driver');
-
-  const onLogout = () => {
-    localStorage.removeItem('herratonUser');
-    setUser(null);
-  };
-
-  const addNotif = async ({ icon, title, message, orderId }) => {
-    try {
-      playNotificationSound();
-      await addNotification({
-        icon: icon || '🔔',
-        title,
-        message,
-        orderId: orderId || null,
-        createdAt: new Date().toISOString(),
-        resolved: false,
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleSaveOrder = async (form, currentUser) => {
-    const isEdit = !!form.id;
-
-    const base = {
-      ...form,
-      klient: form.klient || {},
-      platnosci: form.platnosci || {},
-      historia: Array.isArray(form.historia) ? form.historia : [],
-      utworzonePrzez: form.utworzonePrzez || {
-        nazwa: currentUser?.name || currentUser?.username || 'system',
-        data: new Date().toISOString()
-      }
-    };
-
-    // contractor – blokada statusu edycji w UI jest, ale tu też zabezpieczamy
-    if (isContractor && isEdit) {
-      const old = (orders || []).find(o => o.id === form.id);
-      if (old) base.status = old.status;
-    }
-
-    const who = currentUser?.name || currentUser?.username || 'system';
-    const action = isEdit ? 'Edytowano zamówienie' : 'Utworzono zamówienie';
-    base.historia = [...(base.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: action }];
-
-    if (isEdit) {
-      await updateOrder(form.id, base);
-      await addNotif({ icon: '✏️', title: `Edytowano: ${base.nrWlasny}`, message: `${who} edytował zamówienie`, orderId: form.id });
-    } else {
-      const id = await addOrder(base);
-      await addNotif({ icon: '🆕', title: `Nowe: ${base.nrWlasny}`, message: `${who} dodał nowe zamówienie`, orderId: id || null });
-    }
-  };
-
-  const handleStatusChange = async (orderId, newStatus) => {
-    const ord = (orders || []).find(o => o.id === orderId);
-    if (!ord) return;
-
-    const statusName = getStatus(newStatus).name;
-    const who = user?.name || user?.username || 'system';
-
-    await updateOrder(orderId, {
-      ...ord,
-      status: newStatus,
-      historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: `Status: ${statusName}` }]
-    });
-
-    await addNotif({ icon: '🔄', title: `Status: ${ord.nrWlasny}`, message: `${who} zmienił status na: ${statusName}`, orderId });
-  };
-
-  const handleSaveUsers = async (newList) => {
-    const currentById = new Map((users || []).map(u => [u.id, u]));
-    const nextById = new Map((newList || []).map(u => [u.id, u]));
-
-    for (const old of (users || [])) {
-      if (!nextById.has(old.id) && old.username !== 'admin') {
-        try { await deleteUser(old.id); } catch { /* ignore */ }
-      }
-    }
-
-    for (const u of (newList || [])) {
-      const payload = { ...u };
-      if (!payload.id || String(payload.id).startsWith('new_')) {
-        delete payload.id;
-        try { await addUser(payload); } catch { /* ignore */ }
-      } else if (currentById.has(u.id)) {
-        try { await updateUser(u.id, payload); } catch { /* ignore */ }
-      } else {
-        try { await addUser(payload); } catch { /* ignore */ }
-      }
-    }
-  };
-
-  const handleSaveProducers = async (list) => {
-    const current = producers || {};
-    const currentIds = new Set(Object.keys(current));
-    const nextIds = new Set((list || []).map(p => p.id));
-
-    for (const id of currentIds) {
-      if (!nextIds.has(id)) {
-        try { await deleteProducer(id); } catch { /* ignore */ }
-      }
-    }
-
-    for (const p of (list || [])) {
-      const payload = { ...p };
-      if (current[p.id]) {
-        try { await updateProducer(p.id, payload); } catch { /* ignore */ }
-      } else {
-        try { await addProducer(payload); } catch { /* ignore */ }
-      }
-    }
-  };
-
-  const handleResolveNotification = async (id) => {
-    const n = (notifications || []).find(x => x.id === id);
-    if (!n) return;
-    await updateNotification(id, { ...n, resolved: true, resolvedAt: new Date().toISOString() });
-  };
-
-  const handleDeleteNotification = async (id) => {
-    await deleteNotification(id);
-  };
-
-  const visibleOrders = (orders || []).filter(o => {
-    if (!user) return true;
-    if (isContractor) return o.kontrahentId === user.id;
-    return true;
-  });
-
-  const orderCountries = Array.from(new Set(visibleOrders.map(o => o.kraj).filter(Boolean)));
-  const creators = Array.from(new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean)));
-
-  const filteredOrders = visibleOrders.filter(o => {
-    if (filter !== 'all' && o.status !== filter) return false;
-
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const hay = [
-        o.nrWlasny,
-        o.towar,
-        o.klient?.imie,
-        o.klient?.adres,
-        o.klient?.telefon,
-        o.klient?.email,
-      ].filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-
-    if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
-    if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
-
-    if (urgencyFilter !== 'all') {
-      const d = getDaysUntilPickup(o.dataOdbioru);
-      if (d === null) return false;
-      if (urgencyFilter === 'today' && d !== 0) return false;
-      if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
-      if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
-    }
-
-    return true;
-  });
-
-  const paymentSums = calcPaymentSums(filteredOrders);
-
-  // driver routing
-  if (user?.role === 'driver') {
-    return (
-      <DriverPanel
-        user={user}
-        orders={orders}
-        producers={producers}
-        onUpdateOrder={updateOrder}
-        onAddNotification={addNotif}
-        onLogout={onLogout}
-      />
-    );
-  }
-
-  // login
-  if (!user) {
-    return <LoginScreen onLogin={setUser} users={users} loading={loading} />;
-  }
-
-  return (
-    <div className="app">
-      {/* header */}
-      <header className="header">
-        <div className="header-content">
-          <div className="header-brand">
-            <div className="header-logo">📦</div>
-            <div>
-              <div className="header-title">Herraton</div>
-              <div className="header-subtitle">
-                Panel • {user.name} ({getRole(user.role)?.name})
-              </div>
-            </div>
-          </div>
-
-          <div className="header-actions">
-            <button className="btn-secondary" onClick={() => setShowNotifications(true)}>
-              🔔 {(notifications || []).filter(n => !n.resolved).length}
-            </button>
-
-            {!isContractor && (
+ */}
+            {user?.role === 'worker' && (
               <>
                 <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
                 <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
               </>
             )}
 
-            <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️</button>
             <button className="btn-logout" onClick={onLogout}>Wyloguj</button>
           </div>
         </div>
       </header>
 
+      {/* POWIADOMIENIA */}
+      {showNotifications && (
+        <NotificationsPanel
+          notifications={visibleNotifications}
+          onClose={() => setShowNotifications(false)}
+          onResolve={handleResolveNotification}
+          onDelete={handleDeleteNotification}
+          onClearAll={handleClearAllNotifications}
+          onOrderClick={(orderId) => {
+            const ord = orders.find(o => o.id === orderId);
+            if (ord) setViewingOrder(ord);
+            setShowNotifications(false);
+          }}
+        />
+      )}
+
       <main className="main">
-        {/* top actions */}
         <div className="top-bar">
           <div className="top-left">
             <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
               ➕ Nowe zamówienie
             </button>
 
-            <button className="btn-secondary" onClick={() => exportToExcel(filteredOrders)}>
-              📥 Export Excel
-            </button>
-
-            <button className="btn-secondary" onClick={() => autoSyncToGoogleSheets(filteredOrders)}>
-              🔄 Sync Sheets
-            </button>
+            {/* EXPORT I SYNC - TYLKO DLA ADMINA */}
+            {isAdmin && (
+              <>
+                <button className="btn-secondary" onClick={() => exportToExcel(filteredOrders)}>
+                  📥 Export Excel
+                </button>
+                <button className="btn-secondary" onClick={() => autoSyncToGoogleSheets(filteredOrders)}>
+                  🔄 Sync Sheets
+                </button>
+              </>
+            )}
           </div>
 
           <div className="top-right">
@@ -1768,16 +1426,12 @@ const App = () => {
           </div>
         </div>
 
-        {/* filtry statusów */}
+        {/* Filtry */}
         <div className="filters">
           <div className="filter-buttons">
-            <button
-              onClick={() => setFilter('all')}
-              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-            >
+            <button onClick={() => setFilter('all')} className={`filter-btn ${filter === 'all' ? 'active' : ''}`}>
               Wszystkie ({visibleOrders.length})
             </button>
-
             {STATUSES.map(s => (
               <button
                 key={s.id}
@@ -1806,11 +1460,7 @@ const App = () => {
               <label>⏰ Pilność:</label>
               <div className="urgency-filters">
                 {[{ id: 'all', l: 'Wszystkie' }, { id: 'today', l: '🔴 Dziś' }, { id: '3days', l: '🟠 3 dni' }, { id: 'week', l: '🟢 7 dni' }].map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => setUrgencyFilter(u.id)}
-                    className={`filter-btn small ${urgencyFilter === u.id ? 'active' : ''}`}
-                  >
+                  <button key={u.id} onClick={() => setUrgencyFilter(u.id)} className={`filter-btn small ${urgencyFilter === u.id ? 'active' : ''}`}>
                     {u.l}
                   </button>
                 ))}
@@ -1835,7 +1485,6 @@ const App = () => {
             <div className="stat-value">{filteredOrders.length}</div>
             <div className="stat-label">Zamówień</div>
           </div>
-
           <div className="stat-card">
             <div className="stat-value warning">
               {filteredOrders.filter(o => {
@@ -1845,12 +1494,10 @@ const App = () => {
             </div>
             <div className="stat-label">Pilnych (≤3 dni)</div>
           </div>
-
           <div className="stat-card">
             <div className="stat-value success">{filteredOrders.filter(o => o.status === 'dostarczone').length}</div>
             <div className="stat-label">Dostarczonych</div>
           </div>
-
           <div className="stat-card">
             <div className="stat-value danger">{filteredOrders.filter(o => o.platnosci?.doZaplaty > 0).length}</div>
             <div className="stat-label">Do zapłaty</div>
@@ -1874,6 +1521,7 @@ const App = () => {
               onStatusChange={handleStatusChange}
               onEmailClick={(x, p) => setEmailModal({ order: x, producer: p })}
               onClick={x => setViewingOrder(x)}
+              onDelete={handleDeleteOrder}
               producers={producers}
               drivers={drivers}
             />
@@ -1889,20 +1537,6 @@ const App = () => {
       </main>
 
       {/* Modale */}
-      {showNotifications && (
-        <NotificationsPanel
-          notifications={notifications}
-          onClose={() => setShowNotifications(false)}
-          onResolve={handleResolveNotification}
-          onDelete={handleDeleteNotification}
-          onOrderClick={(orderId) => {
-            const ord = (orders || []).find(o => o.id === orderId);
-            if (ord) setViewingOrder(ord);
-            setShowNotifications(false);
-          }}
-        />
-      )}
-
       {showOrderModal && (
         <OrderModal
           order={editingOrder}
@@ -1921,6 +1555,7 @@ const App = () => {
           users={users}
           onSave={handleSaveUsers}
           onClose={() => setShowUsersModal(false)}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -1948,6 +1583,7 @@ const App = () => {
           onClose={() => setViewingOrder(null)}
           producers={producers}
           drivers={drivers}
+          onDelete={handleDeleteOrder}
         />
       )}
     </div>
