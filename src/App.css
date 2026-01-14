@@ -817,3 +817,157 @@ input.unpaid { background: #FEE2E2; color: #DC2626; font-weight: 700; }
     transform: translateY(0);
   }
 }
+/* ============================================
+   HERRATON v2 - DODATKOWE STYLE (dodaj na końcu App.css)
+   ============================================ */
+
+/* Nagłówek powiadomień z przyciskami */
+.notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+}
+
+.notifications-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Podgląd zdjęcia pełnoekranowy */
+.image-preview-overlay {
+  background: rgba(0, 0, 0, 0.9) !important;
+  z-index: 9999 !important;
+}
+
+.image-preview-content {
+  position: relative;
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.image-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: #fff !important;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+}
+
+/* Zdjęcia klikalne */
+.photos-grid .photo-item {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.photos-grid .photo-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.photos-grid .photo-item img {
+  border-radius: 8px;
+}
+
+/* Przycisk usuwania w karcie */
+.btn-delete-small {
+  background: #FEE2E2 !important;
+  color: #DC2626 !important;
+}
+
+.btn-delete-small:hover {
+  background: #FECACA !important;
+}
+
+/* Przycisk usuwania w modal footer */
+.modal-footer .btn-danger {
+  margin-right: auto;
+}
+
+/* Edycja użytkownika - formularz */
+.list-item .edit-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list-item .edit-form input,
+.list-item .edit-form select {
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.list-item .edit-form input:focus,
+.list-item .edit-form select:focus {
+  outline: none;
+  border-color: #6366F1;
+}
+
+/* Przycisk zdjęcia jako label (dla mobile) */
+label.btn-driver {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+label.btn-driver input[type="file"] {
+  display: none;
+}
+
+/* Responsywność header actions */
+@media (max-width: 768px) {
+  .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .header-actions .btn-secondary {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .notifications-header-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .image-preview-content {
+    padding: 10px;
+  }
+  
+  .image-close {
+    top: -30px;
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Animacje */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notifications-panel {
+  animation: fadeIn 0.2s ease-out;
+}
