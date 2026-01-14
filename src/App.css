@@ -971,3 +971,40 @@ label.btn-driver input[type="file"] {
 .notifications-panel {
   animation: fadeIn 0.2s ease-out;
 }
+/* ============================================
+   DODATKOWE STYLE - dodaj na końcu App.css
+   ============================================ */
+
+/* Przyciski zdjęć - aparat i galeria */
+.photo-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.photo-buttons .btn-driver {
+  flex: 1;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.btn-driver.camera {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+  color: white !important;
+}
+
+.btn-driver.gallery {
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
+  color: white !important;
+}
+
+/* Responsywność na małych ekranach */
+@media (max-width: 400px) {
+  .photo-buttons {
+    flex-direction: column;
+  }
+  
+  .photo-buttons .btn-driver {
+    width: 100%;
+  }
+}
