@@ -101,10 +101,10 @@ const getDaysUntilPickup = (dateStr) => {
 
 const getUrgencyStyle = (days) => {
   if (days === null) return null;
-  if (days <= 0) return { bg: '#FEE2E2', color: '#DC2626', label: days === 0 ? 'DZIŚ!' : Math.abs(days) + 'd temu', blink: days === 0 };
-  if (days <= 3) return { bg: '#FEE2E2', color: '#DC2626', label: days + 'd', blink: false };
-  if (days <= 7) return { bg: '#FFEDD5', color: '#EA580C', label: days + 'd', blink: false };
-  return { bg: '#D1FAE5', color: '#059669', label: days + 'd', blink: false };
+  if (days <= 0) return { bg: '#FEE2E2', color: '#DC2626', label: days === 0 ? 'DZIŚ!' : `${Math.abs(days)}d temu`, blink: days === 0 };
+  if (days <= 3) return { bg: '#FEE2E2', color: '#DC2626', label: `${days}d`, blink: false };
+  if (days <= 7) return { bg: '#FFEDD5', color: '#EA580C', label: `${days}d`, blink: false };
+  return { bg: '#D1FAE5', color: '#059669', label: `${days}d`, blink: false };
 };
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
@@ -112,7 +112,7 @@ const formatDateTime = (d) => d ? new Date(d).toLocaleString('pl-PL', { day: '2-
 const formatCurrency = (amt, cur = 'PLN') => {
   if (amt === null || amt === undefined) return '—';
   const currency = getCurrency(cur);
-  return amt.toLocaleString('pl-PL') + ' ' + currency.symbol;
+  return `${amt.toLocaleString('pl-PL')} ${currency.symbol}`;
 };
 
 // Generowanie numeru zamówienia: [licznik]/[miesiąc]/[rok]/[kraj]
@@ -123,10 +123,10 @@ const generateOrderNumber = (orders, countryCode) => {
   const prefix = `/${month}/${year}/${countryCode}`;
 
   let maxNum = 0;
-  orders.forEach(o => {
+  (orders || []).forEach(o => {
     if (o.nrWlasny?.includes(prefix)) {
       const match = o.nrWlasny.match(/^(\d+)\//);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+      if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
     }
   });
   return `${maxNum + 1}${prefix}`;
@@ -135,7 +135,7 @@ const generateOrderNumber = (orders, countryCode) => {
 // Oblicz sumy do pobrania per waluta
 const calcPaymentSums = (orders) => {
   const sums = {};
-  orders.forEach(o => {
+  (orders || []).forEach(o => {
     if (o.platnosci?.doZaplaty > 0) {
       const cur = o.platnosci.waluta || 'PLN';
       sums[cur] = (sums[cur] || 0) + o.platnosci.doZaplaty;
@@ -156,7 +156,9 @@ const playNotificationSound = () => {
     gain.gain.value = 0.3;
     osc.start();
     osc.stop(ctx.currentTime + 0.15);
-  } catch (e) { /* ignore */ }
+  } catch {
+    // ignore
+  }
 };
 
 // ============================================
@@ -169,10 +171,10 @@ const LoginScreen = ({ onLogin, users, loading }) => {
   const [error, setError] = useState('');
 
   const handleLogin = () => {
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      localStorage.setItem('herratonUser', JSON.stringify(user));
-      onLogin(user);
+    const u = (users || []).find(x => x.username === username && x.password === password);
+    if (u) {
+      localStorage.setItem('herratonUser', JSON.stringify(u));
+      onLogin(u);
     } else {
       setError('Nieprawidłowy login lub hasło');
     }
@@ -244,7 +246,7 @@ const LoginScreen = ({ onLogin, users, loading }) => {
 
 const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrderClick }) => {
   const [expanded, setExpanded] = useState(null);
-  const unresolved = notifications.filter(n => !n.resolved).length;
+  const unresolved = (notifications || []).filter(n => !n.resolved).length;
 
   return (
     <div className="notifications-panel">
@@ -252,11 +254,12 @@ const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrd
         <h3>🔔 Powiadomienia ({unresolved})</h3>
         <button className="btn-close" onClick={onClose}>×</button>
       </div>
+
       <div className="notifications-list">
-        {notifications.length === 0 ? (
+        {(notifications || []).length === 0 ? (
           <div className="notifications-empty">Brak powiadomień</div>
         ) : (
-          notifications.map(n => (
+          (notifications || []).map(n => (
             <div key={n.id} className={`notification-item ${n.resolved ? 'resolved' : ''}`}>
               <div className="notification-main" onClick={() => setExpanded(expanded === n.id ? null : n.id)}>
                 <span className="notification-icon">{n.icon || '🔔'}</span>
@@ -266,6 +269,7 @@ const NotificationsPanel = ({ notifications, onClose, onResolve, onDelete, onOrd
                 </div>
                 <span className="notification-arrow">{expanded === n.id ? '▲' : '▼'}</span>
               </div>
+
               {expanded === n.id && (
                 <div className="notification-details">
                   <p className="notification-message">{n.message}</p>
@@ -312,7 +316,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
             <span className="label">UTWORZONO</span>
             <div><strong>{utworzonePrzez?.nazwa}</strong> • {formatDateTime(utworzonePrzez?.data)}</div>
           </div>
-          {historia?.slice().reverse().slice(0, 10).map((h, i) => (
+          {(historia || []).slice().reverse().slice(0, 10).map((h, i) => (
             <div key={i} className="history-item">
               <div className="history-date">{formatDateTime(h.data)}</div>
               <div><strong>{h.uzytkownik}:</strong> {h.akcja}</div>
@@ -333,8 +337,8 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
   const urgency = getUrgencyStyle(days);
-  const producer = Object.values(producers).find(p => p.id === order.zaladunek);
-  const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+  const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
+  const driver = (drivers || []).find(d => d.id === order.przypisanyKierowca);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -344,9 +348,18 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
             <div className="modal-title-row">
               <span style={{ fontSize: '20px' }}>{country?.flag}</span>
               <h2>{order.nrWlasny || 'Bez numeru'}</h2>
-              {urgency && <span className={`urgency-badge ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰ {urgency.label}</span>}
+              {urgency && (
+                <span
+                  className={`urgency-badge ${urgency.blink ? 'blink' : ''}`}
+                  style={{ background: urgency.bg, color: urgency.color }}
+                >
+                  ⏰ {urgency.label}
+                </span>
+              )}
             </div>
-            <span className="status-badge" style={{ background: status?.bgColor, color: status?.color }}>{status?.icon} {status?.name}</span>
+            <span className="status-badge" style={{ background: status?.bgColor, color: status?.color }}>
+              {status?.icon} {status?.name}
+            </span>
           </div>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
@@ -381,7 +394,9 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               </div>
               <div>
                 <span className="payment-label">Pozostało</span>
-                <span className={`payment-value ${order.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}`}>{formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}</span>
+                <span className={`payment-value ${order.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}`}>
+                  {formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}
+                </span>
               </div>
             </div>
             {order.platnosci?.metodaZaplaty && <div className="payment-method">Metoda: {order.platnosci.metodaZaplaty}</div>}
@@ -438,13 +453,13 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
             <div className="detail-section">
               <label>📷 DOKUMENTACJA</label>
               <div className="photos-grid">
-                {order.zdjeciaOdbioru?.map((p, i) => (
+                {(order.zdjeciaOdbioru || []).map((p, i) => (
                   <div key={`o${i}`} className="photo-item">
                     <img src={p.url} alt={`Odbiór ${i + 1}`} />
                     <span>Odbiór - {formatDateTime(p.timestamp)}</span>
                   </div>
                 ))}
-                {order.zdjeciaDostawy?.map((p, i) => (
+                {(order.zdjeciaDostawy || []).map((p, i) => (
                   <div key={`d${i}`} className="photo-item">
                     <img src={p.url} alt={`Dostawa ${i + 1}`} />
                     <span>Dostawa - {formatDateTime(p.timestamp)}</span>
@@ -487,6 +502,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     przypisanyKierowca: null,
     kontrahentId: isContractor ? currentUser.id : null
   });
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -497,6 +513,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   }, [form.kraj, order, orders]);
 
   const updateKlient = (k, v) => setForm({ ...form, klient: { ...form.klient, [k]: v } });
+
   const updatePlatnosci = (k, v) => {
     const p = { ...form.platnosci, [k]: v };
     if (k === 'cenaCalkowita' || k === 'zaplacono') {
@@ -527,10 +544,12 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
               </select>
             </div>
+
             <div className="form-group">
               <label>NR ZAMÓWIENIA</label>
               <input value={form.nrWlasny} onChange={e => setForm({ ...form, nrWlasny: e.target.value })} placeholder="Auto" />
             </div>
+
             {!isContractor && (
               <div className="form-group">
                 <label>STATUS</label>
@@ -539,6 +558,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 </select>
               </div>
             )}
+
             <div className="form-group">
               <label>DATA ZLECENIA</label>
               <input type="date" value={form.dataZlecenia} onChange={e => setForm({ ...form, dataZlecenia: e.target.value })} />
@@ -551,14 +571,18 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <label>PRODUCENT</label>
                 <select value={form.zaladunek} onChange={e => setForm({ ...form, zaladunek: e.target.value })}>
                   <option value="">-- Wybierz producenta --</option>
-                  {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {Object.values(producers || {}).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
+
               <div className="form-group">
                 <label>KIEROWCA</label>
-                <select value={form.przypisanyKierowca || ''} onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}>
+                <select
+                  value={form.przypisanyKierowca || ''}
+                  onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}
+                >
                   <option value="">-- Wybierz kierowcę --</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
+                  {(drivers || []).map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
                 </select>
               </div>
             </div>
@@ -576,18 +600,22 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <label>IMIĘ I NAZWISKO</label>
                 <input value={form.klient?.imie || ''} onChange={e => updateKlient('imie', e.target.value)} placeholder="Jan Kowalski" />
               </div>
+
               <div className="form-group">
                 <label>TELEFON</label>
                 <input value={form.klient?.telefon || ''} onChange={e => updateKlient('telefon', e.target.value)} placeholder="+48 123 456 789" />
               </div>
+
               <div className="form-group span-2">
                 <label>ADRES DOSTAWY</label>
                 <input value={form.klient?.adres || ''} onChange={e => updateKlient('adres', e.target.value)} placeholder="ul. Przykładowa 1, 00-000 Miasto" />
               </div>
+
               <div className="form-group">
                 <label>EMAIL</label>
                 <input value={form.klient?.email || ''} onChange={e => updateKlient('email', e.target.value)} placeholder="email@example.com" />
               </div>
+
               <div className="form-group">
                 <label>LINK DO FACEBOOK</label>
                 <input value={form.klient?.facebookUrl || ''} onChange={e => updateKlient('facebookUrl', e.target.value)} placeholder="https://facebook.com/..." />
@@ -604,14 +632,25 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
                 </select>
               </div>
+
               <div className="form-group">
                 <label>CENA CAŁKOWITA</label>
-                <input type="number" value={form.platnosci?.cenaCalkowita || ''} onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)} />
+                <input
+                  type="number"
+                  value={form.platnosci?.cenaCalkowita || ''}
+                  onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)}
+                />
               </div>
+
               <div className="form-group">
                 <label>ZAPŁACONO</label>
-                <input type="number" value={form.platnosci?.zaplacono || ''} onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)} />
+                <input
+                  type="number"
+                  value={form.platnosci?.zaplacono || ''}
+                  onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)}
+                />
               </div>
+
               <div className="form-group">
                 <label>METODA PŁATNOŚCI</label>
                 <select value={form.platnosci?.metodaZaplaty || ''} onChange={e => updatePlatnosci('metodaZaplaty', e.target.value)}>
@@ -619,13 +658,20 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
+
               <div className="form-group">
                 <label>DATA PŁATNOŚCI</label>
                 <input type="date" value={form.platnosci?.dataZaplaty || ''} onChange={e => updatePlatnosci('dataZaplaty', e.target.value)} />
               </div>
+
               <div className="form-group">
                 <label>DO ZAPŁATY</label>
-                <input type="number" value={form.platnosci?.doZaplaty || 0} readOnly className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'} />
+                <input
+                  type="number"
+                  value={form.platnosci?.doZaplaty || 0}
+                  readOnly
+                  className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'}
+                />
               </div>
             </div>
           </div>
@@ -697,6 +743,7 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
           <h2>🏭 Zarządzanie producentami</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
+
         <div className="modal-body">
           {list.map(p => (
             <div key={p.id} className="list-item">
@@ -723,6 +770,7 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
               )}
             </div>
           ))}
+
           <div className="add-form">
             <h4>➕ Dodaj producenta</h4>
             <input placeholder="Nazwa *" value={newP.name} onChange={e => setNewP({ ...newP, name: e.target.value })} />
@@ -732,6 +780,7 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
             <button className="btn-add" onClick={handleAdd}>➕ Dodaj producenta</button>
           </div>
         </div>
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -777,6 +826,7 @@ const UsersModal = ({ users, onSave, onClose }) => {
           <h2>👥 Zarządzanie użytkownikami</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
+
         <div className="modal-body">
           {list.map(u => {
             const role = getRole(u.role);
@@ -793,6 +843,7 @@ const UsersModal = ({ users, onSave, onClose }) => {
               </div>
             );
           })}
+
           <div className="add-form">
             <h4>➕ Dodaj użytkownika</h4>
             <input placeholder="Imię i nazwisko *" value={newU.name} onChange={e => setNewU({ ...newU, name: e.target.value })} />
@@ -800,15 +851,19 @@ const UsersModal = ({ users, onSave, onClose }) => {
               <input placeholder="Login *" value={newU.username} onChange={e => setNewU({ ...newU, username: e.target.value })} />
               <input placeholder="Hasło *" type="password" value={newU.password} onChange={e => setNewU({ ...newU, password: e.target.value })} />
             </div>
+
             <select value={newU.role} onChange={e => setNewU({ ...newU, role: e.target.value })}>
               {USER_ROLES.map(r => <option key={r.id} value={r.id}>{r.icon} {r.name}</option>)}
             </select>
+
             {newU.role === 'contractor' && (
               <input placeholder="Nazwa firmy" value={newU.companyName} onChange={e => setNewU({ ...newU, companyName: e.target.value })} />
             )}
+
             <button className="btn-add" onClick={handleAdd}>➕ Dodaj użytkownika</button>
           </div>
         </div>
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -841,6 +896,7 @@ const SettingsModal = ({ onClose }) => {
           <h2>⚙️ Ustawienia</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
+
         <div className="modal-body">
           <div className="form-group">
             <label>URL Google Apps Script</label>
@@ -853,6 +909,7 @@ const SettingsModal = ({ onClose }) => {
           </div>
           {saved && <div className="success-message">✅ Zapisano!</div>}
         </div>
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
           <button className="btn-primary" onClick={handleSave}>💾 Zapisz</button>
@@ -876,6 +933,7 @@ const EmailModal = ({ order, producer, onClose }) => {
           <h2>📧 Kontakt z producentem</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
+
         <div className="modal-body">
           <div className="contact-info">
             <strong>{producer?.name}</strong>
@@ -883,9 +941,17 @@ const EmailModal = ({ order, producer, onClose }) => {
             <span>📞 {producer?.phone || '—'}</span>
             {producer?.address && <span>📍 {producer.address}</span>}
           </div>
+
           <div className="contact-actions">
             {producer?.phone && <a href={`tel:${producer.phone}`} className="btn-secondary">📞 Zadzwoń</a>}
-            {producer?.email && <a href={`mailto:${producer.email}?subject=Zamówienie ${order.nrWlasny}&body=${encodeURIComponent(body)}`} className="btn-primary">✉️ Email</a>}
+            {producer?.email && (
+              <a
+                href={`mailto:${producer.email}?subject=Zamówienie ${order.nrWlasny}&body=${encodeURIComponent(body)}`}
+                className="btn-primary"
+              >
+                ✉️ Email
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -902,8 +968,8 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
   const urgency = getUrgencyStyle(days);
-  const producer = Object.values(producers).find(p => p.id === order.zaladunek);
-  const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+  const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
+  const driver = (drivers || []).find(d => d.id === order.przypisanyKierowca);
 
   return (
     <div className="order-card" onClick={() => onClick(order)}>
@@ -911,8 +977,16 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         <div className="order-card-title">
           <span className="country-flag">{country?.flag}</span>
           <span className="order-number">{order.nrWlasny || '—'}</span>
-          {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
+          {urgency && (
+            <span
+              className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`}
+              style={{ background: urgency.bg, color: urgency.color }}
+            >
+              ⏰{urgency.label}
+            </span>
+          )}
         </div>
+
         <select
           value={order.status}
           onClick={e => e.stopPropagation()}
@@ -988,7 +1062,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
+  const myOrders = (orders || []).filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
   const pickedUp = myOrders.filter(o => o.status === 'odebrane');
   const inTransit = myOrders.filter(o => o.status === 'w_transporcie');
@@ -1031,16 +1105,16 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     if (!file || !photoTarget) return;
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const order = orders.find(o => o.id === photoTarget.orderId);
-      if (!order) return;
+      const ord = (orders || []).find(o => o.id === photoTarget.orderId);
+      if (!ord) return;
       const photo = { url: reader.result, timestamp: new Date().toISOString(), by: user.name };
       const field = photoTarget.type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
-      await onUpdateOrder(order.id, {
-        ...order,
-        [field]: [...(order[field] || []), photo],
-        historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+      await onUpdateOrder(ord.id, {
+        ...ord,
+        [field]: [...(ord[field] || []), photo],
+        historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
       });
-      onAddNotification({ icon: '📷', title: `Zdjęcie: ${order.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: order.id });
+      onAddNotification({ icon: '📷', title: `Zdjęcie: ${ord.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${photoTarget.type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: ord.id });
       setPhotoTarget(null);
     };
     reader.readAsDataURL(file);
@@ -1055,17 +1129,18 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   };
 
   const saveNotes = async () => {
-    const order = orders.find(o => o.id === showNotes);
-    if (!order) return;
-    const hist = [...(order.historia || [])];
-    if (notes !== order.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
-    if (estPickup !== order.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
-    if (estDelivery !== order.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
+    const ord = (orders || []).find(o => o.id === showNotes);
+    if (!ord) return;
 
-    await onUpdateOrder(order.id, { ...order, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
+    const hist = [...(ord.historia || [])];
+    if (notes !== ord.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
+    if (estPickup !== ord.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
+    if (estDelivery !== ord.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
 
-    if (notes && notes !== order.uwagiKierowcy) {
-      onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: order.id });
+    await onUpdateOrder(ord.id, { ...ord, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
+
+    if (notes && notes !== ord.uwagiKierowcy) {
+      onAddNotification({ icon: '📝', title: `Uwagi: ${ord.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: ord.id });
     }
     setShowNotes(null);
   };
@@ -1106,15 +1181,15 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   };
 
   const saveSignature = async () => {
-    const order = orders.find(o => o.id === showSignature);
-    if (!order) return;
+    const ord = (orders || []).find(o => o.id === showSignature);
+    if (!ord) return;
     const dataUrl = canvasRef.current.toDataURL();
-    await onUpdateOrder(order.id, {
-      ...order,
+    await onUpdateOrder(ord.id, {
+      ...ord,
       podpisKlienta: { url: dataUrl, timestamp: new Date().toISOString(), by: user.name },
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Podpis klienta' }]
+      historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Podpis klienta' }]
     });
-    onAddNotification({ icon: '✍️', title: `Podpis: ${order.nrWlasny}`, message: `Kierowca ${user.name} zebrał podpis klienta`, orderId: order.id });
+    onAddNotification({ icon: '✍️', title: `Podpis: ${ord.nrWlasny}`, message: `Kierowca ${user.name} zebrał podpis klienta`, orderId: ord.id });
     setShowSignature(null);
   };
 
@@ -1141,7 +1216,14 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   return (
     <div className="driver-panel">
-      <input type="file" accept="image/*" capture="environment" ref={fileRef} style={{ display: 'none' }} onChange={onPhotoSelect} />
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={fileRef}
+        style={{ display: 'none' }}
+        onChange={onPhotoSelect}
+      />
 
       <header className="header driver-header">
         <div className="header-content">
@@ -1170,7 +1252,11 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
         <div className="driver-tabs">
           {tabs.map(t => (
-            <button key={t.id} className={`driver-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+            <button
+              key={t.id}
+              className={`driver-tab ${activeTab === t.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(t.id)}
+            >
               <span className="tab-count">{t.count}</span>
               <span className="tab-label">{t.icon} {t.label}</span>
             </button>
@@ -1186,7 +1272,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           <div className="driver-orders">
             {getTabOrders().map(order => {
               const status = getStatus(order.status);
-              const producer = Object.values(producers).find(p => p.id === order.zaladunek);
+              const producer = Object.values(producers || {}).find(p => p.id === order.zaladunek);
               const country = getCountry(order.kraj);
 
               return (
@@ -1402,7 +1488,7 @@ const App = () => {
     (async () => {
       try {
         await initializeDefaultData();
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -1430,14 +1516,13 @@ const App = () => {
     if (!url) return;
     try {
       autoSyncToGoogleSheets(orders);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [orders]);
 
   const isContractor = user?.role === 'contractor';
-
-  const drivers = users.filter(u => u.role === 'driver');
+  const drivers = (users || []).filter(u => u.role === 'driver');
 
   const onLogout = () => {
     localStorage.removeItem('herratonUser');
@@ -1455,7 +1540,7 @@ const App = () => {
         createdAt: new Date().toISOString(),
         resolved: false,
       });
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
@@ -1476,12 +1561,10 @@ const App = () => {
 
     // contractor – blokada statusu edycji w UI jest, ale tu też zabezpieczamy
     if (isContractor && isEdit) {
-      // kontrahent nie zmienia statusu
-      const old = orders.find(o => o.id === form.id);
+      const old = (orders || []).find(o => o.id === form.id);
       if (old) base.status = old.status;
     }
 
-    // historia
     const who = currentUser?.name || currentUser?.username || 'system';
     const action = isEdit ? 'Edytowano zamówienie' : 'Utworzono zamówienie';
     base.historia = [...(base.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: action }];
@@ -1496,34 +1579,31 @@ const App = () => {
   };
 
   const handleStatusChange = async (orderId, newStatus) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+    const ord = (orders || []).find(o => o.id === orderId);
+    if (!ord) return;
 
     const statusName = getStatus(newStatus).name;
     const who = user?.name || user?.username || 'system';
 
     await updateOrder(orderId, {
-      ...order,
+      ...ord,
       status: newStatus,
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: `Status: ${statusName}` }]
+      historia: [...(ord.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: `Status: ${statusName}` }]
     });
 
-    await addNotif({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `${who} zmienił status na: ${statusName}`, orderId });
+    await addNotif({ icon: '🔄', title: `Status: ${ord.nrWlasny}`, message: `${who} zmienił status na: ${statusName}`, orderId });
   };
 
   const handleSaveUsers = async (newList) => {
-    // prosto: zapisujemy/aktualizujemy wszystko z listy, usuwamy brakujące
     const currentById = new Map((users || []).map(u => [u.id, u]));
     const nextById = new Map((newList || []).map(u => [u.id, u]));
 
-    // usuń
-    for (const old of users) {
+    for (const old of (users || [])) {
       if (!nextById.has(old.id) && old.username !== 'admin') {
         try { await deleteUser(old.id); } catch { /* ignore */ }
       }
     }
 
-    // add/update
     for (const u of (newList || [])) {
       const payload = { ...u };
       if (!payload.id || String(payload.id).startsWith('new_')) {
@@ -1542,14 +1622,12 @@ const App = () => {
     const currentIds = new Set(Object.keys(current));
     const nextIds = new Set((list || []).map(p => p.id));
 
-    // usuń
     for (const id of currentIds) {
       if (!nextIds.has(id)) {
         try { await deleteProducer(id); } catch { /* ignore */ }
       }
     }
 
-    // add/update
     for (const p of (list || [])) {
       const payload = { ...p };
       if (current[p.id]) {
@@ -1561,7 +1639,7 @@ const App = () => {
   };
 
   const handleResolveNotification = async (id) => {
-    const n = notifications.find(x => x.id === id);
+    const n = (notifications || []).find(x => x.id === id);
     if (!n) return;
     await updateNotification(id, { ...n, resolved: true, resolvedAt: new Date().toISOString() });
   };
@@ -1570,7 +1648,7 @@ const App = () => {
     await deleteNotification(id);
   };
 
-  const visibleOrders = orders.filter(o => {
+  const visibleOrders = (orders || []).filter(o => {
     if (!user) return true;
     if (isContractor) return o.kontrahentId === user.id;
     return true;
@@ -1580,10 +1658,8 @@ const App = () => {
   const creators = Array.from(new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean)));
 
   const filteredOrders = visibleOrders.filter(o => {
-    // status
     if (filter !== 'all' && o.status !== filter) return false;
 
-    // search
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const hay = [
@@ -1597,17 +1673,12 @@ const App = () => {
       if (!hay.includes(q)) return false;
     }
 
-    // country
     if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
-
-    // creator
     if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
 
-    // urgency
     if (urgencyFilter !== 'all') {
       const d = getDaysUntilPickup(o.dataOdbioru);
       if (d === null) return false;
-
       if (urgencyFilter === 'today' && d !== 0) return false;
       if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
       if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
@@ -1654,7 +1725,7 @@ const App = () => {
 
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => setShowNotifications(true)}>
-              🔔 {notifications.filter(n => !n.resolved).length}
+              🔔 {(notifications || []).filter(n => !n.resolved).length}
             </button>
 
             {!isContractor && (
@@ -1735,7 +1806,11 @@ const App = () => {
               <label>⏰ Pilność:</label>
               <div className="urgency-filters">
                 {[{ id: 'all', l: 'Wszystkie' }, { id: 'today', l: '🔴 Dziś' }, { id: '3days', l: '🟠 3 dni' }, { id: 'week', l: '🟢 7 dni' }].map(u => (
-                  <button key={u.id} onClick={() => setUrgencyFilter(u.id)} className={`filter-btn small ${urgencyFilter === u.id ? 'active' : ''}`}>
+                  <button
+                    key={u.id}
+                    onClick={() => setUrgencyFilter(u.id)}
+                    className={`filter-btn small ${urgencyFilter === u.id ? 'active' : ''}`}
+                  >
                     {u.l}
                   </button>
                 ))}
@@ -1821,7 +1896,7 @@ const App = () => {
           onResolve={handleResolveNotification}
           onDelete={handleDeleteNotification}
           onOrderClick={(orderId) => {
-            const ord = orders.find(o => o.id === orderId);
+            const ord = (orders || []).find(o => o.id === orderId);
             if (ord) setViewingOrder(ord);
             setShowNotifications(false);
           }}
