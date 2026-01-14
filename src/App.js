@@ -1665,7 +1665,6 @@ const App = () => {
 
             {user?.role === 'worker' && (
               <>
-                <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
                 <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
               </>
             )}
