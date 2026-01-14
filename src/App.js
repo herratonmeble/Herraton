@@ -1367,7 +1367,257 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     </div>
   );
 };
- 
+
+// ============================================
+// GŁÓWNA APLIKACJA
+// ============================================
+
+const App = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [producers, setProducers] = useState({});
+  const [notifications, setNotifications] = useState([]);
+
+  const [filter, setFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [creatorFilter, setCreatorFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [viewingOrder, setViewingOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showProducersModal, setShowProducersModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [emailModal, setEmailModal] = useState(null);
+
+  const prevNotifCount = useRef(0);
+
+  const drivers = users.filter(u => u.role === 'driver');
+  const isContractor = user?.role === 'contractor';
+  const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    const init = async () => {
+      await initializeDefaultData();
+      setLoading(false);
+    };
+    init();
+
+    const unsubOrders = subscribeToOrders(setOrders);
+    const unsubUsers = subscribeToUsers(setUsers);
+    const unsubProducers = subscribeToProducers(setProducers);
+    const unsubNotifs = subscribeToNotifications(setNotifications);
+
+    const savedUser = localStorage.getItem('herratonUser');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
+    return () => {
+      unsubOrders();
+      unsubUsers();
+      unsubProducers();
+      unsubNotifs();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unresolved = notifications.filter(n => !n.resolved).length;
+    if (unresolved > prevNotifCount.current) {
+      playNotificationSound();
+    }
+    prevNotifCount.current = unresolved;
+  }, [notifications]);
+
+  useEffect(() => {
+    if (orders.length > 0 && isAdmin) {
+      autoSyncToGoogleSheets(orders);
+    }
+  }, [orders, isAdmin]);
+
+  const onLogout = () => {
+    localStorage.removeItem('herratonUser');
+    setUser(null);
+  };
+
+  const addNotif = async (data) => {
+    await addNotification({
+      ...data,
+      createdAt: new Date().toISOString(),
+      resolved: false,
+      forContractor: data.forContractor || null
+    });
+  };
+
+  const handleSaveOrder = async (form, currentUser) => {
+    const now = new Date().toISOString();
+    if (editingOrder) {
+      await updateOrder(editingOrder.id, {
+        ...form,
+        historia: [...(form.historia || []), { data: now, uzytkownik: currentUser.name, akcja: 'Edycja zamówienia' }]
+      });
+    } else {
+      const newOrder = {
+        ...form,
+        utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name, data: now },
+        historia: [{ data: now, uzytkownik: currentUser.name, akcja: 'Utworzono zamówienie' }]
+      };
+      await addOrder(newOrder);
+      if (isContractor) {
+        await addNotif({ icon: '🆕', title: `Nowe zamówienie: ${form.nrWlasny}`, message: `Kontrahent ${currentUser.name} dodał nowe zamówienie`, orderId: null, forContractor: currentUser.id });
+      }
+    }
+    setShowOrderModal(false);
+    setEditingOrder(null);
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    await deleteOrder(orderId);
+  };
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    const statusName = getStatus(newStatus).name;
+    await updateOrder(orderId, {
+      ...order,
+      status: newStatus,
+      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user?.name || 'system', akcja: `Status: ${statusName}` }]
+    });
+  };
+
+  const handleSaveUsers = async (newList) => {
+    for (const old of users) {
+      if (!newList.find(x => x.id === old.id) && old.username !== 'admin') {
+        try { await deleteUser(old.id); } catch {}
+      }
+    }
+    for (const u of newList) {
+      if (!u.id || String(u.id).startsWith('new_')) {
+        const payload = { ...u };
+        delete payload.id;
+        try { await addUser(payload); } catch {}
+      } else {
+        try { await updateUser(u.id, u); } catch {}
+      }
+    }
+  };
+
+  const handleSaveProducers = async (list) => {
+    const currentIds = new Set(Object.keys(producers));
+    const nextIds = new Set(list.map(p => p.id));
+    for (const id of currentIds) {
+      if (!nextIds.has(id)) {
+        try { await deleteProducer(id); } catch {}
+      }
+    }
+    for (const p of list) {
+      if (producers[p.id]) {
+        try { await updateProducer(p.id, p); } catch {}
+      } else {
+        try { await addProducer(p); } catch {}
+      }
+    }
+  };
+
+  const handleResolveNotification = async (id) => {
+    await updateNotification(id, { resolved: true, resolvedAt: new Date().toISOString() });
+  };
+
+  const handleDeleteNotification = async (id) => {
+    await deleteNotification(id);
+  };
+
+  const handleClearAllNotifications = async () => {
+    if (window.confirm('Czy na pewno chcesz usunąć wszystkie powiadomienia?')) {
+      const toDelete = visibleNotifications;
+      for (const n of toDelete) {
+        try { await deleteNotification(n.id); } catch {}
+      }
+    }
+  };
+
+  const visibleNotifications = isContractor
+    ? notifications.filter(n => n.forContractor === user?.id || (n.orderId && orders.find(o => o.id === n.orderId && o.kontrahentId === user?.id)))
+    : notifications;
+
+  const visibleOrders = isContractor
+    ? orders.filter(o => o.kontrahentId === user?.id)
+    : orders;
+
+  const orderCountries = [...new Set(visibleOrders.map(o => o.kraj).filter(Boolean))];
+  const creators = [...new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean))];
+
+  const filteredOrders = visibleOrders.filter(o => {
+    if (filter !== 'all' && o.status !== filter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const hay = [o.nrWlasny, o.towar, o.klient?.imie, o.klient?.adres, o.klient?.telefon, o.klient?.email].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
+    if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
+    if (urgencyFilter !== 'all') {
+      const d = getDaysUntilPickup(o.dataOdbioru);
+      if (d === null) return false;
+      if (urgencyFilter === 'today' && d !== 0) return false;
+      if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
+      if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
+    }
+    return true;
+  });
+
+  const paymentSums = calcPaymentSums(filteredOrders);
+
+  if (user?.role === 'driver') {
+    return (
+      <DriverPanel
+        user={user}
+        orders={orders}
+        producers={producers}
+        onUpdateOrder={updateOrder}
+        onAddNotification={addNotif}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={setUser} users={users} loading={loading} />;
+  }
+
+  const unresolvedNotifs = visibleNotifications.filter(n => !n.resolved).length;
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="header-logo">📦</div>
+            <div>
+              <div className="header-title">Herraton</div>
+              <div className="header-subtitle">Panel • {user.name} ({getRole(user.role)?.name})</div>
+            </div>
+          </div>
+
+          <div className="header-actions">
+            <button className="btn-secondary" onClick={() => setShowNotifications(true)}>
+              🔔 {unresolvedNotifs}
+            </button>
+
+            {isAdmin && (
+              <>
+                <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
+                <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
+                <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️ Ustawienia</button>
+              </>
+            )}
+
             {user?.role === 'worker' && (
               <>
                 <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
@@ -1380,7 +1630,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
         </div>
       </header>
 
-      {/* POWIADOMIENIA */}
       {showNotifications && (
         <NotificationsPanel
           notifications={visibleNotifications}
@@ -1403,7 +1652,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
               ➕ Nowe zamówienie
             </button>
 
-            {/* EXPORT I SYNC - TYLKO DLA ADMINA */}
             {isAdmin && (
               <>
                 <button className="btn-secondary" onClick={() => exportToExcel(filteredOrders)}>
@@ -1426,7 +1674,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           </div>
         </div>
 
-        {/* Filtry */}
         <div className="filters">
           <div className="filter-buttons">
             <button onClick={() => setFilter('all')} className={`filter-btn ${filter === 'all' ? 'active' : ''}`}>
@@ -1479,7 +1726,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           </div>
         </div>
 
-        {/* Statystyki */}
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-value">{filteredOrders.length}</div>
@@ -1511,7 +1757,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           </div>
         </div>
 
-        {/* Siatka zamówień */}
         <div className="orders-grid">
           {filteredOrders.map(o => (
             <OrderCard
@@ -1536,7 +1781,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
         )}
       </main>
 
-      {/* Modale */}
       {showOrderModal && (
         <OrderModal
           order={editingOrder}
