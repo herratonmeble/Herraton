@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   subscribeToOrders, addOrder, updateOrder, deleteOrder,
   subscribeToUsers, addUser, updateUser, deleteUser,
   subscribeToProducers, addProducer, updateProducer, deleteProducer,
   subscribeToNotifications, addNotification, updateNotification, deleteNotification,
-  initializeDefaultData 
+  initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
 import './App.css';
@@ -121,7 +121,7 @@ const generateOrderNumber = (orders, countryCode) => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = String(now.getFullYear()).slice(-2);
   const prefix = `/${month}/${year}/${countryCode}`;
-  
+
   let maxNum = 0;
   orders.forEach(o => {
     if (o.nrWlasny?.includes(prefix)) {
@@ -156,7 +156,7 @@ const playNotificationSound = () => {
     gain.gain.value = 0.3;
     osc.start();
     osc.stop(ctx.currentTime + 0.15);
-  } catch (e) {}
+  } catch (e) { /* ignore */ }
 };
 
 // ============================================
@@ -167,7 +167,7 @@ const LoginScreen = ({ onLogin, users, loading }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  
+
   const handleLogin = () => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
@@ -197,40 +197,40 @@ const LoginScreen = ({ onLogin, users, loading }) => {
         <div className="login-logo">📦</div>
         <h1>Herraton</h1>
         <p className="login-subtitle">System Zarządzania Zamówieniami v2</p>
-        
+
         <div className="form-group">
           <label>LOGIN</label>
-          <input 
-            type="text" 
-            value={username} 
-            onChange={(e) => setUsername(e.target.value)} 
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             placeholder="Wpisz login..."
           />
         </div>
-        
+
         <div className="form-group">
           <label>HASŁO</label>
-          <input 
-            type="password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             placeholder="Wpisz hasło..."
           />
         </div>
-        
+
         {error && <div className="error-message">⚠️ {error}</div>}
-        
+
         <button className="btn-primary btn-full" onClick={handleLogin}>
           Zaloguj się
         </button>
-        
+
         <div className="login-demo">
-          <strong>Konta demo:</strong><br/>
-          👑 admin / admin123<br/>
-          👤 jan / jan123<br/>
-          🚚 kierowca1 / kierowca123<br/>
+          <strong>Konta demo:</strong><br />
+          👑 admin / admin123<br />
+          👤 jan / jan123<br />
+          🚚 kierowca1 / kierowca123<br />
           🏢 kontrahent1 / kontr123
         </div>
       </div>
@@ -350,13 +350,13 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
           </div>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-        
+
         <div className="modal-body">
           <div className="detail-section">
             <label>📦 TOWAR</label>
             <p>{order.towar}</p>
           </div>
-          
+
           <div className="detail-card">
             <label>👤 KLIENT</label>
             <div className="client-name">{order.klient?.imie || '—'}</div>
@@ -367,7 +367,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               {order.klient?.facebookUrl && <a href={order.klient.facebookUrl} target="_blank" rel="noopener noreferrer">📘 Facebook</a>}
             </div>
           </div>
-          
+
           <div className="detail-card payment-card">
             <label>💰 PŁATNOŚCI</label>
             <div className="payment-grid">
@@ -386,7 +386,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
             </div>
             {order.platnosci?.metodaZaplaty && <div className="payment-method">Metoda: {order.platnosci.metodaZaplaty}</div>}
           </div>
-          
+
           <div className="detail-grid">
             {producer && (
               <div className="detail-item">
@@ -413,7 +413,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               </div>
             )}
           </div>
-          
+
           {driver && (
             <div className="detail-item driver">
               <span className="detail-label">🚚 Kierowca</span>
@@ -421,33 +421,32 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               {driver.phone && <span className="detail-sub">📞 {driver.phone}</span>}
             </div>
           )}
-          
+
           {order.uwagi && (
             <div className="detail-notes">
               📝 {order.uwagi}
             </div>
           )}
-          
+
           {order.uwagiKierowcy && (
             <div className="detail-notes driver-notes">
               🚚 Uwagi kierowcy: {order.uwagiKierowcy}
             </div>
           )}
-          
-          {/* Dokumentacja - zdjęcia i podpis */}
+
           {(order.zdjeciaOdbioru?.length > 0 || order.zdjeciaDostawy?.length > 0 || order.podpisKlienta) && (
             <div className="detail-section">
               <label>📷 DOKUMENTACJA</label>
               <div className="photos-grid">
                 {order.zdjeciaOdbioru?.map((p, i) => (
                   <div key={`o${i}`} className="photo-item">
-                    <img src={p.url} alt={`Odbiór ${i+1}`} />
+                    <img src={p.url} alt={`Odbiór ${i + 1}`} />
                     <span>Odbiór - {formatDateTime(p.timestamp)}</span>
                   </div>
                 ))}
                 {order.zdjeciaDostawy?.map((p, i) => (
                   <div key={`d${i}`} className="photo-item">
-                    <img src={p.url} alt={`Dostawa ${i+1}`} />
+                    <img src={p.url} alt={`Dostawa ${i + 1}`} />
                     <span>Dostawa - {formatDateTime(p.timestamp)}</span>
                   </div>
                 ))}
@@ -460,7 +459,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers }) => {
               </div>
             </div>
           )}
-          
+
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
         </div>
       </div>
@@ -484,12 +483,12 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     platnosci: { waluta: 'PLN', zaplacono: 0, metodaZaplaty: '', dataZaplaty: '', doZaplaty: 0, cenaCalkowita: 0 },
     uwagi: '',
     dataOdbioru: '',
+    dataDostawy: '',
     przypisanyKierowca: null,
     kontrahentId: isContractor ? currentUser.id : null
   });
   const [saving, setSaving] = useState(false);
 
-  // Automatyczne generowanie numeru przy zmianie kraju
   useEffect(() => {
     if (!order && form.kraj) {
       const nr = generateOrderNumber(orders || [], form.kraj);
@@ -519,7 +518,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
           <h2>{order ? '✏️ Edytuj' : '➕ Nowe'} zamówienie</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-        
+
         <div className="modal-body">
           <div className="form-grid">
             <div className="form-group">
@@ -545,7 +544,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               <input type="date" value={form.dataZlecenia} onChange={e => setForm({ ...form, dataZlecenia: e.target.value })} />
             </div>
           </div>
-          
+
           {!isContractor && (
             <div className="form-grid">
               <div className="form-group">
@@ -564,12 +563,12 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               </div>
             </div>
           )}
-          
+
           <div className="form-group full">
             <label>TOWAR</label>
             <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
           </div>
-          
+
           <div className="form-section">
             <h3>👤 Dane klienta</h3>
             <div className="form-grid">
@@ -595,7 +594,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               </div>
             </div>
           </div>
-          
+
           <div className="form-section payment">
             <h3>💰 Płatności</h3>
             <div className="form-grid">
@@ -630,7 +629,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               </div>
             </div>
           </div>
-          
+
           <div className="form-grid">
             <div className="form-group">
               <label>PLANOWANA DATA ODBIORU</label>
@@ -641,13 +640,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               <input type="date" value={form.dataDostawy || ''} onChange={e => setForm({ ...form, dataDostawy: e.target.value })} />
             </div>
           </div>
-          
+
           <div className="form-group full">
             <label>UWAGI</label>
             <textarea value={form.uwagi || ''} onChange={e => setForm({ ...form, uwagi: e.target.value })} rows={2} placeholder="Dodatkowe uwagi..." />
           </div>
         </div>
-        
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -664,10 +663,14 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
 // ============================================
 
 const ProducersModal = ({ producers, onSave, onClose }) => {
-  const [list, setList] = useState(Object.values(producers));
+  const [list, setList] = useState(Object.values(producers || {}));
   const [newP, setNewP] = useState({ name: '', email: '', phone: '', address: '' });
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setList(Object.values(producers || {}));
+  }, [producers]);
 
   const handleAdd = () => {
     if (newP.name) {
@@ -745,9 +748,13 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
 // ============================================
 
 const UsersModal = ({ users, onSave, onClose }) => {
-  const [list, setList] = useState(users);
+  const [list, setList] = useState(users || []);
   const [newU, setNewU] = useState({ username: '', password: '', name: '', role: 'worker', companyName: '' });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setList(users || []);
+  }, [users]);
 
   const handleAdd = () => {
     if (newU.username && newU.password && newU.name) {
@@ -780,7 +787,9 @@ const UsersModal = ({ users, onSave, onClose }) => {
                   <div className="list-item-subtitle">@{u.username} • {role.name}</div>
                   {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
                 </div>
-                {u.username !== 'admin' && <button className="btn-delete" onClick={() => setList(list.filter(x => x.id !== u.id))}>🗑️</button>}
+                {u.username !== 'admin' && (
+                  <button className="btn-delete" onClick={() => setList(list.filter(x => x.id !== u.id))}>🗑️</button>
+                )}
               </div>
             );
           })}
@@ -835,9 +844,9 @@ const SettingsModal = ({ onClose }) => {
         <div className="modal-body">
           <div className="form-group">
             <label>URL Google Apps Script</label>
-            <input 
-              value={url} 
-              onChange={e => setUrl(e.target.value)} 
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
               placeholder="https://script.google.com/macros/s/..."
             />
             <small>Wklej URL z kroku 10 instrukcji</small>
@@ -859,7 +868,7 @@ const SettingsModal = ({ onClose }) => {
 
 const EmailModal = ({ order, producer, onClose }) => {
   const body = `Dzień dobry,\n\nPytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${formatDate(order.dataOdbioru)}.\n\nOpis: ${order.towar}\n\nZ poważaniem`;
-  
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
@@ -904,9 +913,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <span className="order-number">{order.nrWlasny || '—'}</span>
           {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
         </div>
-        <select 
-          value={order.status} 
-          onClick={e => e.stopPropagation()} 
+        <select
+          value={order.status}
+          onClick={e => e.stopPropagation()}
           onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
           className="status-select"
           style={{ background: status?.bgColor, color: status?.color }}
@@ -914,21 +923,21 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
         </select>
       </div>
-      
+
       <div className="order-card-body">
         <p className="order-product">{order.towar || 'Brak opisu'}</p>
-        
+
         <div className="order-client">
           <div className="client-name">{order.klient?.imie || '—'}</div>
           <div className="client-address">📍 {order.klient?.adres || '—'}</div>
         </div>
-        
+
         <div className="order-tags">
           {producer && <span className="tag tag-producer">🏭 {producer.name}</span>}
           {order.dataOdbioru && <span className="tag tag-date">📅 {formatDate(order.dataOdbioru)}</span>}
           {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
         </div>
-        
+
         <div className="order-payment">
           {order.platnosci?.cenaCalkowita > 0 && (
             <span>Cena: <strong>{formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</strong></span>
@@ -940,10 +949,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             <span className="paid-badge">✓ Opłacone</span>
           )}
         </div>
-        
+
         {order.uwagi && <div className="order-notes">📝 {order.uwagi}</div>}
-        
-        {/* Wskaźniki dokumentacji */}
+
         {(order.zdjeciaOdbioru?.length > 0 || order.zdjeciaDostawy?.length > 0 || order.podpisKlienta) && (
           <div className="order-indicators">
             {order.zdjeciaOdbioru?.length > 0 && <span className="indicator">📷 Odbiór ({order.zdjeciaOdbioru.length})</span>}
@@ -951,7 +959,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             {order.podpisKlienta && <span className="indicator">✍️ Podpis</span>}
           </div>
         )}
-        
+
         <div className="order-card-footer">
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
           <div className="order-actions">
@@ -1053,14 +1061,15 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     if (notes !== order.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
     if (estPickup !== order.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
     if (estDelivery !== order.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
+
     await onUpdateOrder(order.id, { ...order, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
+
     if (notes && notes !== order.uwagiKierowcy) {
       onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: order.id });
     }
     setShowNotes(null);
   };
 
-  // Signature handling
   const startDraw = (e) => {
     e.preventDefault();
     setIsDrawing(true);
@@ -1133,7 +1142,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   return (
     <div className="driver-panel">
       <input type="file" accept="image/*" capture="environment" ref={fileRef} style={{ display: 'none' }} onChange={onPhotoSelect} />
-      
+
       <header className="header driver-header">
         <div className="header-content">
           <div className="header-brand">
@@ -1342,30 +1351,373 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     </div>
   );
 };
-<div className="filters">
-  <button
-    type="button"
-    onClick={() => setFilter('all')}
-    className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-  >
-    Wszystkie ({visibleOrders.length})
-  </button>
 
-  {STATUSES.map((s) => (
-    <button
-      type="button"
-      key={s.id}
-      onClick={() => setFilter(s.id)}
-      className={`filter-btn ${filter === s.id ? 'active' : ''}`}
-      style={{
-        background: filter === s.id ? s.color : s.bgColor,
-        color: filter === s.id ? 'white' : s.color,
-      }}
-    >
-      {s.icon} {visibleOrders.filter((o) => o.status === s.id).length}
-    </button>
-  ))}
-</div>
+// ============================================
+// APP (GŁÓWNY)
+// ============================================
+
+const App = () => {
+  const [loading, setLoading] = useState(true);
+
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [producers, setProducers] = useState({});
+  const [notifications, setNotifications] = useState([]);
+
+  const [user, setUser] = useState(null);
+
+  // UI state
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showProducersModal, setShowProducersModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [viewingOrder, setViewingOrder] = useState(null);
+  const [emailModal, setEmailModal] = useState(null);
+
+  // filters
+  const [filter, setFilter] = useState('all'); // status
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [creatorFilter, setCreatorFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  // bootstrap login
+  useEffect(() => {
+    const saved = localStorage.getItem('herratonUser');
+    if (saved) {
+      try { setUser(JSON.parse(saved)); } catch { /* ignore */ }
+    }
+  }, []);
+
+  // subscriptions
+  useEffect(() => {
+    let unsubOrders = null;
+    let unsubUsers = null;
+    let unsubProducers = null;
+    let unsubNotifs = null;
+
+    (async () => {
+      try {
+        await initializeDefaultData();
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        unsubOrders = subscribeToOrders((arr) => setOrders(arr || []));
+        unsubUsers = subscribeToUsers((arr) => setUsers(arr || []));
+        unsubProducers = subscribeToProducers((obj) => setProducers(obj || {}));
+        unsubNotifs = subscribeToNotifications((arr) => setNotifications(arr || []));
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      if (typeof unsubOrders === 'function') unsubOrders();
+      if (typeof unsubUsers === 'function') unsubUsers();
+      if (typeof unsubProducers === 'function') unsubProducers();
+      if (typeof unsubNotifs === 'function') unsubNotifs();
+    };
+  }, []);
+
+  // autosync (jeśli masz to gotowe w export.js)
+  useEffect(() => {
+    const url = getGoogleScriptUrl();
+    if (!url) return;
+    try {
+      autoSyncToGoogleSheets(orders);
+    } catch (e) {
+      // ignore
+    }
+  }, [orders]);
+
+  const isContractor = user?.role === 'contractor';
+
+  const drivers = users.filter(u => u.role === 'driver');
+
+  const onLogout = () => {
+    localStorage.removeItem('herratonUser');
+    setUser(null);
+  };
+
+  const addNotif = async ({ icon, title, message, orderId }) => {
+    try {
+      playNotificationSound();
+      await addNotification({
+        icon: icon || '🔔',
+        title,
+        message,
+        orderId: orderId || null,
+        createdAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleSaveOrder = async (form, currentUser) => {
+    const isEdit = !!form.id;
+
+    const base = {
+      ...form,
+      klient: form.klient || {},
+      platnosci: form.platnosci || {},
+      historia: Array.isArray(form.historia) ? form.historia : [],
+      utworzonePrzez: form.utworzonePrzez || {
+        nazwa: currentUser?.name || currentUser?.username || 'system',
+        data: new Date().toISOString()
+      }
+    };
+
+    // contractor – blokada statusu edycji w UI jest, ale tu też zabezpieczamy
+    if (isContractor && isEdit) {
+      // kontrahent nie zmienia statusu
+      const old = orders.find(o => o.id === form.id);
+      if (old) base.status = old.status;
+    }
+
+    // historia
+    const who = currentUser?.name || currentUser?.username || 'system';
+    const action = isEdit ? 'Edytowano zamówienie' : 'Utworzono zamówienie';
+    base.historia = [...(base.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: action }];
+
+    if (isEdit) {
+      await updateOrder(form.id, base);
+      await addNotif({ icon: '✏️', title: `Edytowano: ${base.nrWlasny}`, message: `${who} edytował zamówienie`, orderId: form.id });
+    } else {
+      const id = await addOrder(base);
+      await addNotif({ icon: '🆕', title: `Nowe: ${base.nrWlasny}`, message: `${who} dodał nowe zamówienie`, orderId: id || null });
+    }
+  };
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const statusName = getStatus(newStatus).name;
+    const who = user?.name || user?.username || 'system';
+
+    await updateOrder(orderId, {
+      ...order,
+      status: newStatus,
+      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: who, akcja: `Status: ${statusName}` }]
+    });
+
+    await addNotif({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `${who} zmienił status na: ${statusName}`, orderId });
+  };
+
+  const handleSaveUsers = async (newList) => {
+    // prosto: zapisujemy/aktualizujemy wszystko z listy, usuwamy brakujące
+    const currentById = new Map((users || []).map(u => [u.id, u]));
+    const nextById = new Map((newList || []).map(u => [u.id, u]));
+
+    // usuń
+    for (const old of users) {
+      if (!nextById.has(old.id) && old.username !== 'admin') {
+        try { await deleteUser(old.id); } catch { /* ignore */ }
+      }
+    }
+
+    // add/update
+    for (const u of (newList || [])) {
+      const payload = { ...u };
+      if (!payload.id || String(payload.id).startsWith('new_')) {
+        delete payload.id;
+        try { await addUser(payload); } catch { /* ignore */ }
+      } else if (currentById.has(u.id)) {
+        try { await updateUser(u.id, payload); } catch { /* ignore */ }
+      } else {
+        try { await addUser(payload); } catch { /* ignore */ }
+      }
+    }
+  };
+
+  const handleSaveProducers = async (list) => {
+    const current = producers || {};
+    const currentIds = new Set(Object.keys(current));
+    const nextIds = new Set((list || []).map(p => p.id));
+
+    // usuń
+    for (const id of currentIds) {
+      if (!nextIds.has(id)) {
+        try { await deleteProducer(id); } catch { /* ignore */ }
+      }
+    }
+
+    // add/update
+    for (const p of (list || [])) {
+      const payload = { ...p };
+      if (current[p.id]) {
+        try { await updateProducer(p.id, payload); } catch { /* ignore */ }
+      } else {
+        try { await addProducer(payload); } catch { /* ignore */ }
+      }
+    }
+  };
+
+  const handleResolveNotification = async (id) => {
+    const n = notifications.find(x => x.id === id);
+    if (!n) return;
+    await updateNotification(id, { ...n, resolved: true, resolvedAt: new Date().toISOString() });
+  };
+
+  const handleDeleteNotification = async (id) => {
+    await deleteNotification(id);
+  };
+
+  const visibleOrders = orders.filter(o => {
+    if (!user) return true;
+    if (isContractor) return o.kontrahentId === user.id;
+    return true;
+  });
+
+  const orderCountries = Array.from(new Set(visibleOrders.map(o => o.kraj).filter(Boolean)));
+  const creators = Array.from(new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean)));
+
+  const filteredOrders = visibleOrders.filter(o => {
+    // status
+    if (filter !== 'all' && o.status !== filter) return false;
+
+    // search
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const hay = [
+        o.nrWlasny,
+        o.towar,
+        o.klient?.imie,
+        o.klient?.adres,
+        o.klient?.telefon,
+        o.klient?.email,
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+
+    // country
+    if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
+
+    // creator
+    if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
+
+    // urgency
+    if (urgencyFilter !== 'all') {
+      const d = getDaysUntilPickup(o.dataOdbioru);
+      if (d === null) return false;
+
+      if (urgencyFilter === 'today' && d !== 0) return false;
+      if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
+      if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
+    }
+
+    return true;
+  });
+
+  const paymentSums = calcPaymentSums(filteredOrders);
+
+  // driver routing
+  if (user?.role === 'driver') {
+    return (
+      <DriverPanel
+        user={user}
+        orders={orders}
+        producers={producers}
+        onUpdateOrder={updateOrder}
+        onAddNotification={addNotif}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  // login
+  if (!user) {
+    return <LoginScreen onLogin={setUser} users={users} loading={loading} />;
+  }
+
+  return (
+    <div className="app">
+      {/* header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="header-logo">📦</div>
+            <div>
+              <div className="header-title">Herraton</div>
+              <div className="header-subtitle">
+                Panel • {user.name} ({getRole(user.role)?.name})
+              </div>
+            </div>
+          </div>
+
+          <div className="header-actions">
+            <button className="btn-secondary" onClick={() => setShowNotifications(true)}>
+              🔔 {notifications.filter(n => !n.resolved).length}
+            </button>
+
+            {!isContractor && (
+              <>
+                <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
+                <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
+              </>
+            )}
+
+            <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️</button>
+            <button className="btn-logout" onClick={onLogout}>Wyloguj</button>
+          </div>
+        </div>
+      </header>
+
+      <main className="main">
+        {/* top actions */}
+        <div className="top-bar">
+          <div className="top-left">
+            <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
+              ➕ Nowe zamówienie
+            </button>
+
+            <button className="btn-secondary" onClick={() => exportToExcel(filteredOrders)}>
+              📥 Export Excel
+            </button>
+
+            <button className="btn-secondary" onClick={() => autoSyncToGoogleSheets(filteredOrders)}>
+              🔄 Sync Sheets
+            </button>
+          </div>
+
+          <div className="top-right">
+            <input
+              className="search-input"
+              placeholder="Szukaj (nr, klient, adres, tel...)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* filtry statusów */}
+        <div className="filters">
+          <div className="filter-buttons">
+            <button
+              onClick={() => setFilter('all')}
+              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+            >
+              Wszystkie ({visibleOrders.length})
+            </button>
+
+            {STATUSES.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setFilter(s.id)}
+                className={`filter-btn ${filter === s.id ? 'active' : ''}`}
+                style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
+              >
+                {s.icon} {visibleOrders.filter(o => o.status === s.id).length}
+              </button>
+            ))}
+          </div>
 
           <div className="extra-filters">
             <div className="filter-group">
@@ -1408,6 +1760,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
             <div className="stat-value">{filteredOrders.length}</div>
             <div className="stat-label">Zamówień</div>
           </div>
+
           <div className="stat-card">
             <div className="stat-value warning">
               {filteredOrders.filter(o => {
@@ -1417,10 +1770,12 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
             </div>
             <div className="stat-label">Pilnych (≤3 dni)</div>
           </div>
+
           <div className="stat-card">
             <div className="stat-value success">{filteredOrders.filter(o => o.status === 'dostarczone').length}</div>
             <div className="stat-label">Dostarczonych</div>
           </div>
+
           <div className="stat-card">
             <div className="stat-value danger">{filteredOrders.filter(o => o.platnosci?.doZaplaty > 0).length}</div>
             <div className="stat-label">Do zapłaty</div>
@@ -1459,6 +1814,20 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       </main>
 
       {/* Modale */}
+      {showNotifications && (
+        <NotificationsPanel
+          notifications={notifications}
+          onClose={() => setShowNotifications(false)}
+          onResolve={handleResolveNotification}
+          onDelete={handleDeleteNotification}
+          onOrderClick={(orderId) => {
+            const ord = orders.find(o => o.id === orderId);
+            if (ord) setViewingOrder(ord);
+            setShowNotifications(false);
+          }}
+        />
+      )}
+
       {showOrderModal && (
         <OrderModal
           order={editingOrder}
@@ -1471,11 +1840,41 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
           isContractor={isContractor}
         />
       )}
-      {showUsersModal && <UsersModal users={users} onSave={handleSaveUsers} onClose={() => setShowUsersModal(false)} />}
-      {showProducersModal && <ProducersModal producers={producers} onSave={handleSaveProducers} onClose={() => setShowProducersModal(false)} />}
+
+      {showUsersModal && (
+        <UsersModal
+          users={users}
+          onSave={handleSaveUsers}
+          onClose={() => setShowUsersModal(false)}
+        />
+      )}
+
+      {showProducersModal && (
+        <ProducersModal
+          producers={producers}
+          onSave={handleSaveProducers}
+          onClose={() => setShowProducersModal(false)}
+        />
+      )}
+
       {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
-      {emailModal && <EmailModal order={emailModal.order} producer={emailModal.producer} onClose={() => setEmailModal(null)} />}
-      {viewingOrder && <OrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} producers={producers} drivers={drivers} />}
+
+      {emailModal && (
+        <EmailModal
+          order={emailModal.order}
+          producer={emailModal.producer}
+          onClose={() => setEmailModal(null)}
+        />
+      )}
+
+      {viewingOrder && (
+        <OrderDetailModal
+          order={viewingOrder}
+          onClose={() => setViewingOrder(null)}
+          producers={producers}
+          drivers={drivers}
+        />
+      )}
     </div>
   );
 };
