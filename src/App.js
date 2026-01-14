@@ -1367,7 +1367,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     </div>
   );
 };
- */}
+ 
             {user?.role === 'worker' && (
               <>
                 <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
