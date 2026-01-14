@@ -1038,23 +1038,68 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     onAddNotification({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `Kierowca ${user.name} zmienił status na: ${statusName}`, orderId: order.id });
   };
 
-  // POPRAWIONE - używamy input file bezpośrednio zamiast ref
+  // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
   const handlePhotoCapture = async (order, type, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const photo = { url: reader.result, timestamp: new Date().toISOString(), by: user.name };
-      const field = type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
-      await onUpdateOrder(order.id, {
-        ...order,
-        [field]: [...(order[field] || []), photo],
-        historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+    // Pokaż loading
+    const orderId = order.id;
+    const field = type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
+
+    try {
+      // Kompresja zdjęcia dla lepszej wydajności
+      const compressImage = (file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_SIZE = 1200; // Max wymiar
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height && width > MAX_SIZE) {
+                height = (height * MAX_SIZE) / width;
+                width = MAX_SIZE;
+              } else if (height > MAX_SIZE) {
+                width = (width * MAX_SIZE) / height;
+                height = MAX_SIZE;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% jakości
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      };
+
+      const compressedUrl = await compressImage(file);
+      const photo = { url: compressedUrl, timestamp: new Date().toISOString(), by: user.name };
+
+      // Pobierz aktualny stan zamówienia z bazy (ważne dla iOS!)
+      const currentOrder = orders.find(o => o.id === orderId);
+      if (!currentOrder) return;
+
+      const updatedPhotos = [...(currentOrder[field] || []), photo];
+
+      await onUpdateOrder(orderId, {
+        [field]: updatedPhotos,
+        historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
       });
-      onAddNotification({ icon: '📷', title: `Zdjęcie: ${order.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: order.id });
-    };
-    reader.readAsDataURL(file);
+
+      onAddNotification({ icon: '📷', title: `Zdjęcie: ${currentOrder.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: orderId });
+    } catch (error) {
+      console.error('Błąd dodawania zdjęcia:', error);
+      alert('Błąd podczas dodawania zdjęcia. Spróbuj ponownie.');
+    }
+
     e.target.value = '';
   };
 
@@ -1259,13 +1304,13 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     </div>
                   )}
 
-                  {/* POPRAWIONE PRZYCISKI ZDJĘĆ - input file jako label */}
+                  {/* PRZYCISKI ZDJĘĆ - bez capture dla lepszej kompatybilności */}
                   <div className="driver-actions">
                     {activeTab === 'pickup' && (
                       <>
                         <label className="btn-driver photo">
                           📷 Zdjęcie odbioru
-                          <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
                         </label>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'odebrane')}>✅ Oznacz jako odebrane</button>
@@ -1281,7 +1326,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                       <>
                         <label className="btn-driver photo">
                           📷 Zdjęcie dostawy
-                          <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
                         </label>
                         <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
