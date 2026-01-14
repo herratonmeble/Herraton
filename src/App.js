@@ -1304,14 +1304,20 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     </div>
                   )}
 
-                  {/* PRZYCISKI ZDJĘĆ - bez capture dla lepszej kompatybilności */}
+                  {/* PRZYCISKI ZDJĘĆ - osobne dla aparatu i galerii */}
                   <div className="driver-actions">
                     {activeTab === 'pickup' && (
                       <>
-                        <label className="btn-driver photo">
-                          📷 Zdjęcie odbioru
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
-                        </label>
+                        <div className="photo-buttons">
+                          <label className="btn-driver photo camera">
+                            📸 Aparat
+                            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                          </label>
+                          <label className="btn-driver photo gallery">
+                            🖼️ Galeria
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                          </label>
+                        </div>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'odebrane')}>✅ Oznacz jako odebrane</button>
                       </>
@@ -1324,10 +1330,20 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     )}
                     {activeTab === 'transit' && (
                       <>
-                        <label className="btn-driver photo">
-                          📷 Zdjęcie dostawy
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
-                        </label>
+                        <div className="photo-buttons">
+                          <label className="btn-driver photo camera">
+                            📸 Aparat
+                            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                          </label>
+                          <label className="btn-driver photo gallery">
+                            🖼️ Galeria
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                          </label>
+                        </div>
+                        <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
+                        <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
+                        <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
+                      </>
                         <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
                         <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
