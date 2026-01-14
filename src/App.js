@@ -1342,20 +1342,27 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     </div>
   );
 };
-('all')} className={`filter-btn ${filter === 'all' ? 'active' : ''}`}>
-              Wszystkie ({visibleOrders.length})
-            </button>
-            {STATUSES.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setFilter(s.id)}
-                className={`filter-btn ${filter === s.id ? 'active' : ''}`}
-                style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
-              >
-                {s.icon} {visibleOrders.filter(o => o.status === s.id).length}
-              </button>
-            ))}
-          </div>
+<button
+  onClick={() => setFilter('all')}
+  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+>
+  Wszystkie ({visibleOrders.length})
+</button>
+
+{STATUSES.map(s => (
+  <button
+    key={s.id}
+    onClick={() => setFilter(s.id)}
+    className={`filter-btn ${filter === s.id ? 'active' : ''}`}
+    style={{
+      background: filter === s.id ? s.color : s.bgColor,
+      color: filter === s.id ? 'white' : s.color
+    }}
+  >
+    {s.icon} {visibleOrders.filter(o => o.status === s.id).length}
+  </button>
+))}
+</div>
 
           <div className="extra-filters">
             <div className="filter-group">
