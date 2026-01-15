@@ -2503,3 +2503,255 @@ input.margin-negative {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   ROZBUDOWANE STATYSTYKI - FILTRY I ZAKŁADKI
+   ============================================ */
+
+/* Filtry */
+.stats-filters {
+  display: flex;
+  gap: 20px;
+  padding: 16px 24px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+}
+.filter-group select {
+  padding: 8px 12px;
+  border: 2px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 13px;
+  background: white;
+  cursor: pointer;
+  min-width: 150px;
+}
+.filter-group select:focus {
+  border-color: #6366F1;
+  outline: none;
+}
+
+/* Zakładki */
+.stats-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px;
+  background: white;
+  border-bottom: 2px solid #E2E8F0;
+}
+.stats-tab {
+  padding: 10px 20px;
+  border: none;
+  background: #F1F5F9;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.stats-tab:hover {
+  background: #E2E8F0;
+  color: #1E293B;
+}
+.stats-tab.active {
+  background: linear-gradient(135deg, #6366F1, #4338CA);
+  color: white;
+}
+
+/* Karty krajów */
+.country-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.country-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #E2E8F0;
+  transition: all 0.2s;
+}
+.country-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.country-card.top {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-color: #F59E0B;
+}
+.country-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.country-flag-large {
+  font-size: 32px;
+}
+.country-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.top-badge {
+  margin-left: auto;
+  background: #F59E0B;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.country-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.country-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.country-stat .stat-label {
+  font-size: 12px;
+  color: #64748B;
+}
+.country-stat .stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.country-stat .stat-value.profit {
+  color: #059669;
+}
+.country-stat .stat-value.loss {
+  color: #DC2626;
+}
+
+/* Komórka kraju w tabeli */
+.country-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.country-cell .country-flag {
+  font-size: 18px;
+}
+
+/* Karty pracowników */
+.creator-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.creator-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #E2E8F0;
+}
+.creator-card.top {
+  background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+  border-color: #34D399;
+}
+.creator-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+.creator-avatar {
+  font-size: 28px;
+}
+.creator-info {
+  display: flex;
+  flex-direction: column;
+}
+.creator-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.creator-orders {
+  font-size: 12px;
+  color: #64748B;
+}
+.creator-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.creator-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.creator-stat-row .stat-label {
+  font-size: 12px;
+  color: #64748B;
+}
+.creator-stat-row .stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.creator-stat-row .stat-value.profit {
+  color: #059669;
+}
+.creator-stat-row .stat-value.loss {
+  color: #DC2626;
+}
+
+/* Komórka pracownika w tabeli */
+.creator-cell {
+  font-weight: 600;
+  color: #1E293B;
+}
+.rank {
+  font-size: 16px;
+}
+
+/* Fix dla legend obrotu */
+.chart-bar.obrot {
+  background: linear-gradient(180deg, #6366F1, #4338CA);
+}
+.legend-color.obrot {
+  background: linear-gradient(135deg, #6366F1, #4338CA);
+}
+
+/* Responsywność */
+@media (max-width: 1200px) {
+  .country-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .creator-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .stats-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stats-tabs {
+    flex-wrap: wrap;
+  }
+  .country-cards,
+  .creator-cards {
+    grid-template-columns: 1fr;
+  }
+}
