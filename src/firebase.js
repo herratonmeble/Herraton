@@ -14,7 +14,6 @@ import {
 // ============================================
 // KONFIGURACJA FIREBASE
 // ============================================
-// WAŻNE: Zamień na swoje dane z Firebase Console!
 
 const firebaseConfig = {
    apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
@@ -38,6 +37,7 @@ const usersCollection = collection(db, 'users');
 const producersCollection = collection(db, 'producers');
 const notificationsCollection = collection(db, 'notifications');
 const complaintsCollection = collection(db, 'complaints');
+const leadsCollection = collection(db, 'leads');
 
 // ============================================
 // ZAMÓWIENIA
@@ -172,7 +172,7 @@ export const deleteProducer = async (id) => {
 };
 
 // ============================================
-// POWIADOMIENIA (NOWE!)
+// POWIADOMIENIA
 // ============================================
 
 export const subscribeToNotifications = (callback) => {
@@ -236,7 +236,11 @@ export const subscribeToComplaints = (callback) => {
 
 export const addComplaint = async (complaint) => {
   try {
-    const docRef = await addDoc(complaintsCollection, complaint);
+    const data = {
+      ...complaint,
+      dataUtworzenia: complaint.dataUtworzenia || new Date().toISOString()
+    };
+    const docRef = await addDoc(complaintsCollection, data);
     return docRef.id;
   } catch (error) {
     console.error('Error adding complaint:', error);
@@ -263,12 +267,58 @@ export const deleteComplaint = async (id) => {
 };
 
 // ============================================
+// LEADY (ZAINTERESOWANI KLIENCI)
+// ============================================
+
+export const subscribeToLeads = (callback) => {
+  const q = query(leadsCollection, orderBy('dataUtworzenia', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const leads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(leads);
+  }, (error) => {
+    console.error('Error subscribing to leads:', error);
+    callback([]);
+  });
+};
+
+export const addLead = async (lead) => {
+  try {
+    const data = {
+      ...lead,
+      dataUtworzenia: lead.dataUtworzenia || new Date().toISOString()
+    };
+    const docRef = await addDoc(leadsCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding lead:', error);
+    throw error;
+  }
+};
+
+export const updateLead = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'leads', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating lead:', error);
+    throw error;
+  }
+};
+
+export const deleteLead = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'leads', id));
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    throw error;
+  }
+};
+
+// ============================================
 // INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
 export const initializeDefaultData = async () => {
   try {
-    // Domyślni użytkownicy
     const defaultUsers = [
       { id: 'admin', username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
       { id: 'jan', username: 'jan', password: 'jan123', name: 'Jan Kowalski', role: 'worker' },
@@ -276,19 +326,16 @@ export const initializeDefaultData = async () => {
       { id: 'kontrahent1', username: 'kontrahent1', password: 'kontr123', name: 'Firma ABC', role: 'contractor', companyName: 'Meble ABC Sp. z o.o.' },
     ];
 
-    // Domyślni producenci
     const defaultProducers = [
       { id: 'tomek_meble', name: 'Tomek Meble', email: 'tomek@meble.pl', phone: '+48 123 456 789', address: 'ul. Fabryczna 1, 61-001 Poznań' },
       { id: 'brattex', name: 'Brattex', email: 'zamowienia@brattex.pl', phone: '+48 234 567 890', address: 'ul. Przemysłowa 15, 90-001 Łódź' },
       { id: 'furntex', name: 'FURNTEX', email: 'biuro@furntex.pl', phone: '+48 345 678 901', address: 'ul. Meblowa 8, 02-001 Warszawa' },
     ];
 
-    // Dodaj użytkowników jeśli nie istnieją
     for (const user of defaultUsers) {
       await setDoc(doc(db, 'users', user.id), user, { merge: true });
     }
 
-    // Dodaj producentów jeśli nie istnieją
     for (const producer of defaultProducers) {
       await setDoc(doc(db, 'producers', producer.id), producer, { merge: true });
     }
