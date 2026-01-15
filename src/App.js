@@ -407,6 +407,112 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
     }
   };
 
+  // Funkcja pobierania protokołu PDF
+  const downloadDeliveryProtocol = (order) => {
+    if (!order.umowaOdbioru) {
+      alert('Brak protokołu odbioru dla tego zamówienia');
+      return;
+    }
+
+    const umowa = order.umowaOdbioru;
+    
+    // Generuj HTML protokołu
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Protokół odbioru - ${order.nrWlasny}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #333; }
+    .header h1 { font-size: 24px; margin-bottom: 10px; }
+    .header p { color: #666; }
+    .section { margin-bottom: 25px; }
+    .section h2 { font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #ddd; }
+    .row { display: flex; margin-bottom: 8px; }
+    .label { width: 150px; color: #666; font-size: 13px; }
+    .value { flex: 1; font-size: 14px; }
+    .remarks { margin-top: 20px; padding: 15px; background: ${umowa.uwagiKlienta ? '#fff3cd' : '#d4edda'}; border-radius: 8px; }
+    .remarks.warning { border-left: 4px solid #ffc107; }
+    .remarks.ok { border-left: 4px solid #28a745; }
+    .signature-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; }
+    .signature-section h2 { margin-bottom: 15px; }
+    .signature-img { max-width: 300px; border: 1px solid #ddd; border-radius: 8px; }
+    .declaration { margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-style: italic; }
+    .footer { margin-top: 40px; text-align: center; color: #999; font-size: 11px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 PROTOKÓŁ ODBIORU TOWARU</h1>
+    <p>Nr zamówienia: <strong>${order.nrWlasny}</strong></p>
+  </div>
+
+  <div class="section">
+    <h2>📦 Dane zamówienia</h2>
+    <div class="row"><span class="label">Nr zamówienia:</span><span class="value">${order.nrWlasny}</span></div>
+    <div class="row"><span class="label">Produkt:</span><span class="value">${umowa.produkt || '—'}</span></div>
+    ${order.platnosci?.cenaCalkowita ? `<div class="row"><span class="label">Wartość:</span><span class="value">${formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</span></div>` : ''}
+  </div>
+
+  <div class="section">
+    <h2>👤 Dane odbiorcy</h2>
+    <div class="row"><span class="label">Imię i nazwisko:</span><span class="value">${umowa.klient?.imie || '—'}</span></div>
+    <div class="row"><span class="label">Adres dostawy:</span><span class="value">${umowa.klient?.adres || '—'}</span></div>
+    <div class="row"><span class="label">Telefon:</span><span class="value">${umowa.klient?.telefon || '—'}</span></div>
+    <div class="row"><span class="label">Email:</span><span class="value">${umowa.klient?.email || '—'}</span></div>
+  </div>
+
+  <div class="section">
+    <h2>🚚 Dane dostawy</h2>
+    <div class="row"><span class="label">Data dostawy:</span><span class="value">${formatDateTime(umowa.dataDostawy)}</span></div>
+    <div class="row"><span class="label">Godzina dostawy:</span><span class="value">${umowa.godzinaDostawy}</span></div>
+    <div class="row"><span class="label">Kierowca:</span><span class="value">${umowa.kierowca}</span></div>
+  </div>
+
+  <div class="declaration">
+    Ja, niżej podpisany/a, potwierdzam odbiór powyższego towaru.<br>
+    Towar został sprawdzony w obecności kierowcy.
+  </div>
+
+  <div class="remarks ${umowa.uwagiKlienta ? 'warning' : 'ok'}">
+    ${umowa.uwagiKlienta 
+      ? `<strong>⚠️ Uwagi klienta:</strong><br>${umowa.uwagiKlienta}` 
+      : '✅ Klient nie zgłosił uwag - produkt zaakceptowany bez zastrzeżeń'}
+  </div>
+
+  ${order.podpisKlienta ? `
+  <div class="signature-section">
+    <h2>✍️ Podpis klienta</h2>
+    <img src="${order.podpisKlienta.url}" alt="Podpis klienta" class="signature-img" />
+    <p style="margin-top: 10px; color: #666; font-size: 12px;">
+      Data podpisu: ${formatDateTime(order.podpisKlienta.timestamp)}
+    </p>
+  </div>
+  ` : ''}
+
+  <div class="footer">
+    Dokument wygenerowany automatycznie z systemu Herraton<br>
+    Data wygenerowania: ${new Date().toLocaleString('pl-PL')}
+  </div>
+</body>
+</html>
+    `;
+
+    // Otwórz w nowym oknie i uruchom drukowanie/pobieranie
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Poczekaj na załadowanie obrazków i uruchom drukowanie
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-detail" onClick={e => e.stopPropagation()}>
@@ -526,7 +632,12 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
           {/* UMOWA ODBIORU */}
           {order.umowaOdbioru && (
             <div className="detail-section contract-section">
-              <label>📋 PROTOKÓŁ ODBIORU TOWARU</label>
+              <div className="contract-header-row">
+                <label>📋 PROTOKÓŁ ODBIORU TOWARU</label>
+                <button className="btn-download-pdf" onClick={() => downloadDeliveryProtocol(order)}>
+                  📥 Pobierz PDF
+                </button>
+              </div>
               <div className="contract-display">
                 <div className="contract-row">
                   <span className="contract-label">Data dostawy:</span>
@@ -549,9 +660,19 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
                   <span>{order.umowaOdbioru.klient?.adres}</span>
                 </div>
                 <div className="contract-row">
+                  <span className="contract-label">Telefon:</span>
+                  <span>{order.umowaOdbioru.klient?.telefon || '—'}</span>
+                </div>
+                <div className="contract-row">
                   <span className="contract-label">Produkt:</span>
                   <span>{order.umowaOdbioru.produkt}</span>
                 </div>
+                {order.platnosci?.cenaCalkowita > 0 && (
+                  <div className="contract-row">
+                    <span className="contract-label">Wartość:</span>
+                    <span>{formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</span>
+                  </div>
+                )}
                 {order.umowaOdbioru.uwagiKlienta ? (
                   <div className="contract-remarks warning">
                     <span className="contract-label">⚠️ Uwagi klienta:</span>
@@ -560,6 +681,12 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
                 ) : (
                   <div className="contract-remarks ok">
                     <span>✅ Klient nie zgłosił uwag - produkt zaakceptowany bez zastrzeżeń</span>
+                  </div>
+                )}
+                {order.podpisKlienta && (
+                  <div className="contract-signature">
+                    <span className="contract-label">Podpis klienta:</span>
+                    <img src={order.podpisKlienta.url} alt="Podpis klienta" className="signature-preview" />
                   </div>
                 )}
               </div>
@@ -2164,41 +2291,72 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
   const handlePhotoCapture = async (order, type, e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    
+    // WAŻNE: Resetuj input żeby można było wybrać to samo zdjęcie ponownie
+    e.target.value = '';
+    
+    if (!file) {
+      console.log('Brak pliku');
+      return;
+    }
 
-    // Pokaż loading
+    console.log('Przetwarzanie pliku:', file.name, file.type, file.size);
+
     const orderId = order.id;
     const field = type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
 
     try {
       // Kompresja zdjęcia dla lepszej wydajności
       const compressImage = (file) => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           const reader = new FileReader();
+          
+          reader.onerror = () => {
+            console.error('Błąd odczytu pliku');
+            reject(new Error('Błąd odczytu pliku'));
+          };
+          
           reader.onload = (event) => {
             const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_SIZE = 1200; // Max wymiar
-              let width = img.width;
-              let height = img.height;
-
-              if (width > height && width > MAX_SIZE) {
-                height = (height * MAX_SIZE) / width;
-                width = MAX_SIZE;
-              } else if (height > MAX_SIZE) {
-                width = (width * MAX_SIZE) / height;
-                height = MAX_SIZE;
-              }
-
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% jakości
+            
+            img.onerror = () => {
+              console.error('Błąd ładowania obrazu');
+              // Jeśli nie można załadować jako obraz, użyj oryginalnego pliku
+              resolve(event.target.result);
             };
+            
+            img.onload = () => {
+              try {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 1200;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height && width > MAX_SIZE) {
+                  height = (height * MAX_SIZE) / width;
+                  width = MAX_SIZE;
+                } else if (height > MAX_SIZE) {
+                  width = (width * MAX_SIZE) / height;
+                  height = MAX_SIZE;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                const result = canvas.toDataURL('image/jpeg', 0.7);
+                console.log('Kompresja zakończona, rozmiar:', Math.round(result.length / 1024), 'KB');
+                resolve(result);
+              } catch (canvasError) {
+                console.error('Błąd canvas:', canvasError);
+                resolve(event.target.result);
+              }
+            };
+            
             img.src = event.target.result;
           };
+          
           reader.readAsDataURL(file);
         });
       };
@@ -2206,9 +2364,12 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       const compressedUrl = await compressImage(file);
       const photo = { url: compressedUrl, timestamp: new Date().toISOString(), by: user.name };
 
-      // Pobierz aktualny stan zamówienia z bazy (ważne dla iOS!)
+      // Pobierz aktualny stan zamówienia z bazy
       const currentOrder = orders.find(o => o.id === orderId);
-      if (!currentOrder) return;
+      if (!currentOrder) {
+        console.error('Nie znaleziono zamówienia');
+        return;
+      }
 
       const updatedPhotos = [...(currentOrder[field] || []), photo];
 
@@ -2217,6 +2378,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
         historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
       });
 
+      console.log('Zdjęcie zapisane pomyślnie');
       onAddNotification({ icon: '📷', title: `Zdjęcie: ${currentOrder.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: orderId });
     } catch (error) {
       console.error('Błąd dodawania zdjęcia:', error);
@@ -2485,19 +2647,38 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     </div>
                   )}
 
-                  {/* PRZYCISKI ZDJĘĆ - osobne dla aparatu i galerii */}
+                  {/* PRZYCISKI ZDJĘĆ - ulepszona obsługa Android/iOS */}
                   <div className="driver-actions">
                     {activeTab === 'pickup' && (
                       <>
                         <div className="photo-buttons">
-                          <label className="btn-driver photo camera" htmlFor={`pickup-camera-${order.id}`}>
+                          <button 
+                            className="btn-driver photo camera" 
+                            onClick={() => document.getElementById(`pickup-camera-${order.id}`).click()}
+                          >
                             📸 Aparat
-                            <input id={`pickup-camera-${order.id}`} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
-                          </label>
-                          <label className="btn-driver photo gallery" htmlFor={`pickup-gallery-${order.id}`}>
+                          </button>
+                          <input 
+                            id={`pickup-camera-${order.id}`} 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment"
+                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
+                          />
+                          <button 
+                            className="btn-driver photo gallery" 
+                            onClick={() => document.getElementById(`pickup-gallery-${order.id}`).click()}
+                          >
                             🖼️ Galeria
-                            <input id={`pickup-gallery-${order.id}`} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
-                          </label>
+                          </button>
+                          <input 
+                            id={`pickup-gallery-${order.id}`} 
+                            type="file" 
+                            accept="image/*"
+                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
+                          />
                         </div>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'odebrane')}>✅ Oznacz jako odebrane</button>
@@ -2516,13 +2697,33 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     {activeTab === 'transit' && (
                       <>
                         <div className="photo-buttons">
-                          <label className="btn-driver photo camera" htmlFor={`delivery-camera-${order.id}`}>
+                          <button 
+                            className="btn-driver photo camera" 
+                            onClick={() => document.getElementById(`delivery-camera-${order.id}`).click()}
+                          >
                             📸 Aparat
-                            <input id={`delivery-camera-${order.id}`} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
-                          </label>
-                          <label className="btn-driver photo gallery" htmlFor={`delivery-gallery-${order.id}`}>
+                          </button>
+                          <input 
+                            id={`delivery-camera-${order.id}`} 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment"
+                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
+                          />
+                          <button 
+                            className="btn-driver photo gallery" 
+                            onClick={() => document.getElementById(`delivery-gallery-${order.id}`).click()}
+                          >
                             🖼️ Galeria
-                            <input id={`delivery-gallery-${order.id}`} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                          </button>
+                          <input 
+                            id={`delivery-gallery-${order.id}`} 
+                            type="file" 
+                            accept="image/*"
+                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
+                          />
                           </label>
                         </div>
                         <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
