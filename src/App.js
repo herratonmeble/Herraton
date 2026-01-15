@@ -4710,7 +4710,7 @@ const App = () => {
 
             {creators.length > 1 && (
               <div className="filter-group">
-                <label>👤 Twórca:</label>
+                <label>👤 Pracownik:</label>
                 <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}>
                   <option value="all">Wszyscy</option>
                   {creators.map(c => <option key={c} value={c}>{c}</option>)}
