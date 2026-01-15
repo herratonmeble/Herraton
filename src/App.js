@@ -3019,11 +3019,13 @@ const LEAD_SOURCES = [
 const getLeadStatus = (id) => LEAD_STATUSES.find(s => s.id === id) || LEAD_STATUSES[0];
 const getLeadSource = (id) => LEAD_SOURCES.find(s => s.id === id) || LEAD_SOURCES[0];
 
-const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertToOrder }) => {
-  const [view, setView] = useState('list');
-  const [filter, setFilter] = useState('active'); // active, all, zamowil, rezygnacja
+const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertToOrder, users, orders, onViewOrder }) => {
+  const [view, setView] = useState('list'); // list, form, detail
+  const [filter, setFilter] = useState('active'); // active, all, zamowil, rezygnacja, mine
   const [searchQuery, setSearchQuery] = useState('');
   const [editingLead, setEditingLead] = useState(null);
+  const [viewingLead, setViewingLead] = useState(null);
+  const [newNote, setNewNote] = useState('');
   const [formData, setFormData] = useState({
     imie: '',
     telefon: '',
@@ -3035,13 +3037,18 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
     waluta: 'PLN',
     notatki: '',
     przypomnienie: '',
-    priorytet: 'normalny'
+    priorytet: 'normalny',
+    przypisanyDo: ''
   });
+
+  // Pracownicy do przypisania (admin + pracownicy)
+  const assignableUsers = (users || []).filter(u => ['admin', 'worker'].includes(u.role));
 
   const resetForm = () => {
     setFormData({
       imie: '', telefon: '', email: '', facebookUrl: '', zrodlo: 'facebook',
-      produkty: '', szacowanaKwota: '', waluta: 'PLN', notatki: '', przypomnienie: '', priorytet: 'normalny'
+      produkty: '', szacowanaKwota: '', waluta: 'PLN', notatki: '', przypomnienie: '', 
+      priorytet: 'normalny', przypisanyDo: ''
     });
     setEditingLead(null);
   };
@@ -3059,9 +3066,16 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
       waluta: lead.waluta || 'PLN',
       notatki: lead.notatki || '',
       przypomnienie: lead.przypomnienie || '',
-      priorytet: lead.priorytet || 'normalny'
+      priorytet: lead.priorytet || 'normalny',
+      przypisanyDo: lead.przypisanyDo || ''
     });
     setView('form');
+  };
+
+  const openDetailView = (lead) => {
+    setViewingLead(lead);
+    setNewNote('');
+    setView('detail');
   };
 
   const handleSave = async () => {
@@ -3109,18 +3123,74 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
     }, lead.id);
   };
 
-  const addContact = async (lead, note) => {
-    if (!note.trim()) return;
-    await onSave({
+  // Dodaj notatkę do historii kontaktów
+  const addNote = async (lead) => {
+    if (!newNote.trim()) return;
+    
+    const updatedLead = {
       ...lead,
       ostatniaAktualizacja: new Date().toISOString(),
       kontakty: [...(lead.kontakty || []), {
         id: Date.now(),
         data: new Date().toISOString(),
-        notatka: note,
-        autor: currentUser.name
+        notatka: newNote.trim(),
+        autor: currentUser.name,
+        autorId: currentUser.id
+      }],
+      historia: [...(lead.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: `Dodano notatkę: "${newNote.trim().substring(0, 50)}${newNote.length > 50 ? '...' : ''}"`
+      }]
+    };
+    
+    await onSave(updatedLead, lead.id);
+    setNewNote('');
+    setViewingLead(updatedLead);
+  };
+
+  // Przypisz do pracownika
+  const assignToUser = async (lead, userId) => {
+    const assignedUser = assignableUsers.find(u => u.id === userId);
+    await onSave({
+      ...lead,
+      przypisanyDo: userId,
+      ostatniaAktualizacja: new Date().toISOString(),
+      historia: [...(lead.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: userId ? `Przypisano do: ${assignedUser?.name || userId}` : 'Usunięto przypisanie'
       }]
     }, lead.id);
+  };
+
+  // Konwertuj do zamówienia z zapisaniem powiązania
+  const handleConvertToOrder = async (lead) => {
+    // Oznacz jako zamówione
+    await onSave({
+      ...lead,
+      status: 'zamowil',
+      ostatniaAktualizacja: new Date().toISOString(),
+      historia: [...(lead.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: 'Utworzono zamówienie'
+      }]
+    }, lead.id);
+    
+    // Przekaż do funkcji tworzenia zamówienia
+    onConvertToOrder(lead);
+  };
+
+  // Pobierz powiązane zamówienie
+  const getLinkedOrder = (lead) => {
+    if (!orders || !lead) return null;
+    // Szukaj po imieniu klienta lub po polu linkedLeadId
+    return orders.find(o => 
+      o.linkedLeadId === lead.id || 
+      (lead.status === 'zamowil' && o.klient?.imie === lead.imie && 
+       new Date(o.dataZlecenia) >= new Date(lead.dataUtworzenia))
+    );
   };
 
   // Filtrowanie
@@ -3128,6 +3198,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
     if (filter === 'active' && ['zamowil', 'rezygnacja'].includes(l.status)) return false;
     if (filter === 'zamowil' && l.status !== 'zamowil') return false;
     if (filter === 'rezygnacja' && l.status !== 'rezygnacja') return false;
+    if (filter === 'mine' && l.przypisanyDo !== currentUser.id) return false;
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -3151,6 +3222,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
     active: leads.filter(l => !['zamowil', 'rezygnacja'].includes(l.status)).length,
     hot: leads.filter(l => l.priorytet === 'wysoki' && !['zamowil', 'rezygnacja'].includes(l.status)).length,
     converted: leads.filter(l => l.status === 'zamowil').length,
+    mine: leads.filter(l => l.przypisanyDo === currentUser.id && !['zamowil', 'rezygnacja'].includes(l.status)).length,
     totalValue: leads.filter(l => !['rezygnacja'].includes(l.status)).reduce((sum, l) => sum + (parseFloat(l.szacowanaKwota) || 0), 0)
   };
 
@@ -3214,6 +3286,9 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
               <button className={`filter-chip ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>
                 🎯 Aktywni ({stats.active})
               </button>
+              <button className={`filter-chip ${filter === 'mine' ? 'active' : ''}`} onClick={() => setFilter('mine')}>
+                👤 Moje ({stats.mine})
+              </button>
               <button className={`filter-chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
                 📋 Wszyscy ({stats.total})
               </button>
@@ -3247,6 +3322,8 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                   const status = getLeadStatus(lead.status);
                   const source = getLeadSource(lead.zrodlo);
                   const hasReminder = lead.przypomnienie && lead.przypomnienie <= new Date().toISOString().split('T')[0];
+                  const assignedUser = assignableUsers.find(u => u.id === lead.przypisanyDo);
+                  const linkedOrder = getLinkedOrder(lead);
                   
                   return (
                     <div key={lead.id} className={`lead-card ${hasReminder ? 'has-reminder' : ''} ${lead.priorytet === 'wysoki' ? 'hot' : ''}`}>
@@ -3266,7 +3343,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                         </select>
                       </div>
 
-                      <div className="lead-card-body" onClick={() => openEditForm(lead)}>
+                      <div className="lead-card-body" onClick={() => openDetailView(lead)}>
                         <div className="lead-source">
                           <span>{source.icon} {source.name}</span>
                           {lead.szacowanaKwota && (
@@ -3285,6 +3362,24 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                           )}
                         </div>
 
+                        {/* Przypisany pracownik */}
+                        {assignedUser && (
+                          <div className="lead-assigned">
+                            👤 Przypisany: <strong>{assignedUser.name}</strong>
+                          </div>
+                        )}
+
+                        {/* Powiązane zamówienie */}
+                        {linkedOrder && (
+                          <div 
+                            className="lead-linked-order" 
+                            onClick={(e) => { e.stopPropagation(); onViewOrder && onViewOrder(linkedOrder); }}
+                          >
+                            📦 Zamówienie: <strong>{linkedOrder.nrWlasny}</strong>
+                            <span className="view-order-hint">👁️ Kliknij by zobaczyć</span>
+                          </div>
+                        )}
+
                         {hasReminder && (
                           <div className="lead-reminder-badge">
                             ⏰ Przypomnienie: {formatDate(lead.przypomnienie)}
@@ -3294,17 +3389,21 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                         {lead.kontakty?.length > 0 && (
                           <div className="lead-last-contact">
                             💬 Ostatni kontakt: {formatDate(lead.kontakty[lead.kontakty.length - 1].data)}
+                            <span className="contact-count">({lead.kontakty.length} notatek)</span>
                           </div>
                         )}
                       </div>
 
                       <div className="lead-card-footer">
-                        <span>📅 {formatDate(lead.dataUtworzenia)}</span>
-                        <span>👤 {lead.utworzonePrzez?.nazwa}</span>
+                        <div className="lead-footer-info">
+                          <span>📅 {formatDate(lead.dataUtworzenia)}</span>
+                          <span>👤 {lead.utworzonePrzez?.nazwa}</span>
+                        </div>
                         <div className="lead-actions">
+                          <button className="btn-icon" onClick={() => openDetailView(lead)} title="Szczegóły">👁️</button>
                           <button className="btn-icon" onClick={() => openEditForm(lead)} title="Edytuj">✏️</button>
                           {lead.status !== 'zamowil' && (
-                            <button className="btn-icon btn-success-small" onClick={() => onConvertToOrder(lead)} title="Utwórz zamówienie">📦</button>
+                            <button className="btn-icon btn-success-small" onClick={() => handleConvertToOrder(lead)} title="Utwórz zamówienie">📦</button>
                           )}
                           <button className="btn-icon btn-delete-small" onClick={() => { if(window.confirm('Usunąć?')) onDelete(lead.id); }} title="Usuń">🗑️</button>
                         </div>
@@ -3313,6 +3412,156 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                   );
                 })}
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== WIDOK SZCZEGÓŁOWY ==========
+  if (view === 'detail' && viewingLead) {
+    const status = getLeadStatus(viewingLead.status);
+    const source = getLeadSource(viewingLead.zrodlo);
+    const assignedUser = assignableUsers.find(u => u.id === viewingLead.przypisanyDo);
+    const linkedOrder = getLinkedOrder(viewingLead);
+
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <div>
+              <h2>👤 {viewingLead.imie}</h2>
+              <span className="status-badge" style={{ background: status.bgColor, color: status.color }}>
+                {status.icon} {status.name}
+              </span>
+            </div>
+            <button className="btn-close" onClick={() => setView('list')}>×</button>
+          </div>
+
+          <div className="modal-body">
+            {/* Informacje podstawowe */}
+            <div className="lead-detail-grid">
+              <div className="lead-detail-section">
+                <h3>📋 Dane kontaktowe</h3>
+                <p><strong>Telefon:</strong> {viewingLead.telefon || '—'}</p>
+                <p><strong>Email:</strong> {viewingLead.email || '—'}</p>
+                <p><strong>Facebook:</strong> {viewingLead.facebookUrl ? (
+                  <a href={viewingLead.facebookUrl} target="_blank" rel="noopener noreferrer">Otwórz 📘</a>
+                ) : '—'}</p>
+                <p><strong>Źródło:</strong> {source.icon} {source.name}</p>
+              </div>
+              
+              <div className="lead-detail-section">
+                <h3>💰 Informacje handlowe</h3>
+                <p><strong>Zainteresowany:</strong> {viewingLead.produkty || '—'}</p>
+                <p><strong>Szacowana kwota:</strong> {viewingLead.szacowanaKwota ? formatCurrency(parseFloat(viewingLead.szacowanaKwota), viewingLead.waluta) : '—'}</p>
+                <p><strong>Priorytet:</strong> {viewingLead.priorytet === 'wysoki' ? '🔥 Wysoki' : viewingLead.priorytet === 'niski' ? '🟢 Niski' : '🟡 Normalny'}</p>
+                <p><strong>Przypomnienie:</strong> {viewingLead.przypomnienie ? formatDate(viewingLead.przypomnienie) : '—'}</p>
+              </div>
+            </div>
+
+            {/* Przypisanie do pracownika */}
+            <div className="lead-detail-section assignment-section">
+              <h3>👤 Przypisanie</h3>
+              <div className="assignment-row">
+                <span>Przypisany do:</span>
+                <select 
+                  value={viewingLead.przypisanyDo || ''} 
+                  onChange={e => {
+                    assignToUser(viewingLead, e.target.value);
+                    setViewingLead({...viewingLead, przypisanyDo: e.target.value});
+                  }}
+                  className="assignment-select"
+                >
+                  <option value="">-- Nieprzypisany --</option>
+                  {assignableUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? 'Admin' : 'Pracownik'})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Powiązane zamówienie */}
+            {linkedOrder && (
+              <div className="lead-detail-section linked-order-section">
+                <h3>📦 Powiązane zamówienie</h3>
+                <div className="linked-order-card" onClick={() => onViewOrder && onViewOrder(linkedOrder)}>
+                  <div className="linked-order-header">
+                    <span className="order-number">{linkedOrder.nrWlasny}</span>
+                    <span className="order-status" style={{ background: getStatus(linkedOrder.status).bgColor, color: getStatus(linkedOrder.status).color }}>
+                      {getStatus(linkedOrder.status).icon} {getStatus(linkedOrder.status).name}
+                    </span>
+                  </div>
+                  <p><strong>Produkt:</strong> {linkedOrder.towar}</p>
+                  <p><strong>Wartość:</strong> {formatCurrency(linkedOrder.platnosci?.cenaCalkowita, linkedOrder.platnosci?.waluta)}</p>
+                  <button className="btn-view-order">👁️ Zobacz szczegóły zamówienia</button>
+                </div>
+              </div>
+            )}
+
+            {/* Dodawanie notatki */}
+            <div className="lead-detail-section notes-section">
+              <h3>📝 Dodaj notatkę</h3>
+              <div className="add-note-form">
+                <textarea 
+                  value={newNote} 
+                  onChange={e => setNewNote(e.target.value)} 
+                  rows={3} 
+                  placeholder="Wpisz notatkę z rozmowy z klientem..."
+                />
+                <button 
+                  className="btn-primary" 
+                  onClick={() => addNote(viewingLead)}
+                  disabled={!newNote.trim()}
+                >
+                  💾 Zapisz notatkę
+                </button>
+              </div>
+            </div>
+
+            {/* Historia kontaktów / notatek */}
+            <div className="lead-detail-section">
+              <h3>💬 Historia kontaktów ({viewingLead.kontakty?.length || 0})</h3>
+              {(!viewingLead.kontakty || viewingLead.kontakty.length === 0) ? (
+                <p className="empty-notes">Brak notatek. Dodaj pierwszą notatkę powyżej.</p>
+              ) : (
+                <div className="contacts-timeline">
+                  {[...(viewingLead.kontakty || [])].reverse().map(c => (
+                    <div key={c.id} className="contact-item">
+                      <div className="contact-header">
+                        <span className="contact-date">{formatDateTime(c.data)}</span>
+                        <span className="contact-author">👤 {c.autor}</span>
+                      </div>
+                      <p className="contact-note">{c.notatka}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Historia zmian */}
+            {viewingLead.historia?.length > 0 && (
+              <div className="lead-detail-section">
+                <h3>📜 Historia zmian</h3>
+                <div className="history-timeline">
+                  {[...(viewingLead.historia || [])].reverse().map((h, i) => (
+                    <div key={i} className="history-item">
+                      <span className="history-date">{formatDateTime(h.data)}</span>
+                      <span className="history-user">{h.uzytkownik}</span>
+                      <span className="history-action">{h.akcja}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer">
+            <button className="btn-secondary" onClick={() => setView('list')}>← Wróć do listy</button>
+            <button className="btn-primary" onClick={() => openEditForm(viewingLead)}>✏️ Edytuj</button>
+            {viewingLead.status !== 'zamowil' && (
+              <button className="btn-success" onClick={() => handleConvertToOrder(viewingLead)}>📦 Utwórz zamówienie</button>
             )}
           </div>
         </div>
@@ -3372,6 +3621,15 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
                 <option value="niski">🟢 Niski</option>
                 <option value="normalny">🟡 Normalny</option>
                 <option value="wysoki">🔴 Wysoki (gorący lead)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>PRZYPISZ DO</label>
+              <select value={formData.przypisanyDo} onChange={e => setFormData({...formData, przypisanyDo: e.target.value})}>
+                <option value="">-- Nieprzypisany --</option>
+                {assignableUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? 'Admin' : 'Pracownik'})</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
@@ -4226,7 +4484,7 @@ const App = () => {
   const handleConvertLeadToOrder = (lead) => {
     // Zamknij panel leads
     setShowLeadsPanel(false);
-    // Otwórz formularz zamówienia z danymi klienta
+    // Otwórz formularz zamówienia z danymi klienta i powiązaniem do leada
     setEditingOrder({
       klient: {
         imie: lead.imie || '',
@@ -4238,21 +4496,10 @@ const App = () => {
       platnosci: {
         waluta: lead.waluta || 'PLN',
         cenaCalkowita: parseFloat(lead.szacowanaKwota) || 0
-      }
+      },
+      linkedLeadId: lead.id // Powiązanie z leadem
     });
     setShowOrderModal(true);
-    
-    // Oznacz lead jako "zamówił"
-    handleSaveLead({
-      ...lead,
-      status: 'zamowil',
-      ostatniaAktualizacja: new Date().toISOString(),
-      historia: [...(lead.historia || []), {
-        data: new Date().toISOString(),
-        uzytkownik: user.name,
-        akcja: 'Przekształcono w zamówienie'
-      }]
-    }, lead.id);
   };
 
   const visibleNotifications = isContractor
@@ -4629,6 +4876,9 @@ const App = () => {
           onClose={() => setShowLeadsPanel(false)}
           currentUser={user}
           onConvertToOrder={handleConvertLeadToOrder}
+          users={users}
+          orders={orders}
+          onViewOrder={(order) => { setShowLeadsPanel(false); setViewingOrder(order); }}
         />
       )}
 
