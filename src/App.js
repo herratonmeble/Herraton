@@ -2724,7 +2724,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                             style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
-                          </label>
                         </div>
                         <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
                         {order.platnosci?.doZaplaty > 0 && (
