@@ -755,13 +755,17 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     kontrahentId: isContractor ? currentUser.id : null
   });
   const [saving, setSaving] = useState(false);
+  const [initialOrder] = useState(order); // Zapamiętaj czy to edycja czy nowe
 
+  // Generuj numer zamówienia dla nowych zamówień lub gdy numer jest pusty
   useEffect(() => {
-    if (!order && form.kraj) {
+    // Tylko dla nowych zamówień (nie edycja istniejącego)
+    const isNewOrder = !initialOrder?.id;
+    if (isNewOrder && form.kraj) {
       const nr = generateOrderNumber(orders || [], form.kraj);
       setForm(f => ({ ...f, nrWlasny: nr }));
     }
-  }, [form.kraj, order, orders]);
+  }, [form.kraj, orders, initialOrder]);
 
   const updateKlient = (k, v) => setForm({ ...form, klient: { ...form.klient, [k]: v } });
   const updatePlatnosci = (k, v) => {
