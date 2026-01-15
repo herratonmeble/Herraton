@@ -1748,7 +1748,7 @@ const EmailModal = ({ order, producer, onClose }) => {
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, exchangeRates }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -1758,22 +1758,33 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
 
-  // Prawidłowe wyliczenie marży
-  // Cena brutto od klienta → dzielę przez VAT → minus koszty netto
-  const calcMarza = () => {
+  // Konwersja do PLN
+  const convertToPLN = (amount, currency) => {
+    if (!amount || currency === 'PLN' || !exchangeRates) return amount || 0;
+    return (amount || 0) * (exchangeRates[currency] || 1);
+  };
+
+  // Prawidłowe wyliczenie marży - ZAWSZE W PLN
+  const calcMarzaPLN = () => {
     const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
     const vatRate = order.koszty?.vatRate || 23;
     const vatMultiplier = 1 + vatRate / 100;
     
-    // Cena netto od klienta
+    // Cena netto od klienta w oryginalnej walucie
     const cenaNetto = cenaBrutto / vatMultiplier;
     
-    // Koszty
-    const zakupNetto = order.koszty?.zakupNetto || 0;
-    const transport = order.koszty?.transport || 0;
+    // Konwertuj cenę do PLN
+    const cenaNettoPLN = convertToPLN(cenaNetto, order.platnosci?.waluta);
     
-    // Marża = cena netto - koszty zakupu netto - transport
-    return Math.round((cenaNetto - zakupNetto - transport) * 100) / 100;
+    // Koszty - konwertuj do PLN
+    const zakupNetto = order.koszty?.zakupNetto || 0;
+    const zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
+    
+    const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
+    const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
+    
+    // Marża w PLN
+    return Math.round((cenaNettoPLN - zakupNettoPLN - transportNettoPLN) * 100) / 100;
   };
 
   const handleDelete = (e) => {
@@ -1826,10 +1837,10 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
             <span className="paid-badge">✓ Opłacone</span>
           )}
-          {/* Marża - tylko dla admina */}
+          {/* Marża - tylko dla admina - ZAWSZE W PLN */}
           {isAdmin && order.koszty && (order.koszty.zakupNetto > 0 || order.koszty.zakupBrutto > 0) && (
-            <span className={calcMarza() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
-              📊 Marża: <strong>{formatCurrency(calcMarza(), order.platnosci?.waluta)}</strong>
+            <span className={calcMarzaPLN() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
+              📊 Marża: <strong>{formatCurrency(calcMarzaPLN(), 'PLN')}</strong>
             </span>
           )}
         </div>
@@ -2176,13 +2187,13 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     {activeTab === 'pickup' && (
                       <>
                         <div className="photo-buttons">
-                          <label className="btn-driver photo camera">
+                          <label className="btn-driver photo camera" htmlFor={`pickup-camera-${order.id}`}>
                             📸 Aparat
-                            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                            <input id={`pickup-camera-${order.id}`} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
                           </label>
-                          <label className="btn-driver photo gallery">
+                          <label className="btn-driver photo gallery" htmlFor={`pickup-gallery-${order.id}`}>
                             🖼️ Galeria
-                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
+                            <input id={`pickup-gallery-${order.id}`} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'pickup', e)} />
                           </label>
                         </div>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
@@ -2198,13 +2209,13 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                     {activeTab === 'transit' && (
                       <>
                         <div className="photo-buttons">
-                          <label className="btn-driver photo camera">
+                          <label className="btn-driver photo camera" htmlFor={`delivery-camera-${order.id}`}>
                             📸 Aparat
-                            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                            <input id={`delivery-camera-${order.id}`} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
                           </label>
-                          <label className="btn-driver photo gallery">
+                          <label className="btn-driver photo gallery" htmlFor={`delivery-gallery-${order.id}`}>
                             🖼️ Galeria
-                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
+                            <input id={`delivery-gallery-${order.id}`} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
                           </label>
                         </div>
                         <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
@@ -2842,6 +2853,7 @@ const App = () => {
   const [countryFilter, setCountryFilter] = useState('all');
   const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [creatorFilter, setCreatorFilter] = useState('all');
+  const [driverFilter, setDriverFilter] = useState('all');
   const [search, setSearch] = useState('');
 
   const [editingOrder, setEditingOrder] = useState(null);
@@ -3083,6 +3095,13 @@ const App = () => {
     }
     if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
     if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
+    if (driverFilter !== 'all') {
+      if (driverFilter === 'unassigned') {
+        if (o.przypisanyKierowca) return false; // ma przypisanego - ukryj
+      } else {
+        if (o.przypisanyKierowca !== driverFilter) return false;
+      }
+    }
     if (urgencyFilter !== 'all') {
       const d = getDaysUntilPickup(o.dataOdbioru);
       if (d === null) return false;
@@ -3250,6 +3269,17 @@ const App = () => {
                 </select>
               </div>
             )}
+
+            {drivers.length > 0 && (
+              <div className="filter-group">
+                <label>🚚 Kierowca:</label>
+                <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}>
+                  <option value="all">Wszyscy</option>
+                  <option value="unassigned">Nieprzypisani</option>
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -3297,6 +3327,7 @@ const App = () => {
               producers={producers}
               drivers={drivers}
               isAdmin={isAdmin}
+              exchangeRates={exchangeRates}
             />
           ))}
         </div>
