@@ -528,7 +528,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
 // MODAL EDYCJI ZAMÓWIENIA - POPRAWIONY (zamyka się po zapisie)
 // ============================================
 
-const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor }) => {
+const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin }) => {
   const [form, setForm] = useState(order || {
     nrWlasny: '',
     kraj: 'PL',
@@ -538,6 +538,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     zaladunek: '',
     klient: { imie: '', adres: '', telefon: '', email: '', facebookUrl: '' },
     platnosci: { waluta: 'PLN', zaplacono: 0, metodaZaplaty: '', dataZaplaty: '', doZaplaty: 0, cenaCalkowita: 0 },
+    koszty: { zakupNetto: 0, zakupBrutto: 0, transport: 0 },
     uwagi: '',
     dataOdbioru: '',
     dataDostawy: '',
@@ -560,6 +561,15 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
       p.doZaplaty = Math.max(0, (p.cenaCalkowita || 0) - (p.zaplacono || 0));
     }
     setForm({ ...form, platnosci: p });
+  };
+  const updateKoszty = (k, v) => setForm({ ...form, koszty: { ...form.koszty, [k]: v } });
+
+  // Wyliczenie marży
+  const calcMarza = () => {
+    const cena = form.platnosci?.cenaCalkowita || 0;
+    const zakup = form.koszty?.zakupBrutto || form.koszty?.zakupNetto || 0;
+    const transport = form.koszty?.transport || 0;
+    return cena - zakup - transport;
   };
 
   const handleSave = async () => {
@@ -687,6 +697,36 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               </div>
             </div>
           </div>
+
+          {/* SEKCJA KOSZTÓW - TYLKO DLA ADMINA */}
+          {isAdmin && (
+            <div className="form-section costs">
+              <h3>📊 Koszty i marża (widoczne tylko dla admina)</h3>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>KOSZT ZAKUPU NETTO</label>
+                  <input type="number" value={form.koszty?.zakupNetto || ''} onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+                </div>
+                <div className="form-group">
+                  <label>KOSZT ZAKUPU BRUTTO</label>
+                  <input type="number" value={form.koszty?.zakupBrutto || ''} onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+                </div>
+                <div className="form-group">
+                  <label>KOSZT TRANSPORTU</label>
+                  <input type="number" value={form.koszty?.transport || ''} onChange={e => updateKoszty('transport', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+                </div>
+                <div className="form-group">
+                  <label>MARŻA</label>
+                  <input 
+                    type="text" 
+                    value={formatCurrency(calcMarza(), form.platnosci?.waluta)} 
+                    readOnly 
+                    className={calcMarza() >= 0 ? 'margin-positive' : 'margin-negative'} 
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="form-grid">
             <div className="form-group">
@@ -934,7 +974,7 @@ const SettingsModal = ({ onClose }) => {
 // PANEL REKLAMACJI
 // ============================================
 
-const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser }) => {
+const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser, onAddNotification }) => {
   const [view, setView] = useState('list'); // list, detail, form
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -950,6 +990,13 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     priorytet: 'normalny'
   });
 
+  // Pobierz rolę użytkownika
+  const getUserRoleLabel = (user) => {
+    if (!user) return 'Nieznany';
+    const role = USER_ROLES.find(r => r.id === user.role);
+    return role ? `${role.icon} ${role.name}` : '👤 Użytkownik';
+  };
+
   const filteredComplaints = filter === 'all' 
     ? complaints 
     : complaints.filter(c => c.status === filter);
@@ -960,6 +1007,10 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
       return;
     }
     const order = orders.find(o => o.id === newComplaint.orderId);
+    
+    // Określ typ użytkownika
+    const userRole = getUserRoleLabel(currentUser);
+    
     const complaint = {
       ...newComplaint,
       numer: generateComplaintNumber(complaints),
@@ -968,11 +1019,28 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
       klient: order?.klient?.imie || '',
       status: 'nowa',
       dataUtworzenia: new Date().toISOString(),
-      utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name },
+      utworzonePrzez: { 
+        id: currentUser.id, 
+        nazwa: currentUser.name,
+        rola: currentUser.role,
+        rolaLabel: userRole
+      },
       komentarze: [],
       historia: [{ data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Utworzono reklamację' }]
     };
     await onSave(complaint);
+    
+    // Wyślij powiadomienie
+    if (onAddNotification) {
+      await onAddNotification({
+        icon: '📋',
+        title: `Nowa reklamacja: ${complaint.numer}`,
+        message: `Dodana przez: ${currentUser.name} (${userRole}) | Zamówienie: ${order?.nrWlasny || 'brak'} | Klient: ${order?.klient?.imie || 'brak'}`,
+        complaintId: null, // ID zostanie nadane przez Firebase
+        type: 'complaint'
+      });
+    }
+    
     setNewComplaint({ orderId: '', typ: 'uszkodzenie', opis: '', wiadomoscKlienta: '', oczekiwaniaKlienta: '', zdjecia: [], priorytet: 'normalny' });
     setView('list');
   };
@@ -1102,6 +1170,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                       </div>
                       <div className="complaint-card-footer">
                         <span>📅 {formatDate(c.dataUtworzenia)}</span>
+                        <span className="complaint-creator-info">{c.utworzonePrzez?.rolaLabel || c.utworzonePrzez?.nazwa}</span>
                         <span>💬 {c.komentarze?.length || 0}</span>
                       </div>
                     </div>
@@ -1389,6 +1458,16 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   </span>
                 </div>
 
+                {/* Dodana przez */}
+                <div className="sidebar-card creator-card">
+                  <h4>✍️ Dodana przez</h4>
+                  <div className="sidebar-info">
+                    <div className="info-row"><strong>{selectedComplaint.utworzonePrzez?.nazwa || 'Nieznany'}</strong></div>
+                    <div className="info-row creator-role">{selectedComplaint.utworzonePrzez?.rolaLabel || 'Użytkownik'}</div>
+                    <div className="info-row info-date">📅 {formatDateTime(selectedComplaint.dataUtworzenia)}</div>
+                  </div>
+                </div>
+
                 {/* Usuń */}
                 <button className="btn-danger btn-full" onClick={() => { if (window.confirm('Usunąć reklamację?')) { onDelete(selectedComplaint.id); setView('list'); } }}>
                   🗑️ Usuń reklamację
@@ -1442,7 +1521,7 @@ const EmailModal = ({ order, producer, onClose }) => {
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -1451,6 +1530,14 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+
+  // Wyliczenie marży
+  const calcMarza = () => {
+    const cena = order.platnosci?.cenaCalkowita || 0;
+    const zakup = order.koszty?.zakupBrutto || order.koszty?.zakupNetto || 0;
+    const transport = order.koszty?.transport || 0;
+    return cena - zakup - transport;
+  };
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -1501,6 +1588,12 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           )}
           {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
             <span className="paid-badge">✓ Opłacone</span>
+          )}
+          {/* Marża - tylko dla admina */}
+          {isAdmin && order.koszty && (order.koszty.zakupNetto > 0 || order.koszty.zakupBrutto > 0) && (
+            <span className={calcMarza() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
+              📊 Marża: <strong>{formatCurrency(calcMarza(), order.platnosci?.waluta)}</strong>
+            </span>
           )}
         </div>
 
@@ -2307,7 +2400,7 @@ const App = () => {
               >
                 <span className="sf-icon">{s.icon}</span>
                 <span className="sf-count">{visibleOrders.filter(o => o.status === s.id).length}</span>
-                <span className="sf-label">{s.name.split(' ')[0]}</span>
+                <span className="sf-label">{s.name}</span>
               </button>
             ))}
           </div>
@@ -2390,6 +2483,7 @@ const App = () => {
               onDelete={handleDeleteOrder}
               producers={producers}
               drivers={drivers}
+              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -2412,6 +2506,7 @@ const App = () => {
           currentUser={user}
           orders={orders}
           isContractor={isContractor}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -2460,6 +2555,7 @@ const App = () => {
           onDelete={handleDeleteComplaint}
           onClose={() => setShowComplaintsPanel(false)}
           currentUser={user}
+          onAddNotification={addNotif}
         />
       )}
     </div>
