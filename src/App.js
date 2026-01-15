@@ -68,6 +68,19 @@ const CURRENCIES = [
 
 const PAYMENT_METHODS = ['Gotówka', 'Przelew bankowy', 'Karta płatnicza', 'PayPal', 'Pobranie przy odbiorze', 'BLIK', 'Rata'];
 
+// Metody płatności przy dostawie (dla kierowcy)
+const DELIVERY_PAYMENT_METHODS = [
+  { id: 'brak', name: 'Brak płatności przy dostawie', icon: '✅', description: 'Klient już zapłacił całość' },
+  { id: 'gotowka', name: 'Gotówka', icon: '💵', description: 'Kierowca pobiera gotówkę' },
+  { id: 'przelew', name: 'Przelew przy dostawie', icon: '🏦', description: 'Klient robi przelew na miejscu' },
+  { id: 'humm', name: 'Humm (raty)', icon: '📱', description: 'Płatność przez Humm' },
+  { id: 'karta', name: 'Karta płatnicza', icon: '💳', description: 'Płatność kartą (terminal)' },
+  { id: 'blik', name: 'BLIK', icon: '📲', description: 'Płatność BLIK' },
+  { id: 'inna', name: 'Inna metoda', icon: '📝', description: 'Opisz w uwagach' },
+];
+
+const getDeliveryPaymentMethod = (id) => DELIVERY_PAYMENT_METHODS.find(m => m.id === id) || DELIVERY_PAYMENT_METHODS[0];
+
 const STATUSES = [
   { id: 'nowe', name: 'Nowe zamówienie', color: '#059669', bgColor: '#D1FAE5', icon: '🆕' },
   { id: 'potwierdzone', name: 'Potwierdzone', color: '#2563EB', bgColor: '#DBEAFE', icon: '✅' },
@@ -792,6 +805,39 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <input type="number" value={form.platnosci?.doZaplaty || 0} readOnly className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'} />
               </div>
             </div>
+
+            {/* PŁATNOŚĆ PRZY DOSTAWIE - dla kierowcy */}
+            {form.platnosci?.doZaplaty > 0 && (
+              <div className="delivery-payment-section">
+                <h4>🚚 Płatność przy dostawie</h4>
+                <p className="delivery-payment-info">
+                  Klient musi jeszcze zapłacić: <strong>{formatCurrency(form.platnosci.doZaplaty, form.platnosci?.waluta)}</strong>
+                </p>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>JAK KLIENT ZAPŁACI RESZTĘ? *</label>
+                    <select 
+                      value={form.platnosci?.metodaPrzyDostawie || 'gotowka'} 
+                      onChange={e => updatePlatnosci('metodaPrzyDostawie', e.target.value)}
+                      className="delivery-payment-select"
+                    >
+                      {DELIVERY_PAYMENT_METHODS.filter(m => m.id !== 'brak').map(m => (
+                        <option key={m.id} value={m.id}>{m.icon} {m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>UWAGI DO PŁATNOŚCI</label>
+                    <input 
+                      type="text" 
+                      value={form.platnosci?.uwagiPlatnosc || ''} 
+                      onChange={e => updatePlatnosci('uwagiPlatnosc', e.target.value)}
+                      placeholder="np. Klient poprosi o fakturę, czeka na kredyt..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SEKCJA KOSZTÓW - TYLKO DLA ADMINA */}
@@ -2215,9 +2261,29 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
                   {order.platnosci?.doZaplaty > 0 && (
                     <div className="driver-payment-alert">
-                      <div className="payment-label">💰 Do pobrania od klienta</div>
-                      <div className="payment-amount">{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</div>
-                      <div className="payment-method">Metoda: {order.platnosci.metodaZaplaty || 'Gotówka'}</div>
+                      <div className="payment-header">
+                        <div className="payment-label">💰 Do pobrania od klienta</div>
+                        <div className="payment-amount">{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</div>
+                      </div>
+                      <div className="payment-details">
+                        {order.platnosci.metodaPrzyDostawie && (
+                          <div className="payment-method-badge">
+                            {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).icon} {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).name}
+                          </div>
+                        )}
+                        {!order.platnosci.metodaPrzyDostawie && (
+                          <div className="payment-method-badge default">💵 Gotówka (domyślnie)</div>
+                        )}
+                      </div>
+                      {order.platnosci.uwagiPlatnosc && (
+                        <div className="payment-notes">📝 {order.platnosci.uwagiPlatnosc}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
+                    <div className="driver-payment-ok">
+                      <span>✅ Zapłacone w całości</span>
                     </div>
                   )}
 
@@ -3327,6 +3393,7 @@ const App = () => {
   const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [creatorFilter, setCreatorFilter] = useState('all');
   const [driverFilter, setDriverFilter] = useState('all');
+  const [producerFilter, setProducerFilter] = useState('all');
   const [search, setSearch] = useState('');
 
   const [editingOrder, setEditingOrder] = useState(null);
@@ -3468,13 +3535,20 @@ const App = () => {
     } else {
       const newOrder = {
         ...form,
-        utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name, data: now },
+        utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name, data: now, oddzial: currentUser.id },
         historia: [{ data: now, uzytkownik: currentUser.name, akcja: 'Utworzono zamówienie' }]
       };
       await addOrder(newOrder);
-      if (isContractor) {
-        await addNotif({ icon: '🆕', title: `Nowe zamówienie: ${form.nrWlasny}`, message: `Kontrahent ${currentUser.name} dodał nowe zamówienie`, orderId: null, forContractor: currentUser.id });
-      }
+      
+      // Powiadomienie o nowym zamówieniu - dla wszystkich
+      await addNotif({ 
+        icon: '📦', 
+        title: `Nowe zamówienie: ${form.nrWlasny}`, 
+        message: `Dodane przez: ${currentUser.name} | Klient: ${form.klient?.imie || 'brak'} | ${form.towar?.substring(0, 50) || ''}`, 
+        orderId: null, 
+        forContractor: isContractor ? currentUser.id : null,
+        type: 'new_order'
+      });
     }
     setShowOrderModal(false);
     setEditingOrder(null);
@@ -3492,6 +3566,15 @@ const App = () => {
       ...order,
       status: newStatus,
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user?.name || 'system', akcja: `Status: ${statusName}` }]
+    });
+    
+    // Powiadomienie o zmianie statusu
+    await addNotif({
+      icon: getStatus(newStatus).icon,
+      title: `Status: ${order.nrWlasny}`,
+      message: `${user?.name || 'System'} zmienił status na: ${statusName}`,
+      orderId: orderId,
+      type: 'status_change'
     });
   };
 
@@ -3630,9 +3713,16 @@ const App = () => {
     if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
     if (driverFilter !== 'all') {
       if (driverFilter === 'unassigned') {
-        if (o.przypisanyKierowca) return false; // ma przypisanego - ukryj
+        if (o.przypisanyKierowca) return false;
       } else {
         if (o.przypisanyKierowca !== driverFilter) return false;
+      }
+    }
+    if (producerFilter !== 'all') {
+      if (producerFilter === 'unassigned') {
+        if (o.zaladunek) return false;
+      } else {
+        if (o.zaladunek !== producerFilter) return false;
       }
     }
     if (urgencyFilter !== 'all') {
@@ -3816,6 +3906,17 @@ const App = () => {
                   <option value="all">Wszyscy</option>
                   <option value="unassigned">Nieprzypisani</option>
                   {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            {Object.keys(producers).length > 0 && (
+              <div className="filter-group">
+                <label>🏭 Producent:</label>
+                <select value={producerFilter} onChange={e => setProducerFilter(e.target.value)}>
+                  <option value="all">Wszyscy</option>
+                  <option value="unassigned">Nieprzypisani</option>
+                  {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
             )}
