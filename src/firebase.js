@@ -37,6 +37,7 @@ const ordersCollection = collection(db, 'orders');
 const usersCollection = collection(db, 'users');
 const producersCollection = collection(db, 'producers');
 const notificationsCollection = collection(db, 'notifications');
+const complaintsCollection = collection(db, 'complaints');
 
 // ============================================
 // ZAMÓWIENIA
@@ -214,6 +215,49 @@ export const deleteNotification = async (id) => {
     await deleteDoc(doc(db, 'notifications', id));
   } catch (error) {
     console.error('Error deleting notification:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// REKLAMACJE
+// ============================================
+
+export const subscribeToComplaints = (callback) => {
+  const q = query(complaintsCollection, orderBy('dataUtworzenia', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const complaints = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(complaints);
+  }, (error) => {
+    console.error('Error subscribing to complaints:', error);
+    callback([]);
+  });
+};
+
+export const addComplaint = async (complaint) => {
+  try {
+    const docRef = await addDoc(complaintsCollection, complaint);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding complaint:', error);
+    throw error;
+  }
+};
+
+export const updateComplaint = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'complaints', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating complaint:', error);
+    throw error;
+  }
+};
+
+export const deleteComplaint = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'complaints', id));
+  } catch (error) {
+    console.error('Error deleting complaint:', error);
     throw error;
   }
 };
