@@ -87,6 +87,39 @@ const COMPLAINT_STATUSES = [
 
 const getComplaintStatus = (id) => COMPLAINT_STATUSES.find(s => s.id === id) || COMPLAINT_STATUSES[0];
 
+// Funkcje dla terminu reklamacji (14 dni)
+const COMPLAINT_DEADLINE_DAYS = 14;
+
+const getComplaintDaysLeft = (createdAt) => {
+  if (!createdAt) return null;
+  const created = new Date(createdAt);
+  const deadline = new Date(created);
+  deadline.setDate(deadline.getDate() + COMPLAINT_DEADLINE_DAYS);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  deadline.setHours(0, 0, 0, 0);
+  return Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+};
+
+const getDeadlineStyle = (daysLeft) => {
+  if (daysLeft === null) return null;
+  if (daysLeft <= 0) return { bg: '#DC2626', color: 'white', label: 'TERMIN MINĄŁ!', urgent: true };
+  if (daysLeft <= 2) return { bg: '#DC2626', color: 'white', label: `${daysLeft} dni`, urgent: true };
+  if (daysLeft <= 5) return { bg: '#F59E0B', color: 'white', label: `${daysLeft} dni`, urgent: false };
+  return { bg: '#10B981', color: 'white', label: `${daysLeft} dni`, urgent: false };
+};
+
+const COMPLAINT_TYPES = [
+  { id: 'uszkodzenie', name: 'Uszkodzenie towaru', icon: '💥' },
+  { id: 'bledny_produkt', name: 'Błędny produkt', icon: '❌' },
+  { id: 'brakujace', name: 'Brakujące elementy', icon: '🔧' },
+  { id: 'jakosc', name: 'Wady jakościowe', icon: '⚠️' },
+  { id: 'dostawa', name: 'Problem z dostawą', icon: '🚚' },
+  { id: 'inne', name: 'Inne', icon: '📋' },
+];
+
+const getComplaintType = (id) => COMPLAINT_TYPES.find(t => t.id === id) || COMPLAINT_TYPES[5];
+
 const USER_ROLES = [
   { id: 'admin', name: 'Administrator', icon: '👑' },
   { id: 'worker', name: 'Pracownik', icon: '👤' },
@@ -902,15 +935,19 @@ const SettingsModal = ({ onClose }) => {
 // ============================================
 
 const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser }) => {
-  const [editingId, setEditingId] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [view, setView] = useState('list'); // list, detail, form
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [newComment, setNewComment] = useState('');
+  const [resolution, setResolution] = useState('');
   const [newComplaint, setNewComplaint] = useState({
     orderId: '',
+    typ: 'uszkodzenie',
     opis: '',
-    status: 'nowa',
-    priorytet: 'normalny',
-    rozwiazanie: ''
+    wiadomoscKlienta: '',
+    oczekiwaniaKlienta: '',
+    zdjecia: [],
+    priorytet: 'normalny'
   });
 
   const filteredComplaints = filter === 'all' 
@@ -926,179 +963,448 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     const complaint = {
       ...newComplaint,
       numer: generateComplaintNumber(complaints),
+      orderId: newComplaint.orderId,
       nrZamowienia: order?.nrWlasny || '',
       klient: order?.klient?.imie || '',
+      status: 'nowa',
       dataUtworzenia: new Date().toISOString(),
       utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name },
+      komentarze: [],
       historia: [{ data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Utworzono reklamację' }]
     };
     await onSave(complaint);
-    setNewComplaint({ orderId: '', opis: '', status: 'nowa', priorytet: 'normalny', rozwiazanie: '' });
-    setShowAddForm(false);
+    setNewComplaint({ orderId: '', typ: 'uszkodzenie', opis: '', wiadomoscKlienta: '', oczekiwaniaKlienta: '', zdjecia: [], priorytet: 'normalny' });
+    setView('list');
   };
 
   const handleStatusChange = async (complaint, newStatus) => {
-    await onSave({
+    const updated = {
       ...complaint,
       status: newStatus,
+      ...(newStatus === 'rozwiazana' ? { dataRozwiazania: new Date().toISOString() } : {}),
       historia: [...(complaint.historia || []), { data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: `Status: ${getComplaintStatus(newStatus).name}` }]
-    }, complaint.id);
+    };
+    await onSave(updated, complaint.id);
+    if (selectedComplaint?.id === complaint.id) setSelectedComplaint(updated);
   };
 
-  const handleUpdateResolution = async (complaint, rozwiazanie) => {
-    await onSave({
-      ...complaint,
-      rozwiazanie,
-      historia: [...(complaint.historia || []), { data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Zaktualizowano rozwiązanie' }]
-    }, complaint.id);
-    setEditingId(null);
+  const handleResolve = async () => {
+    if (!selectedComplaint || !resolution.trim()) return;
+    const updated = {
+      ...selectedComplaint,
+      status: 'rozwiazana',
+      rozwiazanie: resolution,
+      dataRozwiazania: new Date().toISOString(),
+      historia: [...(selectedComplaint.historia || []), { data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Rozwiązano reklamację' }]
+    };
+    await onSave(updated, selectedComplaint.id);
+    setSelectedComplaint(updated);
+    setResolution('');
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>📋 Reklamacje ({complaints.length})</h2>
-          <button className="btn-close" onClick={onClose}>×</button>
-        </div>
+  const handleAddComment = async () => {
+    if (!selectedComplaint || !newComment.trim()) return;
+    const updated = {
+      ...selectedComplaint,
+      komentarze: [...(selectedComplaint.komentarze || []), {
+        id: Date.now(),
+        tekst: newComment,
+        data: new Date().toISOString(),
+        autor: currentUser.name
+      }]
+    };
+    await onSave(updated, selectedComplaint.id);
+    setSelectedComplaint(updated);
+    setNewComment('');
+  };
 
-        <div className="modal-body">
-          {/* Filtry i przycisk dodaj */}
-          <div className="complaints-toolbar">
-            <div className="complaints-filters">
-              <button className={`filter-btn small ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-                Wszystkie ({complaints.length})
-              </button>
-              {COMPLAINT_STATUSES.map(s => (
-                <button
-                  key={s.id}
-                  className={`filter-btn small ${filter === s.id ? 'active' : ''}`}
-                  style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
-                  onClick={() => setFilter(s.id)}
-                >
-                  {s.icon} {complaints.filter(c => c.status === s.id).length}
-                </button>
-              ))}
-            </div>
-            <button className="btn-primary" onClick={() => setShowAddForm(true)}>➕ Nowa reklamacja</button>
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setNewComplaint(prev => ({
+          ...prev,
+          zdjecia: [...prev.zdjecia, { id: Date.now() + Math.random(), url: reader.result, nazwa: file.name }]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const selectedOrder = newComplaint.orderId ? orders.find(o => o.id === newComplaint.orderId) : null;
+  const complaintOrder = selectedComplaint?.orderId ? orders.find(o => o.id === selectedComplaint.orderId) : null;
+
+  // ========== WIDOK LISTY ==========
+  if (view === 'list') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>📋 Reklamacje ({complaints.filter(c => !['rozwiazana', 'odrzucona'].includes(c.status)).length} aktywnych)</h2>
+            <button className="btn-close" onClick={onClose}>×</button>
           </div>
-
-          {/* Formularz dodawania */}
-          {showAddForm && (
-            <div className="complaint-add-form">
-              <h4>➕ Zgłoś nową reklamację</h4>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>ZAMÓWIENIE *</label>
-                  <select value={newComplaint.orderId} onChange={e => setNewComplaint({...newComplaint, orderId: e.target.value})}>
-                    <option value="">-- Wybierz zamówienie --</option>
-                    {orders.map(o => (
-                      <option key={o.id} value={o.id}>{o.nrWlasny} - {o.klient?.imie}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>PRIORYTET</label>
-                  <select value={newComplaint.priorytet} onChange={e => setNewComplaint({...newComplaint, priorytet: e.target.value})}>
-                    <option value="niski">🟢 Niski</option>
-                    <option value="normalny">🟡 Normalny</option>
-                    <option value="wysoki">🔴 Wysoki</option>
-                  </select>
-                </div>
+          <div className="modal-body">
+            <div className="complaints-toolbar">
+              <div className="complaints-filters">
+                <button className={`filter-chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+                  Wszystkie ({complaints.length})
+                </button>
+                {COMPLAINT_STATUSES.map(s => (
+                  <button
+                    key={s.id}
+                    className={`filter-chip ${filter === s.id ? 'active' : ''}`}
+                    style={filter === s.id ? { background: s.color, color: 'white' } : {}}
+                    onClick={() => setFilter(s.id)}
+                  >
+                    {s.icon} {complaints.filter(c => c.status === s.id).length}
+                  </button>
+                ))}
               </div>
-              <div className="form-group">
-                <label>OPIS REKLAMACJI *</label>
-                <textarea 
-                  value={newComplaint.opis} 
-                  onChange={e => setNewComplaint({...newComplaint, opis: e.target.value})}
-                  rows={3}
-                  placeholder="Opisz szczegółowo problem..."
-                />
-              </div>
-              <div className="form-actions">
-                <button className="btn-secondary" onClick={() => setShowAddForm(false)}>Anuluj</button>
-                <button className="btn-primary" onClick={handleAdd}>💾 Zapisz reklamację</button>
-              </div>
+              <button className="btn-primary" onClick={() => setView('form')}>➕ Nowa reklamacja</button>
             </div>
-          )}
 
-          {/* Lista reklamacji */}
-          <div className="complaints-list">
             {filteredComplaints.length === 0 ? (
               <div className="empty-state small">
                 <div className="empty-icon">📋</div>
                 <p>Brak reklamacji</p>
               </div>
             ) : (
-              filteredComplaints.map(c => {
-                const status = getComplaintStatus(c.status);
-                return (
-                  <div key={c.id} className="complaint-card">
-                    <div className="complaint-header">
-                      <div className="complaint-title">
-                        <span className="complaint-number">{c.numer}</span>
-                        <span className="complaint-order">📦 {c.nrZamowienia}</span>
-                        {c.priorytet === 'wysoki' && <span className="priority-badge high">🔴 Pilne</span>}
-                      </div>
-                      <select
-                        value={c.status}
-                        onChange={e => handleStatusChange(c, e.target.value)}
-                        className="status-select small"
-                        style={{ background: status.bgColor, color: status.color }}
-                      >
-                        {COMPLAINT_STATUSES.map(s => (
-                          <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="complaint-body">
-                      <div className="complaint-client">👤 {c.klient}</div>
-                      <div className="complaint-desc">{c.opis}</div>
-                      
-                      {editingId === c.id ? (
-                        <div className="complaint-resolution-edit">
-                          <textarea 
-                            defaultValue={c.rozwiazanie || ''}
-                            placeholder="Wpisz rozwiązanie..."
-                            rows={2}
-                            id={`resolution-${c.id}`}
-                          />
-                          <div className="form-actions">
-                            <button className="btn-small" onClick={() => setEditingId(null)}>Anuluj</button>
-                            <button className="btn-small btn-success" onClick={() => {
-                              const textarea = document.getElementById(`resolution-${c.id}`);
-                              handleUpdateResolution(c, textarea.value);
-                            }}>💾 Zapisz</button>
-                          </div>
+              <div className="complaints-grid">
+                {filteredComplaints.map(c => {
+                  const status = getComplaintStatus(c.status);
+                  const type = getComplaintType(c.typ);
+                  const daysLeft = getComplaintDaysLeft(c.dataUtworzenia);
+                  const deadline = getDeadlineStyle(daysLeft);
+                  
+                  return (
+                    <div key={c.id} className="complaint-card" onClick={() => { setSelectedComplaint(c); setView('detail'); }}>
+                      <div className="complaint-card-header">
+                        <div className="complaint-card-title">
+                          <span className="complaint-number">{c.numer}</span>
+                          <span className="status-badge small" style={{ background: status.bgColor, color: status.color }}>
+                            {status.name}
+                          </span>
+                          {c.priorytet === 'wysoki' && <span className="priority-badge high">🔴</span>}
                         </div>
-                      ) : (
-                        c.rozwiazanie && (
-                          <div className="complaint-resolution">
-                            <strong>✅ Rozwiązanie:</strong> {c.rozwiazanie}
-                          </div>
-                        )
-                      )}
-                    </div>
-
-                    <div className="complaint-footer">
-                      <span className="complaint-date">📅 {formatDateTime(c.dataUtworzenia)} • {c.utworzonePrzez?.nazwa}</span>
-                      <div className="complaint-actions">
-                        <button className="btn-small" onClick={() => setEditingId(c.id)}>✏️ Rozwiązanie</button>
-                        <button className="btn-small btn-danger" onClick={() => {
-                          if (window.confirm('Usunąć reklamację?')) onDelete(c.id);
-                        }}>🗑️</button>
+                        {!['rozwiazana', 'odrzucona'].includes(c.status) && deadline && (
+                          <span className={`deadline-badge ${deadline.urgent ? 'blink' : ''}`} style={{ background: deadline.bg, color: deadline.color }}>
+                            ⏰ {deadline.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="complaint-card-body">
+                        <div className="complaint-type">{type.icon} {type.name}</div>
+                        <div className="complaint-order">📦 {c.nrZamowienia}</div>
+                        <div className="complaint-client">👤 {c.klient}</div>
+                        <p className="complaint-desc-preview">{c.opis}</p>
+                        {c.zdjecia?.length > 0 && <div className="complaint-photos-count">📷 {c.zdjecia.length} zdjęć</div>}
+                      </div>
+                      <div className="complaint-card-footer">
+                        <span>📅 {formatDate(c.dataUtworzenia)}</span>
+                        <span>💬 {c.komentarze?.length || 0}</span>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ========== FORMULARZ NOWEJ REKLAMACJI ==========
+  if (view === 'form') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>➕ Nowa reklamacja</h2>
+            <button className="btn-close" onClick={() => setView('list')}>×</button>
+          </div>
+          <div className="modal-body">
+            <div className="complaint-form-layout">
+              <div className="complaint-form-main">
+                <div className="form-section">
+                  <h3>📦 Wybierz zamówienie</h3>
+                  <div className="form-group">
+                    <label>ZAMÓWIENIE *</label>
+                    <select value={newComplaint.orderId} onChange={e => setNewComplaint({...newComplaint, orderId: e.target.value})}>
+                      <option value="">-- Wybierz zamówienie --</option>
+                      {orders.map(o => (
+                        <option key={o.id} value={o.id}>{o.nrWlasny} - {o.klient?.imie} - {o.towar?.substring(0, 30)}...</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-section">
+                  <h3>📋 Szczegóły reklamacji</h3>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>TYP REKLAMACJI *</label>
+                      <select value={newComplaint.typ} onChange={e => setNewComplaint({...newComplaint, typ: e.target.value})}>
+                        {COMPLAINT_TYPES.map(t => (
+                          <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>PRIORYTET</label>
+                      <select value={newComplaint.priorytet} onChange={e => setNewComplaint({...newComplaint, priorytet: e.target.value})}>
+                        <option value="niski">🟢 Niski</option>
+                        <option value="normalny">🟡 Normalny</option>
+                        <option value="wysoki">🔴 Wysoki</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>OPIS PROBLEMU *</label>
+                    <textarea value={newComplaint.opis} onChange={e => setNewComplaint({...newComplaint, opis: e.target.value})} rows={4} placeholder="Opisz szczegółowo problem..." />
+                  </div>
+                </div>
+
+                <div className="form-section">
+                  <h3>💬 Wiadomość od klienta</h3>
+                  <div className="form-group">
+                    <label>TREŚĆ WIADOMOŚCI KLIENTA</label>
+                    <textarea value={newComplaint.wiadomoscKlienta} onChange={e => setNewComplaint({...newComplaint, wiadomoscKlienta: e.target.value})} rows={3} placeholder="Wklej lub przepisz wiadomość od klienta..." />
+                  </div>
+                  <div className="form-group">
+                    <label>OCZEKIWANIA KLIENTA</label>
+                    <textarea value={newComplaint.oczekiwaniaKlienta} onChange={e => setNewComplaint({...newComplaint, oczekiwaniaKlienta: e.target.value})} rows={2} placeholder="Czego oczekuje klient? (zwrot, wymiana, naprawa...)" />
+                  </div>
+                </div>
+
+                <div className="form-section">
+                  <h3>📷 Zdjęcia od klienta</h3>
+                  <div className="photos-upload-area">
+                    {newComplaint.zdjecia.map(photo => (
+                      <div key={photo.id} className="photo-thumb">
+                        <img src={photo.url} alt="Reklamacja" />
+                        <button className="photo-remove" onClick={() => setNewComplaint({...newComplaint, zdjecia: newComplaint.zdjecia.filter(p => p.id !== photo.id)})}>×</button>
+                      </div>
+                    ))}
+                    <label className="photo-add-btn">
+                      📷 Dodaj
+                      <input type="file" accept="image/*" multiple style={{display: 'none'}} onChange={handlePhotoUpload} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="complaint-form-sidebar">
+                <h4>📦 Podgląd zamówienia</h4>
+                {selectedOrder ? (
+                  <div className="order-preview-card">
+                    <div className="order-preview-header">
+                      <span className="country-flag">{getCountry(selectedOrder.kraj)?.flag}</span>
+                      <span className="order-number">{selectedOrder.nrWlasny}</span>
+                    </div>
+                    <p className="order-preview-product">{selectedOrder.towar}</p>
+                    <div className="order-preview-details">
+                      <div className="detail-row"><span className="detail-label">Klient:</span><span>{selectedOrder.klient?.imie || '—'}</span></div>
+                      <div className="detail-row"><span className="detail-label">Telefon:</span><span>{selectedOrder.klient?.telefon || '—'}</span></div>
+                      <div className="detail-row"><span className="detail-label">Adres:</span><span>{selectedOrder.klient?.adres || '—'}</span></div>
+                      <div className="detail-row"><span className="detail-label">Cena:</span><span>{formatCurrency(selectedOrder.platnosci?.cenaCalkowita, selectedOrder.platnosci?.waluta)}</span></div>
+                      <div className="detail-row"><span className="detail-label">Status:</span><span>{getStatus(selectedOrder.status)?.name}</span></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="order-preview-empty">Wybierz zamówienie aby zobaczyć szczegóły</div>
+                )}
+                <div className="deadline-info-box">
+                  <strong>⏰ Termin rozpatrzenia</strong>
+                  <p>Masz 14 dni na rozpatrzenie reklamacji od momentu jej utworzenia.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button className="btn-secondary" onClick={() => setView('list')}>← Wróć</button>
+            <button className="btn-primary" onClick={handleAdd}>✅ Utwórz reklamację</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== SZCZEGÓŁY REKLAMACJI ==========
+  if (view === 'detail' && selectedComplaint) {
+    const status = getComplaintStatus(selectedComplaint.status);
+    const type = getComplaintType(selectedComplaint.typ);
+    const daysLeft = getComplaintDaysLeft(selectedComplaint.dataUtworzenia);
+    const deadline = getDeadlineStyle(daysLeft);
+
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <div className="complaint-detail-header">
+              <h2>📋 {selectedComplaint.numer}</h2>
+              <span className="status-badge" style={{ background: status.bgColor, color: status.color }}>{status.name}</span>
+              {!['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) && deadline && (
+                <span className={`deadline-badge ${deadline.urgent ? 'blink' : ''}`} style={{ background: deadline.bg, color: deadline.color }}>⏰ {deadline.label}</span>
+              )}
+            </div>
+            <button className="btn-close" onClick={() => setView('list')}>×</button>
+          </div>
+          <div className="modal-body">
+            <div className="complaint-detail-layout">
+              <div className="complaint-detail-main">
+                {/* Opis reklamacji */}
+                <div className="detail-section-card">
+                  <div className="detail-section-header">
+                    <h4>{type.icon} {type.name}</h4>
+                    <select value={selectedComplaint.status} onChange={e => handleStatusChange(selectedComplaint, e.target.value)} className="status-select" style={{ background: status.bgColor, color: status.color }}>
+                      {COMPLAINT_STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                    </select>
+                  </div>
+                  <p className="detail-description">{selectedComplaint.opis}</p>
+                  
+                  {selectedComplaint.wiadomoscKlienta && (
+                    <div className="detail-expectations customer-message">
+                      <strong>💬 Wiadomość od klienta:</strong>
+                      <p>{selectedComplaint.wiadomoscKlienta}</p>
+                    </div>
+                  )}
+                  
+                  {selectedComplaint.oczekiwaniaKlienta && (
+                    <div className="detail-expectations">
+                      <strong>Oczekiwania klienta:</strong>
+                      <p>{selectedComplaint.oczekiwaniaKlienta}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Zdjęcia */}
+                {selectedComplaint.zdjecia?.length > 0 && (
+                  <div className="detail-section-card">
+                    <h4>📷 Zdjęcia ({selectedComplaint.zdjecia.length})</h4>
+                    <div className="photos-grid">
+                      {selectedComplaint.zdjecia.map(photo => (
+                        <div key={photo.id} className="photo-item">
+                          <img src={photo.url} alt="Reklamacja" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rozwiązanie */}
+                {selectedComplaint.status === 'rozwiazana' && selectedComplaint.rozwiazanie ? (
+                  <div className="detail-section-card resolution-section">
+                    <h4>✅ Rozwiązanie</h4>
+                    <p className="detail-description">{selectedComplaint.rozwiazanie}</p>
+                    <span className="resolution-date">Rozwiązano: {formatDateTime(selectedComplaint.dataRozwiazania)}</span>
+                  </div>
+                ) : !['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) && (
+                  <div className="detail-section-card">
+                    <h4>✅ Rozwiąż reklamację</h4>
+                    <div className="resolve-form">
+                      <textarea value={resolution} onChange={e => setResolution(e.target.value)} placeholder="Opisz rozwiązanie reklamacji..." rows={3} />
+                      <button className="btn-success" onClick={handleResolve} disabled={!resolution.trim()}>✅ Oznacz jako rozwiązaną</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Komentarze */}
+                <div className="detail-section-card">
+                  <h4>💬 Komentarze ({selectedComplaint.komentarze?.length || 0})</h4>
+                  <div className="comments-list">
+                    {(selectedComplaint.komentarze || []).map(comment => (
+                      <div key={comment.id} className="comment-item">
+                        <div className="comment-header">
+                          <strong>{comment.autor}</strong>
+                          <span>{formatDateTime(comment.data)}</span>
+                        </div>
+                        <p>{comment.tekst}</p>
+                      </div>
+                    ))}
+                    {(!selectedComplaint.komentarze || selectedComplaint.komentarze.length === 0) && (
+                      <p className="no-comments">Brak komentarzy</p>
+                    )}
+                  </div>
+                  <div className="comment-form">
+                    <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Dodaj komentarz..." rows={2} />
+                    <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()}>➕</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="complaint-detail-sidebar">
+                {/* Zamówienie */}
+                <div className="sidebar-card">
+                  <h4>📦 Zamówienie</h4>
+                  {complaintOrder ? (
+                    <div className="sidebar-info">
+                      <div className="info-row"><strong>{getCountry(complaintOrder.kraj)?.flag} {complaintOrder.nrWlasny}</strong></div>
+                      <div className="info-row info-product"><span className="info-label">Produkt:</span>{complaintOrder.towar}</div>
+                      <div className="info-row"><span className="info-label">Status:</span>
+                        <span className="status-badge small" style={{ background: getStatus(complaintOrder.status)?.bgColor, color: getStatus(complaintOrder.status)?.color }}>
+                          {getStatus(complaintOrder.status)?.icon} {getStatus(complaintOrder.status)?.name}
+                        </span>
+                      </div>
+                      <div className="info-row"><span className="info-label">Cena:</span><strong>{formatCurrency(complaintOrder.platnosci?.cenaCalkowita, complaintOrder.platnosci?.waluta)}</strong></div>
+                    </div>
+                  ) : (
+                    <p className="no-data">Zamówienie usunięte</p>
+                  )}
+                </div>
+
+                {/* Klient */}
+                {complaintOrder?.klient && (
+                  <div className="sidebar-card">
+                    <h4>👤 Klient</h4>
+                    <div className="sidebar-info">
+                      <div className="info-row"><strong>{complaintOrder.klient.imie}</strong></div>
+                      {complaintOrder.klient.telefon && <div className="info-row"><a href={`tel:${complaintOrder.klient.telefon}`}>📞 {complaintOrder.klient.telefon}</a></div>}
+                      {complaintOrder.klient.email && <div className="info-row"><a href={`mailto:${complaintOrder.klient.email}`}>✉️ {complaintOrder.klient.email}</a></div>}
+                      {complaintOrder.klient.adres && <div className="info-row info-address">📍 {complaintOrder.klient.adres}</div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Termin */}
+                <div className={`sidebar-card ${['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) ? 'resolved' : deadline?.urgent ? 'urgent' : 'warning'}`}>
+                  <h4>⏰ Termin</h4>
+                  <div className="sidebar-info">
+                    <div className="info-row deadline-status">
+                      <strong>
+                        {['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) ? '✅ Zakończona' : daysLeft <= 0 ? '⚠️ Termin minął!' : `Pozostało ${daysLeft} dni`}
+                      </strong>
+                    </div>
+                    <div className="info-row info-date">Utworzono: {formatDate(selectedComplaint.dataUtworzenia)}</div>
+                    {selectedComplaint.dataRozwiazania && <div className="info-row info-date resolved">Rozwiązano: {formatDate(selectedComplaint.dataRozwiazania)}</div>}
+                  </div>
+                </div>
+
+                {/* Priorytet */}
+                <div className="sidebar-card">
+                  <h4>⚡ Priorytet</h4>
+                  <span className={`priority-tag ${selectedComplaint.priorytet}`}>
+                    {selectedComplaint.priorytet === 'wysoki' ? '🔴 Wysoki' : selectedComplaint.priorytet === 'normalny' ? '🟡 Normalny' : '🟢 Niski'}
+                  </span>
+                </div>
+
+                {/* Usuń */}
+                <button className="btn-danger btn-full" onClick={() => { if (window.confirm('Usunąć reklamację?')) { onDelete(selectedComplaint.id); setView('list'); } }}>
+                  🗑️ Usuń reklamację
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button className="btn-secondary" onClick={() => setView('list')}>← Wróć do listy</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 // ============================================
@@ -1140,7 +1446,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
-  const urgency = getUrgencyStyle(days);
+  // Nie pokazuj migającego powiadomienia dla zamówień w transporcie, dostarczonych lub odebranych
+  const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane'].includes(order.status);
+  const urgency = showUrgency ? getUrgencyStyle(days) : null;
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
 
