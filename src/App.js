@@ -5,6 +5,7 @@ import {
   subscribeToProducers, addProducer, updateProducer, deleteProducer,
   subscribeToNotifications, addNotification, updateNotification, deleteNotification,
   subscribeToComplaints, addComplaint, updateComplaint, deleteComplaint,
+  subscribeToLeads, addLead, updateLead, deleteLead,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -1204,10 +1205,11 @@ const SettingsModal = ({ onClose }) => {
 const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser, onAddNotification }) => {
   const [view, setView] = useState('list'); // list, detail, form
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [editingComplaint, setEditingComplaint] = useState(null); // Do edycji
   const [filter, setFilter] = useState('all');
   const [newComment, setNewComment] = useState('');
   const [resolution, setResolution] = useState('');
-  const [newComplaint, setNewComplaint] = useState({
+  const [formData, setFormData] = useState({
     orderId: '',
     typ: 'uszkodzenie',
     opis: '',
@@ -1216,6 +1218,41 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     zdjecia: [],
     priorytet: 'normalny'
   });
+
+  // Reset formularza
+  const resetForm = () => {
+    setFormData({
+      orderId: '',
+      typ: 'uszkodzenie',
+      opis: '',
+      wiadomoscKlienta: '',
+      oczekiwaniaKlienta: '',
+      zdjecia: [],
+      priorytet: 'normalny'
+    });
+    setEditingComplaint(null);
+  };
+
+  // Otwórz formularz do edycji
+  const openEditForm = (complaint) => {
+    setEditingComplaint(complaint);
+    setFormData({
+      orderId: complaint.orderId || '',
+      typ: complaint.typ || 'uszkodzenie',
+      opis: complaint.opis || '',
+      wiadomoscKlienta: complaint.wiadomoscKlienta || '',
+      oczekiwaniaKlienta: complaint.oczekiwaniaKlienta || '',
+      zdjecia: complaint.zdjecia || [],
+      priorytet: complaint.priorytet || 'normalny'
+    });
+    setView('form');
+  };
+
+  // Otwórz formularz nowej reklamacji
+  const openNewForm = () => {
+    resetForm();
+    setView('form');
+  };
 
   // Pobierz rolę użytkownika
   const getUserRoleLabel = (user) => {
@@ -1228,47 +1265,61 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     ? complaints 
     : complaints.filter(c => c.status === filter);
 
-  const handleAdd = async () => {
-    if (!newComplaint.orderId || !newComplaint.opis) {
+  const handleSaveComplaint = async () => {
+    if (!formData.orderId || !formData.opis) {
       alert('Wybierz zamówienie i opisz reklamację');
       return;
     }
-    const order = orders.find(o => o.id === newComplaint.orderId);
-    
-    // Określ typ użytkownika
+    const order = orders.find(o => o.id === formData.orderId);
     const userRole = getUserRoleLabel(currentUser);
     
-    const complaint = {
-      ...newComplaint,
-      numer: generateComplaintNumber(complaints),
-      orderId: newComplaint.orderId,
-      nrZamowienia: order?.nrWlasny || '',
-      klient: order?.klient?.imie || '',
-      status: 'nowa',
-      dataUtworzenia: new Date().toISOString(),
-      utworzonePrzez: { 
-        id: currentUser.id, 
-        nazwa: currentUser.name,
-        rola: currentUser.role,
-        rolaLabel: userRole
-      },
-      komentarze: [],
-      historia: [{ data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Utworzono reklamację' }]
-    };
-    await onSave(complaint);
-    
-    // Wyślij powiadomienie
-    if (onAddNotification) {
-      await onAddNotification({
-        icon: '📋',
-        title: `Nowa reklamacja: ${complaint.numer}`,
-        message: `Dodana przez: ${currentUser.name} (${userRole}) | Zamówienie: ${order?.nrWlasny || 'brak'} | Klient: ${order?.klient?.imie || 'brak'}`,
-        complaintId: null, // ID zostanie nadane przez Firebase
-        type: 'complaint'
-      });
+    if (editingComplaint) {
+      // EDYCJA istniejącej reklamacji
+      const updated = {
+        ...editingComplaint,
+        ...formData,
+        nrZamowienia: order?.nrWlasny || editingComplaint.nrZamowienia,
+        klient: order?.klient?.imie || editingComplaint.klient,
+        historia: [
+          ...(editingComplaint.historia || []), 
+          { data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Edytowano reklamację' }
+        ]
+      };
+      await onSave(updated, editingComplaint.id);
+    } else {
+      // NOWA reklamacja
+      const complaint = {
+        ...formData,
+        numer: generateComplaintNumber(complaints),
+        orderId: formData.orderId,
+        nrZamowienia: order?.nrWlasny || '',
+        klient: order?.klient?.imie || '',
+        status: 'nowa',
+        dataUtworzenia: new Date().toISOString(),
+        utworzonePrzez: { 
+          id: currentUser.id, 
+          nazwa: currentUser.name,
+          rola: currentUser.role,
+          rolaLabel: userRole
+        },
+        komentarze: [],
+        historia: [{ data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Utworzono reklamację' }]
+      };
+      await onSave(complaint);
+      
+      // Wyślij powiadomienie
+      if (onAddNotification) {
+        await onAddNotification({
+          icon: '📋',
+          title: `Nowa reklamacja: ${complaint.numer}`,
+          message: `Dodana przez: ${currentUser.name} (${userRole}) | Zamówienie: ${order?.nrWlasny || 'brak'} | Klient: ${order?.klient?.imie || 'brak'}`,
+          complaintId: null,
+          type: 'complaint'
+        });
+      }
     }
     
-    setNewComplaint({ orderId: '', typ: 'uszkodzenie', opis: '', wiadomoscKlienta: '', oczekiwaniaKlienta: '', zdjecia: [], priorytet: 'normalny' });
+    resetForm();
     setView('list');
   };
 
@@ -1318,7 +1369,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     files.forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
-        setNewComplaint(prev => ({
+        setFormData(prev => ({
           ...prev,
           zdjecia: [...prev.zdjecia, { id: Date.now() + Math.random(), url: reader.result, nazwa: file.name }]
         }));
@@ -1327,7 +1378,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     });
   };
 
-  const selectedOrder = newComplaint.orderId ? orders.find(o => o.id === newComplaint.orderId) : null;
+  const selectedOrder = formData.orderId ? orders.find(o => o.id === formData.orderId) : null;
   const complaintOrder = selectedComplaint?.orderId ? orders.find(o => o.id === selectedComplaint.orderId) : null;
 
   // ========== WIDOK LISTY ==========
@@ -1356,7 +1407,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   </button>
                 ))}
               </div>
-              <button className="btn-primary" onClick={() => setView('form')}>➕ Nowa reklamacja</button>
+              <button className="btn-primary" onClick={openNewForm}>➕ Nowa reklamacja</button>
             </div>
 
             {filteredComplaints.length === 0 ? (
@@ -1411,14 +1462,14 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     );
   }
 
-  // ========== FORMULARZ NOWEJ REKLAMACJI ==========
+  // ========== FORMULARZ NOWEJ/EDYCJI REKLAMACJI ==========
   if (view === 'form') {
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>➕ Nowa reklamacja</h2>
-            <button className="btn-close" onClick={() => setView('list')}>×</button>
+            <h2>{editingComplaint ? '✏️ Edytuj reklamację' : '➕ Nowa reklamacja'}</h2>
+            <button className="btn-close" onClick={() => { resetForm(); setView('list'); }}>×</button>
           </div>
           <div className="modal-body">
             <div className="complaint-form-layout">
@@ -1427,7 +1478,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   <h3>📦 Wybierz zamówienie</h3>
                   <div className="form-group">
                     <label>ZAMÓWIENIE *</label>
-                    <select value={newComplaint.orderId} onChange={e => setNewComplaint({...newComplaint, orderId: e.target.value})}>
+                    <select value={formData.orderId} onChange={e => setFormData({...formData, orderId: e.target.value})}>
                       <option value="">-- Wybierz zamówienie --</option>
                       {orders.map(o => (
                         <option key={o.id} value={o.id}>{o.nrWlasny} - {o.klient?.imie} - {o.towar?.substring(0, 30)}...</option>
@@ -1441,7 +1492,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   <div className="form-row">
                     <div className="form-group">
                       <label>TYP REKLAMACJI *</label>
-                      <select value={newComplaint.typ} onChange={e => setNewComplaint({...newComplaint, typ: e.target.value})}>
+                      <select value={formData.typ} onChange={e => setFormData({...formData, typ: e.target.value})}>
                         {COMPLAINT_TYPES.map(t => (
                           <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
                         ))}
@@ -1449,7 +1500,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                     </div>
                     <div className="form-group">
                       <label>PRIORYTET</label>
-                      <select value={newComplaint.priorytet} onChange={e => setNewComplaint({...newComplaint, priorytet: e.target.value})}>
+                      <select value={formData.priorytet} onChange={e => setFormData({...formData, priorytet: e.target.value})}>
                         <option value="niski">🟢 Niski</option>
                         <option value="normalny">🟡 Normalny</option>
                         <option value="wysoki">🔴 Wysoki</option>
@@ -1458,7 +1509,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   </div>
                   <div className="form-group">
                     <label>OPIS PROBLEMU *</label>
-                    <textarea value={newComplaint.opis} onChange={e => setNewComplaint({...newComplaint, opis: e.target.value})} rows={4} placeholder="Opisz szczegółowo problem..." />
+                    <textarea value={formData.opis} onChange={e => setFormData({...formData, opis: e.target.value})} rows={4} placeholder="Opisz szczegółowo problem..." />
                   </div>
                 </div>
 
@@ -1466,21 +1517,21 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   <h3>💬 Wiadomość od klienta</h3>
                   <div className="form-group">
                     <label>TREŚĆ WIADOMOŚCI KLIENTA</label>
-                    <textarea value={newComplaint.wiadomoscKlienta} onChange={e => setNewComplaint({...newComplaint, wiadomoscKlienta: e.target.value})} rows={3} placeholder="Wklej lub przepisz wiadomość od klienta..." />
+                    <textarea value={formData.wiadomoscKlienta} onChange={e => setFormData({...formData, wiadomoscKlienta: e.target.value})} rows={3} placeholder="Wklej lub przepisz wiadomość od klienta..." />
                   </div>
                   <div className="form-group">
                     <label>OCZEKIWANIA KLIENTA</label>
-                    <textarea value={newComplaint.oczekiwaniaKlienta} onChange={e => setNewComplaint({...newComplaint, oczekiwaniaKlienta: e.target.value})} rows={2} placeholder="Czego oczekuje klient? (zwrot, wymiana, naprawa...)" />
+                    <textarea value={formData.oczekiwaniaKlienta} onChange={e => setFormData({...formData, oczekiwaniaKlienta: e.target.value})} rows={2} placeholder="Czego oczekuje klient? (zwrot, wymiana, naprawa...)" />
                   </div>
                 </div>
 
                 <div className="form-section">
                   <h3>📷 Zdjęcia od klienta</h3>
                   <div className="photos-upload-area">
-                    {newComplaint.zdjecia.map(photo => (
+                    {formData.zdjecia.map(photo => (
                       <div key={photo.id} className="photo-thumb">
                         <img src={photo.url} alt="Reklamacja" />
-                        <button className="photo-remove" onClick={() => setNewComplaint({...newComplaint, zdjecia: newComplaint.zdjecia.filter(p => p.id !== photo.id)})}>×</button>
+                        <button className="photo-remove" onClick={() => setFormData({...formData, zdjecia: formData.zdjecia.filter(p => p.id !== photo.id)})}>×</button>
                       </div>
                     ))}
                     <label className="photo-add-btn">
@@ -1519,8 +1570,10 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
             </div>
           </div>
           <div className="modal-footer">
-            <button className="btn-secondary" onClick={() => setView('list')}>← Wróć</button>
-            <button className="btn-primary" onClick={handleAdd}>✅ Utwórz reklamację</button>
+            <button className="btn-secondary" onClick={() => { resetForm(); setView('list'); }}>← Wróć</button>
+            <button className="btn-primary" onClick={handleSaveComplaint}>
+              {editingComplaint ? '💾 Zapisz zmiany' : '✅ Utwórz reklamację'}
+            </button>
           </div>
         </div>
       </div>
@@ -1696,6 +1749,9 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                 </div>
 
                 {/* Usuń */}
+                <button className="btn-primary btn-full" onClick={() => openEditForm(selectedComplaint)} style={{ marginBottom: '10px' }}>
+                  ✏️ Edytuj reklamację
+                </button>
                 <button className="btn-danger btn-full" onClick={() => { if (window.confirm('Usunąć reklamację?')) { onDelete(selectedComplaint.id); setView('list'); } }}>
                   🗑️ Usuń reklamację
                 </button>
@@ -2304,6 +2360,423 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 };
 
 // ============================================
+// PANEL ZAINTERESOWANYCH KLIENTÓW (Leads)
+// ============================================
+
+const LEAD_STATUSES = [
+  { id: 'nowy', name: 'Nowy', icon: '🆕', color: '#3B82F6', bgColor: '#DBEAFE' },
+  { id: 'w_kontakcie', name: 'W kontakcie', icon: '💬', color: '#8B5CF6', bgColor: '#EDE9FE' },
+  { id: 'zainteresowany', name: 'Zainteresowany', icon: '⭐', color: '#F59E0B', bgColor: '#FEF3C7' },
+  { id: 'negocjacje', name: 'Negocjacje', icon: '🤝', color: '#10B981', bgColor: '#D1FAE5' },
+  { id: 'zamowil', name: 'Zamówił', icon: '✅', color: '#059669', bgColor: '#A7F3D0' },
+  { id: 'rezygnacja', name: 'Rezygnacja', icon: '❌', color: '#EF4444', bgColor: '#FEE2E2' },
+  { id: 'pozniej', name: 'Wróci później', icon: '⏰', color: '#6B7280', bgColor: '#F3F4F6' }
+];
+
+const LEAD_SOURCES = [
+  { id: 'facebook', name: 'Facebook', icon: '📘' },
+  { id: 'instagram', name: 'Instagram', icon: '📸' },
+  { id: 'telefon', name: 'Telefon', icon: '📞' },
+  { id: 'email', name: 'Email', icon: '📧' },
+  { id: 'polecenie', name: 'Polecenie', icon: '👥' },
+  { id: 'inny', name: 'Inny', icon: '📍' }
+];
+
+const getLeadStatus = (id) => LEAD_STATUSES.find(s => s.id === id) || LEAD_STATUSES[0];
+const getLeadSource = (id) => LEAD_SOURCES.find(s => s.id === id) || LEAD_SOURCES[0];
+
+const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertToOrder }) => {
+  const [view, setView] = useState('list');
+  const [filter, setFilter] = useState('active'); // active, all, zamowil, rezygnacja
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingLead, setEditingLead] = useState(null);
+  const [formData, setFormData] = useState({
+    imie: '',
+    telefon: '',
+    email: '',
+    facebookUrl: '',
+    zrodlo: 'facebook',
+    produkty: '',
+    szacowanaKwota: '',
+    waluta: 'PLN',
+    notatki: '',
+    przypomnienie: '',
+    priorytet: 'normalny'
+  });
+
+  const resetForm = () => {
+    setFormData({
+      imie: '', telefon: '', email: '', facebookUrl: '', zrodlo: 'facebook',
+      produkty: '', szacowanaKwota: '', waluta: 'PLN', notatki: '', przypomnienie: '', priorytet: 'normalny'
+    });
+    setEditingLead(null);
+  };
+
+  const openEditForm = (lead) => {
+    setEditingLead(lead);
+    setFormData({
+      imie: lead.imie || '',
+      telefon: lead.telefon || '',
+      email: lead.email || '',
+      facebookUrl: lead.facebookUrl || '',
+      zrodlo: lead.zrodlo || 'facebook',
+      produkty: lead.produkty || '',
+      szacowanaKwota: lead.szacowanaKwota || '',
+      waluta: lead.waluta || 'PLN',
+      notatki: lead.notatki || '',
+      przypomnienie: lead.przypomnienie || '',
+      priorytet: lead.priorytet || 'normalny'
+    });
+    setView('form');
+  };
+
+  const handleSave = async () => {
+    if (!formData.imie.trim()) {
+      alert('Podaj imię/nazwę klienta');
+      return;
+    }
+
+    if (editingLead) {
+      await onSave({
+        ...editingLead,
+        ...formData,
+        ostatniaAktualizacja: new Date().toISOString(),
+        historia: [...(editingLead.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: currentUser.name,
+          akcja: 'Zaktualizowano dane'
+        }]
+      }, editingLead.id);
+    } else {
+      await onSave({
+        ...formData,
+        status: 'nowy',
+        dataUtworzenia: new Date().toISOString(),
+        ostatniaAktualizacja: new Date().toISOString(),
+        utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name },
+        historia: [{ data: new Date().toISOString(), uzytkownik: currentUser.name, akcja: 'Utworzono' }],
+        kontakty: []
+      });
+    }
+    resetForm();
+    setView('list');
+  };
+
+  const handleStatusChange = async (lead, newStatus) => {
+    await onSave({
+      ...lead,
+      status: newStatus,
+      ostatniaAktualizacja: new Date().toISOString(),
+      historia: [...(lead.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: `Status: ${getLeadStatus(newStatus).name}`
+      }]
+    }, lead.id);
+  };
+
+  const addContact = async (lead, note) => {
+    if (!note.trim()) return;
+    await onSave({
+      ...lead,
+      ostatniaAktualizacja: new Date().toISOString(),
+      kontakty: [...(lead.kontakty || []), {
+        id: Date.now(),
+        data: new Date().toISOString(),
+        notatka: note,
+        autor: currentUser.name
+      }]
+    }, lead.id);
+  };
+
+  // Filtrowanie
+  const filteredLeads = leads.filter(l => {
+    if (filter === 'active' && ['zamowil', 'rezygnacja'].includes(l.status)) return false;
+    if (filter === 'zamowil' && l.status !== 'zamowil') return false;
+    if (filter === 'rezygnacja' && l.status !== 'rezygnacja') return false;
+    
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const hay = [l.imie, l.telefon, l.email, l.produkty, l.notatki].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    // Sortuj po przypomnieniu (najbliższe najpierw), potem po priorytecie
+    if (a.przypomnienie && !b.przypomnienie) return -1;
+    if (!a.przypomnienie && b.przypomnienie) return 1;
+    if (a.przypomnienie && b.przypomnienie) return new Date(a.przypomnienie) - new Date(b.przypomnienie);
+    if (a.priorytet === 'wysoki' && b.priorytet !== 'wysoki') return -1;
+    if (a.priorytet !== 'wysoki' && b.priorytet === 'wysoki') return 1;
+    return new Date(b.ostatniaAktualizacja) - new Date(a.ostatniaAktualizacja);
+  });
+
+  // Statystyki
+  const stats = {
+    total: leads.length,
+    active: leads.filter(l => !['zamowil', 'rezygnacja'].includes(l.status)).length,
+    hot: leads.filter(l => l.priorytet === 'wysoki' && !['zamowil', 'rezygnacja'].includes(l.status)).length,
+    converted: leads.filter(l => l.status === 'zamowil').length,
+    totalValue: leads.filter(l => !['rezygnacja'].includes(l.status)).reduce((sum, l) => sum + (parseFloat(l.szacowanaKwota) || 0), 0)
+  };
+
+  // Przypomnienia na dziś
+  const todayReminders = leads.filter(l => {
+    if (!l.przypomnienie || ['zamowil', 'rezygnacja'].includes(l.status)) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return l.przypomnienie <= today;
+  });
+
+  // ========== LISTA ==========
+  if (view === 'list') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>🎯 Zainteresowani klienci ({stats.active} aktywnych)</h2>
+            <button className="btn-close" onClick={onClose}>×</button>
+          </div>
+
+          <div className="leads-stats">
+            <div className="lead-stat-card">
+              <span className="lead-stat-icon">📊</span>
+              <div className="lead-stat-content">
+                <span className="lead-stat-value">{stats.total}</span>
+                <span className="lead-stat-label">Wszystkich</span>
+              </div>
+            </div>
+            <div className="lead-stat-card hot">
+              <span className="lead-stat-icon">🔥</span>
+              <div className="lead-stat-content">
+                <span className="lead-stat-value">{stats.hot}</span>
+                <span className="lead-stat-label">Gorących</span>
+              </div>
+            </div>
+            <div className="lead-stat-card success">
+              <span className="lead-stat-icon">✅</span>
+              <div className="lead-stat-content">
+                <span className="lead-stat-value">{stats.converted}</span>
+                <span className="lead-stat-label">Zamówiło</span>
+              </div>
+            </div>
+            <div className="lead-stat-card value">
+              <span className="lead-stat-icon">💰</span>
+              <div className="lead-stat-content">
+                <span className="lead-stat-value">{formatCurrency(stats.totalValue, 'PLN')}</span>
+                <span className="lead-stat-label">Potencjał</span>
+              </div>
+            </div>
+          </div>
+
+          {todayReminders.length > 0 && (
+            <div className="leads-reminders-bar">
+              <span className="reminder-icon">⏰</span>
+              <span>Masz <strong>{todayReminders.length}</strong> przypomnienie(ń) na dziś!</span>
+            </div>
+          )}
+
+          <div className="leads-toolbar">
+            <div className="leads-filters">
+              <button className={`filter-chip ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>
+                🎯 Aktywni ({stats.active})
+              </button>
+              <button className={`filter-chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+                📋 Wszyscy ({stats.total})
+              </button>
+              <button className={`filter-chip ${filter === 'zamowil' ? 'active' : ''}`} onClick={() => setFilter('zamowil')}>
+                ✅ Zamówili ({stats.converted})
+              </button>
+              <button className={`filter-chip ${filter === 'rezygnacja' ? 'active' : ''}`} onClick={() => setFilter('rezygnacja')}>
+                ❌ Rezygnacja
+              </button>
+            </div>
+            <div className="leads-search">
+              <input 
+                type="text" 
+                placeholder="🔍 Szukaj..." 
+                value={searchQuery} 
+                onChange={e => setSearchQuery(e.target.value)} 
+              />
+            </div>
+            <button className="btn-primary" onClick={() => { resetForm(); setView('form'); }}>➕ Dodaj</button>
+          </div>
+
+          <div className="modal-body">
+            {filteredLeads.length === 0 ? (
+              <div className="empty-state small">
+                <div className="empty-icon">🎯</div>
+                <p>Brak zainteresowanych klientów</p>
+              </div>
+            ) : (
+              <div className="leads-grid">
+                {filteredLeads.map(lead => {
+                  const status = getLeadStatus(lead.status);
+                  const source = getLeadSource(lead.zrodlo);
+                  const hasReminder = lead.przypomnienie && lead.przypomnienie <= new Date().toISOString().split('T')[0];
+                  
+                  return (
+                    <div key={lead.id} className={`lead-card ${hasReminder ? 'has-reminder' : ''} ${lead.priorytet === 'wysoki' ? 'hot' : ''}`}>
+                      <div className="lead-card-header">
+                        <div className="lead-card-title">
+                          <span className="lead-name">{lead.imie}</span>
+                          {lead.priorytet === 'wysoki' && <span className="hot-badge">🔥</span>}
+                        </div>
+                        <select 
+                          value={lead.status} 
+                          onChange={e => handleStatusChange(lead, e.target.value)}
+                          className="lead-status-select"
+                          style={{ background: status.bgColor, color: status.color }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {LEAD_STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="lead-card-body" onClick={() => openEditForm(lead)}>
+                        <div className="lead-source">
+                          <span>{source.icon} {source.name}</span>
+                          {lead.szacowanaKwota && (
+                            <span className="lead-value">💰 {formatCurrency(parseFloat(lead.szacowanaKwota), lead.waluta)}</span>
+                          )}
+                        </div>
+                        
+                        {lead.produkty && <p className="lead-products">📦 {lead.produkty}</p>}
+                        
+                        <div className="lead-contacts">
+                          {lead.telefon && <a href={`tel:${lead.telefon}`} onClick={e => e.stopPropagation()}>📞 {lead.telefon}</a>}
+                          {lead.facebookUrl && (
+                            <a href={lead.facebookUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                              📘 Facebook
+                            </a>
+                          )}
+                        </div>
+
+                        {hasReminder && (
+                          <div className="lead-reminder-badge">
+                            ⏰ Przypomnienie: {formatDate(lead.przypomnienie)}
+                          </div>
+                        )}
+
+                        {lead.kontakty?.length > 0 && (
+                          <div className="lead-last-contact">
+                            💬 Ostatni kontakt: {formatDate(lead.kontakty[lead.kontakty.length - 1].data)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="lead-card-footer">
+                        <span>📅 {formatDate(lead.dataUtworzenia)}</span>
+                        <span>👤 {lead.utworzonePrzez?.nazwa}</span>
+                        <div className="lead-actions">
+                          <button className="btn-icon" onClick={() => openEditForm(lead)} title="Edytuj">✏️</button>
+                          {lead.status !== 'zamowil' && (
+                            <button className="btn-icon btn-success-small" onClick={() => onConvertToOrder(lead)} title="Utwórz zamówienie">📦</button>
+                          )}
+                          <button className="btn-icon btn-delete-small" onClick={() => { if(window.confirm('Usunąć?')) onDelete(lead.id); }} title="Usuń">🗑️</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== FORMULARZ ==========
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{editingLead ? '✏️ Edytuj klienta' : '➕ Nowy zainteresowany'}</h2>
+          <button className="btn-close" onClick={() => { resetForm(); setView('list'); }}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group">
+              <label>IMIĘ / NAZWA *</label>
+              <input value={formData.imie} onChange={e => setFormData({...formData, imie: e.target.value})} placeholder="Jan Kowalski" />
+            </div>
+            <div className="form-group">
+              <label>ŹRÓDŁO</label>
+              <select value={formData.zrodlo} onChange={e => setFormData({...formData, zrodlo: e.target.value})}>
+                {LEAD_SOURCES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>TELEFON</label>
+              <input value={formData.telefon} onChange={e => setFormData({...formData, telefon: e.target.value})} placeholder="+48 123 456 789" />
+            </div>
+            <div className="form-group">
+              <label>EMAIL</label>
+              <input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="email@example.com" />
+            </div>
+            <div className="form-group full">
+              <label>LINK DO FACEBOOK / MESSENGER</label>
+              <input value={formData.facebookUrl} onChange={e => setFormData({...formData, facebookUrl: e.target.value})} placeholder="https://facebook.com/..." />
+            </div>
+            <div className="form-group full">
+              <label>CZYM JEST ZAINTERESOWANY</label>
+              <textarea value={formData.produkty} onChange={e => setFormData({...formData, produkty: e.target.value})} rows={3} placeholder="Opisz produkty, które interesują klienta..." />
+            </div>
+            <div className="form-group">
+              <label>SZACOWANA KWOTA</label>
+              <input type="number" value={formData.szacowanaKwota} onChange={e => setFormData({...formData, szacowanaKwota: e.target.value})} placeholder="0" />
+            </div>
+            <div className="form-group">
+              <label>WALUTA</label>
+              <select value={formData.waluta} onChange={e => setFormData({...formData, waluta: e.target.value})}>
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>PRIORYTET</label>
+              <select value={formData.priorytet} onChange={e => setFormData({...formData, priorytet: e.target.value})}>
+                <option value="niski">🟢 Niski</option>
+                <option value="normalny">🟡 Normalny</option>
+                <option value="wysoki">🔴 Wysoki (gorący lead)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>PRZYPOMNIENIE</label>
+              <input type="date" value={formData.przypomnienie} onChange={e => setFormData({...formData, przypomnienie: e.target.value})} />
+            </div>
+            <div className="form-group full">
+              <label>NOTATKI</label>
+              <textarea value={formData.notatki} onChange={e => setFormData({...formData, notatki: e.target.value})} rows={3} placeholder="Dodatkowe informacje..." />
+            </div>
+          </div>
+
+          {editingLead && editingLead.kontakty?.length > 0 && (
+            <div className="form-section">
+              <h3>💬 Historia kontaktów</h3>
+              <div className="contacts-timeline">
+                {editingLead.kontakty.map(c => (
+                  <div key={c.id} className="contact-item">
+                    <span className="contact-date">{formatDateTime(c.data)}</span>
+                    <span className="contact-author">{c.autor}</span>
+                    <p className="contact-note">{c.notatka}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={() => { resetForm(); setView('list'); }}>← Wróć</button>
+          <button className="btn-primary" onClick={handleSave}>
+            {editingLead ? '💾 Zapisz zmiany' : '✅ Dodaj klienta'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // PANEL STATYSTYK MIESIĘCZNYCH (tylko admin)
 // ============================================
 
@@ -2865,7 +3338,10 @@ const App = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showComplaintsPanel, setShowComplaintsPanel] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
+  const [showLeadsPanel, setShowLeadsPanel] = useState(false);
   const [emailModal, setEmailModal] = useState(null);
+  const [popupNotification, setPopupNotification] = useState(null);
+  const [leads, setLeads] = useState([]);
 
   const prevNotifCount = useRef(0);
 
@@ -2922,6 +3398,7 @@ const App = () => {
     const unsubProducers = subscribeToProducers(setProducers);
     const unsubNotifs = subscribeToNotifications(setNotifications);
     const unsubComplaints = subscribeToComplaints(setComplaints);
+    const unsubLeads = subscribeToLeads(setLeads);
 
     const savedUser = localStorage.getItem('herratonUser');
     if (savedUser) {
@@ -2937,15 +3414,26 @@ const App = () => {
       unsubProducers();
       unsubNotifs();
       unsubComplaints();
-      unsubNotifs();
+      unsubLeads();
       clearInterval(ratesInterval);
     };
   }, []);
 
+  // Popup dla nowych powiadomień
   useEffect(() => {
     const unresolved = notifications.filter(n => !n.resolved).length;
-    if (unresolved > prevNotifCount.current) {
-      playNotificationSound();
+    if (unresolved > prevNotifCount.current && notifications.length > 0) {
+      // Pobierz najnowsze powiadomienie
+      const newest = notifications
+        .filter(n => !n.resolved)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      
+      if (newest) {
+        setPopupNotification(newest);
+        playNotificationSound();
+        // Automatycznie ukryj po 5 sekundach
+        setTimeout(() => setPopupNotification(null), 5000);
+      }
     }
     prevNotifCount.current = unresolved;
   }, [notifications]);
@@ -3071,6 +3559,51 @@ const App = () => {
     await deleteComplaint(id);
   };
 
+  // Handlery leads (zainteresowani)
+  const handleSaveLead = async (lead, id = null) => {
+    if (id) {
+      await updateLead(id, lead);
+    } else {
+      await addLead(lead);
+    }
+  };
+
+  const handleDeleteLead = async (id) => {
+    await deleteLead(id);
+  };
+
+  const handleConvertLeadToOrder = (lead) => {
+    // Zamknij panel leads
+    setShowLeadsPanel(false);
+    // Otwórz formularz zamówienia z danymi klienta
+    setEditingOrder({
+      klient: {
+        imie: lead.imie || '',
+        telefon: lead.telefon || '',
+        email: lead.email || '',
+        facebookUrl: lead.facebookUrl || ''
+      },
+      towar: lead.produkty || '',
+      platnosci: {
+        waluta: lead.waluta || 'PLN',
+        cenaCalkowita: parseFloat(lead.szacowanaKwota) || 0
+      }
+    });
+    setShowOrderModal(true);
+    
+    // Oznacz lead jako "zamówił"
+    handleSaveLead({
+      ...lead,
+      status: 'zamowil',
+      ostatniaAktualizacja: new Date().toISOString(),
+      historia: [...(lead.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: user.name,
+        akcja: 'Przekształcono w zamówienie'
+      }]
+    }, lead.id);
+  };
+
   const visibleNotifications = isContractor
     ? notifications.filter(n => n.forContractor === user?.id || (n.orderId && orders.find(o => o.id === n.orderId && o.kontrahentId === user?.id)))
     : notifications;
@@ -3153,6 +3686,12 @@ const App = () => {
             <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
               📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
             </button>
+
+            {(isAdmin || user?.role === 'worker') && (
+              <button className="btn-secondary leads-btn" onClick={() => setShowLeadsPanel(true)}>
+                🎯 Zainteresowani ({leads.filter(l => !['zamowil', 'rezygnacja'].includes(l.status)).length})
+              </button>
+            )}
 
             {isAdmin && (
               <>
@@ -3411,6 +3950,29 @@ const App = () => {
           onClose={() => setShowStatistics(false)}
           users={users}
         />
+      )}
+
+      {showLeadsPanel && (
+        <LeadsPanel
+          leads={leads}
+          onSave={handleSaveLead}
+          onDelete={handleDeleteLead}
+          onClose={() => setShowLeadsPanel(false)}
+          currentUser={user}
+          onConvertToOrder={handleConvertLeadToOrder}
+        />
+      )}
+
+      {/* POPUP POWIADOMIEŃ */}
+      {popupNotification && (
+        <div className="notification-popup" onClick={() => setPopupNotification(null)}>
+          <div className="popup-icon">{popupNotification.icon || '🔔'}</div>
+          <div className="popup-content">
+            <div className="popup-title">{popupNotification.title}</div>
+            <div className="popup-message">{popupNotification.message}</div>
+          </div>
+          <button className="popup-close" onClick={() => setPopupNotification(null)}>×</button>
+        </div>
       )}
     </div>
   );
