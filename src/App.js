@@ -1985,21 +1985,21 @@ const App = () => {
 
         <div className="filters">
           <div className="filter-buttons">
-            <button onClick={() => setFilter('all')} className={`filter-btn with-label ${filter === 'all' ? 'active' : ''}`}>
-              <span className="filter-icon">📋</span>
-              <span className="filter-count">{visibleOrders.length}</span>
-              <span className="filter-label">Wszystkie</span>
+            <button onClick={() => setFilter('all')} className={`status-filter-btn ${filter === 'all' ? 'active' : ''}`}>
+              <span className="sf-icon">📋</span>
+              <span className="sf-count">{visibleOrders.length}</span>
+              <span className="sf-label">Wszystkie</span>
             </button>
             {STATUSES.map(s => (
               <button
                 key={s.id}
                 onClick={() => setFilter(s.id)}
-                className={`filter-btn with-label ${filter === s.id ? 'active' : ''}`}
+                className={`status-filter-btn ${filter === s.id ? 'active' : ''}`}
                 style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
               >
-                <span className="filter-icon">{s.icon}</span>
-                <span className="filter-count">{visibleOrders.filter(o => o.status === s.id).length}</span>
-                <span className="filter-label">{s.name.split(' ')[0]}</span>
+                <span className="sf-icon">{s.icon}</span>
+                <span className="sf-count">{visibleOrders.filter(o => o.status === s.id).length}</span>
+                <span className="sf-label">{s.name.split(' ')[0]}</span>
               </button>
             ))}
           </div>
