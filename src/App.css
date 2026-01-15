@@ -1008,3 +1008,270 @@ label.btn-driver input[type="file"] {
     width: 100%;
   }
 }
+/* ============================================
+   DODATKOWE STYLE v3 - dodaj na końcu App.css
+   ============================================ */
+
+/* Filtry z podpisami */
+.filter-btn.with-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  min-width: 70px;
+  gap: 2px;
+}
+
+.filter-btn .filter-icon {
+  font-size: 16px;
+}
+
+.filter-btn .filter-count {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.filter-btn .filter-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .filter-btn.with-label {
+    min-width: 50px;
+    padding: 6px 8px;
+  }
+  
+  .filter-btn .filter-count {
+    font-size: 14px;
+  }
+  
+  .filter-btn .filter-label {
+    font-size: 7px;
+  }
+}
+
+/* Przyciski zdjęć - aparat i galeria */
+.photo-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.photo-buttons .btn-driver {
+  flex: 1;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.btn-driver.camera {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+  color: white !important;
+}
+
+.btn-driver.gallery {
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
+  color: white !important;
+}
+
+/* Panel reklamacji */
+.modal-large {
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
+}
+
+.complaints-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.complaints-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.complaint-add-form {
+  background: #F8FAFC;
+  border: 2px dashed #CBD5E1;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.complaint-add-form h4 {
+  margin-bottom: 12px;
+  color: #475569;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.complaints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.complaint-card {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px;
+  transition: box-shadow 0.2s;
+}
+
+.complaint-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.complaint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.complaint-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.complaint-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.complaint-order {
+  font-size: 12px;
+  color: #64748B;
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.priority-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.priority-badge.high {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.complaint-body {
+  margin-bottom: 10px;
+}
+
+.complaint-client {
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 6px;
+}
+
+.complaint-desc {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.complaint-resolution {
+  background: #ECFDF5;
+  border-left: 3px solid #10B981;
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  color: #065F46;
+}
+
+.complaint-resolution-edit {
+  margin-top: 8px;
+}
+
+.complaint-resolution-edit textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.complaint-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.complaint-date {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+.complaint-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.complaint-btn {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+  color: white !important;
+}
+
+.empty-state.small {
+  padding: 30px;
+}
+
+.empty-state.small .empty-icon {
+  font-size: 40px;
+}
+
+/* Status select mały */
+.status-select.small {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+/* Responsywność */
+@media (max-width: 600px) {
+  .complaints-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .complaint-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .complaint-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .photo-buttons {
+    flex-direction: column;
+  }
+}
