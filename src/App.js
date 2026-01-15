@@ -2011,7 +2011,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
 // ============================================
 
 const EmailModal = ({ order, producer, onClose }) => {
-  const body = `Dzień dobry,\n\nPytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${formatDate(order.dataOdbioru)}.\n\nOpis: ${order.towar}\n\nZ poważaniem`;
+  const body = `Dzień dobry, chciała bym się zapytać\n\no zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${formatDate(order.dataOdbioru)}.\n\nOpis: ${order.towar}\n\nZ poważaniem Karolina`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
