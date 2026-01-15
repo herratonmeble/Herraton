@@ -1476,3 +1476,430 @@ label.btn-driver input[type="file"] {
   
   .stat-value { font-size: 22px; }
 }
+
+/* ============================================
+   REKLAMACJE - ROZBUDOWANE STYLE
+   ============================================ */
+
+/* Filtry chip */
+.filter-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: #F1F5F9;
+  color: #64748B;
+  transition: all 0.2s;
+}
+.filter-chip:hover { background: #E2E8F0; }
+.filter-chip.active { background: #1E1B4B; color: white; }
+
+/* Grid reklamacji */
+.complaints-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Karta reklamacji - lista */
+.complaint-card {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.complaint-card:hover {
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.complaint-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+.complaint-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.complaint-card-body { margin-bottom: 12px; }
+.complaint-type { font-size: 13px; color: #475569; margin-bottom: 4px; }
+.complaint-order { font-size: 12px; color: #6366F1; margin-bottom: 2px; }
+.complaint-client { font-size: 13px; color: #1E293B; font-weight: 500; margin-bottom: 8px; }
+.complaint-desc-preview {
+  font-size: 12px;
+  color: #64748B;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.complaint-photos-count { font-size: 11px; color: #6366F1; margin-top: 8px; }
+.complaint-card-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94A3B8;
+  padding-top: 12px;
+  border-top: 1px solid #F1F5F9;
+}
+
+/* Deadline badge */
+.deadline-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Layout formularza reklamacji */
+.complaint-form-layout {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 24px;
+}
+.complaint-form-main { }
+.complaint-form-sidebar { }
+
+/* Podgląd zamówienia */
+.order-preview-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+}
+.order-preview-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #94A3B8;
+  background: #F8FAFC;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.order-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.order-preview-product {
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.order-preview-details .detail-row {
+  display: flex;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.order-preview-details .detail-label {
+  color: #94A3B8;
+  width: 70px;
+  flex-shrink: 0;
+}
+
+/* Info box terminu */
+.deadline-info-box {
+  margin-top: 16px;
+  padding: 12px;
+  background: #FEF3C7;
+  border-radius: 8px;
+  border: 1px solid #FDE68A;
+}
+.deadline-info-box strong {
+  color: #B45309;
+  font-size: 12px;
+  display: block;
+  margin-bottom: 4px;
+}
+.deadline-info-box p {
+  font-size: 12px;
+  color: #92400E;
+  margin: 0;
+}
+
+/* Upload zdjęć */
+.photos-upload-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.photo-thumb {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-add-btn {
+  width: 100px;
+  height: 100px;
+  border: 2px dashed #CBD5E1;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #F8FAFC;
+  color: #64748B;
+  font-size: 12px;
+  text-align: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+.photo-add-btn:hover { border-color: #6366F1; color: #6366F1; }
+
+/* Szczegóły reklamacji - header */
+.complaint-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Layout szczegółów */
+.complaint-detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+.complaint-detail-main { }
+.complaint-detail-sidebar { }
+
+/* Sekcje szczegółów */
+.detail-section-card {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.detail-section-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #475569;
+}
+.detail-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.detail-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1E293B;
+}
+.detail-expectations {
+  background: #F8FAFC;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.detail-expectations.customer-message {
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+}
+.detail-expectations strong {
+  font-size: 11px;
+  color: #64748B;
+  display: block;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.detail-expectations p {
+  font-size: 13px;
+  color: #1E293B;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Rozwiązanie */
+.resolution-section {
+  background: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+}
+.resolution-section h4 { color: #059669 !important; }
+.resolution-date {
+  font-size: 11px;
+  color: #64748B;
+  display: block;
+  margin-top: 8px;
+}
+.resolve-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  font-family: inherit;
+  resize: vertical;
+}
+.btn-success {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Komentarze */
+.comments-list { margin-bottom: 16px; }
+.comment-item {
+  background: #F8FAFC;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.comment-header strong { color: #1E293B; }
+.comment-header span { color: #94A3B8; }
+.comment-item p { font-size: 13px; color: #475569; margin: 0; }
+.no-comments { color: #94A3B8; font-size: 13px; font-style: italic; }
+.comment-form {
+  display: flex;
+  gap: 12px;
+}
+.comment-form textarea {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 13px;
+  resize: none;
+  font-family: inherit;
+}
+
+/* Sidebar */
+.sidebar-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.sidebar-card h4 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #64748B;
+  text-transform: uppercase;
+}
+.sidebar-card.resolved { background: #D1FAE5; border-color: #A7F3D0; }
+.sidebar-card.resolved h4 { color: #059669; }
+.sidebar-card.urgent { background: #FEE2E2; border-color: #FECACA; }
+.sidebar-card.urgent h4 { color: #DC2626; }
+.sidebar-card.warning { background: #FEF3C7; border-color: #FDE68A; }
+.sidebar-card.warning h4 { color: #B45309; }
+
+.sidebar-info { font-size: 13px; }
+.info-row { margin-bottom: 6px; color: #1E293B; }
+.info-row a { color: #6366F1; text-decoration: none; }
+.info-row a:hover { text-decoration: underline; }
+.info-label { color: #94A3B8; font-size: 11px; display: block; }
+.info-product { font-size: 12px; margin-top: 8px; }
+.info-address { font-size: 12px; color: #64748B; margin-top: 6px; }
+.info-date { font-size: 11px; color: #64748B; }
+.info-date.resolved { color: #059669; }
+.deadline-status strong { font-size: 14px; }
+.no-data { color: #94A3B8; font-size: 13px; }
+
+/* Priority tag */
+.priority-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.priority-tag.wysoki { background: #FEE2E2; color: #DC2626; }
+.priority-tag.normalny { background: #FEF3C7; color: #D97706; }
+.priority-tag.niski { background: #D1FAE5; color: #059669; }
+
+/* Przycisk danger pełny */
+.btn-danger {
+  padding: 12px 20px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-danger:hover { background: #FECACA; }
+
+/* Zdjęcia grid */
+.photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.photo-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.photo-item:hover { transform: scale(1.05); }
+.photo-item img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* ============================================
+   RESPONSYWNOŚĆ REKLAMACJI
+   ============================================ */
+@media (max-width: 1024px) {
+  .complaint-form-layout { grid-template-columns: 1fr; }
+  .complaint-detail-layout { grid-template-columns: 1fr; }
+  .complaint-form-sidebar { order: -1; }
+  .complaint-detail-sidebar { order: -1; }
+}
+
+@media (max-width: 768px) {
+  .complaints-grid { grid-template-columns: 1fr; }
+  .complaints-toolbar { flex-direction: column; gap: 12px; }
+  .complaints-filters { flex-wrap: wrap; justify-content: center; }
+}
