@@ -3512,3 +3512,239 @@ input.margin-negative {
     padding: 14px;
   }
 }
+
+/* ============================================
+   ROZBUDOWANY PANEL ZAINTERESOWANYCH
+   ============================================ */
+
+/* Przypisanie pracownika */
+.lead-assigned {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #EEF2FF;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #4338CA;
+}
+
+/* Powiązane zamówienie na karcie */
+.lead-linked-order {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+  border-radius: 8px;
+  border: 1px solid #10B981;
+  font-size: 12px;
+  color: #059669;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lead-linked-order:hover {
+  background: linear-gradient(135deg, #A7F3D0, #6EE7B7);
+}
+.view-order-hint {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* Ilość notatek */
+.contact-count {
+  font-size: 10px;
+  color: #94A3B8;
+  margin-left: 6px;
+}
+
+/* Stopka karty */
+.lead-footer-info {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+/* WIDOK SZCZEGÓŁOWY */
+.lead-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.lead-detail-section {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px;
+}
+.lead-detail-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #1E293B;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #E2E8F0;
+}
+.lead-detail-section p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+/* Sekcja przypisania */
+.assignment-section {
+  background: #EEF2FF;
+}
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.assignment-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #C7D2FE;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* Sekcja powiązanego zamówienia */
+.linked-order-section {
+  background: #D1FAE5;
+}
+.linked-order-card {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.linked-order-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.linked-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.linked-order-header .order-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: #059669;
+}
+.linked-order-header .order-status {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.btn-view-order {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Sekcja notatek */
+.notes-section {
+  background: #FEF3C7;
+}
+.add-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.add-note-form textarea {
+  border: 2px solid #F59E0B;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+}
+.empty-notes {
+  text-align: center;
+  color: #94A3B8;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* Historia kontaktów */
+.contacts-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.contact-item {
+  background: white;
+  border-radius: 10px;
+  padding: 12px;
+  border-left: 4px solid #3B82F6;
+}
+.contact-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.contact-date {
+  color: #64748B;
+}
+.contact-author {
+  color: #3B82F6;
+  font-weight: 600;
+}
+.contact-note {
+  margin: 0;
+  font-size: 14px;
+  color: #1E293B;
+  white-space: pre-wrap;
+}
+
+/* Historia zmian */
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.history-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.history-date {
+  color: #94A3B8;
+  min-width: 130px;
+}
+.history-user {
+  color: #3B82F6;
+  font-weight: 600;
+  min-width: 100px;
+}
+.history-action {
+  color: #475569;
+}
+
+/* Przycisk sukcesu */
+.btn-success {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+}
