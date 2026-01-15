@@ -624,13 +624,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     return Math.round(inPLN / rateTo * 100) / 100;
   };
 
-  // Wyliczenie marży (prawidłowe)
+  // Wyliczenie marży - ZAWSZE W PLN
   const calcMarza = () => {
     const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
     const vatRate = form.koszty?.vatRate || 23;
     const vatMultiplier = 1 + vatRate / 100;
     
-    // Cena netto od klienta
+    // Cena netto od klienta (w oryginalnej walucie)
     const cenaNetto = cenaBrutto / vatMultiplier;
     
     // Koszty zakupu w walucie kosztów
@@ -641,30 +641,29 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     const transportNetto = form.koszty?.transportNetto || 0;
     const transportWaluta = form.koszty?.transportWaluta || 'PLN';
     
-    // Konwertuj wszystko do PLN dla porównania
+    // Konwertuj WSZYSTKO do PLN
+    const cenaBruttoPLN = convertToPLN(cenaBrutto, form.platnosci?.waluta);
+    const cenaNettoPLN = convertToPLN(cenaNetto, form.platnosci?.waluta);
     const zakupNettoPLN = convertToPLN(zakupNetto, kosztWaluta);
     const transportNettoPLN = convertToPLN(transportNetto, transportWaluta);
-    const cenaNettoPLN = convertToPLN(cenaNetto, form.platnosci?.waluta);
     
     // Marża w PLN
     const marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
-    
-    // Konwertuj do waluty sprzedaży dla wyświetlenia
-    const zakupNettoConverted = convertToSalesCurrency(zakupNetto, kosztWaluta);
-    const transportNettoConverted = convertToSalesCurrency(transportNetto, transportWaluta);
+    const marzaProcentowa = cenaNettoPLN > 0 ? Math.round(marzaPLN / cenaNettoPLN * 100) : 0;
     
     return {
       cenaBrutto,
       cenaNetto: Math.round(cenaNetto * 100) / 100,
-      zakupNetto: zakupNettoConverted,
+      cenaBruttoPLN: Math.round(cenaBruttoPLN * 100) / 100,
+      cenaNettoPLN: Math.round(cenaNettoPLN * 100) / 100,
       zakupNettoOriginal: zakupNetto,
+      zakupNettoPLN: Math.round(zakupNettoPLN * 100) / 100,
       zakupWaluta: kosztWaluta,
-      transportNetto: transportNettoConverted,
       transportNettoOriginal: transportNetto,
+      transportNettoPLN: Math.round(transportNettoPLN * 100) / 100,
       transportWaluta: transportWaluta,
-      marza: Math.round((cenaNetto - zakupNettoConverted - transportNettoConverted) * 100) / 100,
       marzaPLN: Math.round(marzaPLN * 100) / 100,
-      marzaProcentowa: cenaNetto > 0 ? Math.round((cenaNetto - zakupNettoConverted - transportNettoConverted) / cenaNetto * 100) : 0
+      marzaProcentowa
     };
   };
 
@@ -903,35 +902,45 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 <div className="margin-breakdown">
                   <div className="margin-item">
                     <span className="margin-label">Cena od klienta (brutto)</span>
-                    <span className="margin-value">{formatCurrency(calcMarza().cenaBrutto, form.platnosci?.waluta)}</span>
+                    <span className="margin-value">
+                      {formatCurrency(calcMarza().cenaBrutto, form.platnosci?.waluta)}
+                      {form.platnosci?.waluta !== 'PLN' && (
+                        <small className="converted"> = {formatCurrency(calcMarza().cenaBruttoPLN, 'PLN')}</small>
+                      )}
+                    </span>
                   </div>
                   <div className="margin-item">
                     <span className="margin-label">Cena od klienta (netto po VAT {form.koszty?.vatRate || 23}%)</span>
-                    <span className="margin-value">{formatCurrency(calcMarza().cenaNetto, form.platnosci?.waluta)}</span>
+                    <span className="margin-value">
+                      {formatCurrency(calcMarza().cenaNetto, form.platnosci?.waluta)}
+                      {form.platnosci?.waluta !== 'PLN' && (
+                        <small className="converted"> = {formatCurrency(calcMarza().cenaNettoPLN, 'PLN')}</small>
+                      )}
+                    </span>
                   </div>
                   <div className="margin-item subtract">
                     <span className="margin-label">− Koszt towaru (netto)</span>
                     <span className="margin-value">
-                      {formatCurrency(calcMarza().zakupNetto, form.platnosci?.waluta)}
-                      {form.koszty?.waluta !== form.platnosci?.waluta && calcMarza().zakupNettoOriginal > 0 && (
-                        <small className="converted"> (z {formatCurrency(calcMarza().zakupNettoOriginal, form.koszty?.waluta)})</small>
+                      {formatCurrency(calcMarza().zakupNettoOriginal, form.koszty?.waluta)}
+                      {form.koszty?.waluta !== 'PLN' && (
+                        <small className="converted"> = {formatCurrency(calcMarza().zakupNettoPLN, 'PLN')}</small>
                       )}
                     </span>
                   </div>
                   <div className="margin-item subtract">
                     <span className="margin-label">− Transport (netto)</span>
                     <span className="margin-value">
-                      {formatCurrency(calcMarza().transportNetto, form.platnosci?.waluta)}
-                      {form.koszty?.transportWaluta !== form.platnosci?.waluta && calcMarza().transportNettoOriginal > 0 && (
-                        <small className="converted"> (z {formatCurrency(calcMarza().transportNettoOriginal, form.koszty?.transportWaluta)})</small>
+                      {formatCurrency(calcMarza().transportNettoOriginal, form.koszty?.transportWaluta)}
+                      {form.koszty?.transportWaluta !== 'PLN' && (
+                        <small className="converted"> = {formatCurrency(calcMarza().transportNettoPLN, 'PLN')}</small>
                       )}
                     </span>
                   </div>
                 </div>
-                <div className={`margin-total ${calcMarza().marza >= 0 ? 'positive' : 'negative'}`}>
-                  <span className="margin-label">= MARŻA NETTO</span>
+                <div className={`margin-total ${calcMarza().marzaPLN >= 0 ? 'positive' : 'negative'}`}>
+                  <span className="margin-label">= MARŻA NETTO (PLN)</span>
                   <span className="margin-value">
-                    {formatCurrency(calcMarza().marza, form.platnosci?.waluta)}
+                    {formatCurrency(calcMarza().marzaPLN, 'PLN')}
                     <span className="margin-percent">({calcMarza().marzaProcentowa}%)</span>
                   </span>
                 </div>
@@ -2287,8 +2296,11 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 // PANEL STATYSTYK MIESIĘCZNYCH (tylko admin)
 // ============================================
 
-const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
+const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [creatorFilter, setCreatorFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('monthly'); // monthly, countries, creators
   
   const MONTHS = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
                   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
@@ -2299,45 +2311,48 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
     return (amount || 0) * (exchangeRates[currency] || 1);
   };
 
-  // Oblicz statystyki dla miesiąca
-  const getMonthStats = (month, year) => {
-    const monthOrders = orders.filter(o => {
+  // Filtruj zamówienia
+  const getFilteredOrders = () => {
+    return orders.filter(o => {
       const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
-      return date.getMonth() === month && date.getFullYear() === year;
+      if (date.getFullYear() !== selectedYear) return false;
+      if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
+      if (creatorFilter !== 'all') {
+        const creatorId = o.utworzonePrzez?.oddzial || o.kontrahentId;
+        if (creatorId !== creatorFilter) return false;
+      }
+      return true;
     });
+  };
 
+  // Oblicz statystyki z tablicy zamówień
+  const calcStatsFromOrders = (ordersList) => {
     let obrotBrutto = 0;
     let obrotNetto = 0;
     let kosztTowaru = 0;
     let kosztTransportu = 0;
-    let marza = 0;
     
-    monthOrders.forEach(order => {
+    ordersList.forEach(order => {
       const vatRate = order.koszty?.vatRate || 23;
       const vatMultiplier = 1 + vatRate / 100;
       
-      // Obrót (cena od klienta)
       const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
       const cenaBruttoPLN = convertToPLN(cenaBrutto, order.platnosci?.waluta);
       obrotBrutto += cenaBruttoPLN;
       obrotNetto += cenaBruttoPLN / vatMultiplier;
       
-      // Koszt towaru
       const zakupNetto = order.koszty?.zakupNetto || 0;
-      const zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
-      kosztTowaru += zakupNettoPLN;
+      kosztTowaru += convertToPLN(zakupNetto, order.koszty?.waluta);
       
-      // Koszt transportu
       const transportNetto = order.koszty?.transportNetto || 0;
-      const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta);
-      kosztTransportu += transportNettoPLN;
+      kosztTransportu += convertToPLN(transportNetto, order.koszty?.transportWaluta);
     });
 
-    marza = obrotNetto - kosztTowaru - kosztTransportu;
+    const marza = obrotNetto - kosztTowaru - kosztTransportu;
     const marzaProc = obrotNetto > 0 ? (marza / obrotNetto * 100) : 0;
 
     return {
-      zamowienia: monthOrders.length,
+      zamowienia: ordersList.length,
       obrotBrutto: Math.round(obrotBrutto * 100) / 100,
       obrotNetto: Math.round(obrotNetto * 100) / 100,
       kosztTowaru: Math.round(kosztTowaru * 100) / 100,
@@ -2347,24 +2362,75 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
     };
   };
 
+  // Oblicz statystyki dla miesiąca
+  const getMonthStats = (month) => {
+    const filteredOrders = getFilteredOrders();
+    const monthOrders = filteredOrders.filter(o => {
+      const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
+      return date.getMonth() === month;
+    });
+    return calcStatsFromOrders(monthOrders);
+  };
+
   // Dane dla wszystkich miesięcy
   const monthlyData = MONTHS.map((name, index) => ({
     name,
     shortName: name.substring(0, 3),
-    ...getMonthStats(index, selectedYear)
+    ...getMonthStats(index)
   }));
 
-  // Podsumowanie roczne
-  const yearSummary = monthlyData.reduce((acc, m) => ({
-    zamowienia: acc.zamowienia + m.zamowienia,
-    obrotBrutto: acc.obrotBrutto + m.obrotBrutto,
-    obrotNetto: acc.obrotNetto + m.obrotNetto,
-    kosztTowaru: acc.kosztTowaru + m.kosztTowaru,
-    kosztTransportu: acc.kosztTransportu + m.kosztTransportu,
-    marza: acc.marza + m.marza
-  }), { zamowienia: 0, obrotBrutto: 0, obrotNetto: 0, kosztTowaru: 0, kosztTransportu: 0, marza: 0 });
+  // Podsumowanie roczne (z filtrami)
+  const yearSummary = calcStatsFromOrders(getFilteredOrders());
 
-  yearSummary.marzaProc = yearSummary.obrotNetto > 0 ? (yearSummary.marza / yearSummary.obrotNetto * 100) : 0;
+  // Statystyki po krajach
+  const getCountryStats = () => {
+    const filteredOrders = getFilteredOrders();
+    const countryMap = {};
+    
+    filteredOrders.forEach(o => {
+      const kraj = o.kraj || 'PL';
+      if (!countryMap[kraj]) countryMap[kraj] = [];
+      countryMap[kraj].push(o);
+    });
+
+    return Object.entries(countryMap)
+      .map(([kod, ordersList]) => {
+        const country = COUNTRIES.find(c => c.code === kod) || { code: kod, name: kod, flag: '🏳️' };
+        return {
+          kod,
+          name: country.name,
+          flag: country.flag,
+          ...calcStatsFromOrders(ordersList)
+        };
+      })
+      .sort((a, b) => b.obrotNetto - a.obrotNetto);
+  };
+
+  // Statystyki po twórcach (pracownikach/kontrahentach)
+  const getCreatorStats = () => {
+    const filteredOrders = getFilteredOrders();
+    const creatorMap = {};
+    
+    filteredOrders.forEach(o => {
+      const creatorId = o.utworzonePrzez?.oddzial || o.kontrahentId || 'unknown';
+      const creatorName = o.utworzonePrzez?.nazwa || 'Nieznany';
+      if (!creatorMap[creatorId]) {
+        creatorMap[creatorId] = { name: creatorName, orders: [] };
+      }
+      creatorMap[creatorId].orders.push(o);
+    });
+
+    return Object.entries(creatorMap)
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        ...calcStatsFromOrders(data.orders)
+      }))
+      .sort((a, b) => b.obrotNetto - a.obrotNetto);
+  };
+
+  const countryStats = getCountryStats();
+  const creatorStats = getCreatorStats();
 
   // Maksymalna wartość dla wykresu
   const maxValue = Math.max(...monthlyData.map(m => m.obrotNetto), 1);
@@ -2373,17 +2439,74 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
   const years = [...new Set(orders.map(o => new Date(o.dataZlecenia || o.utworzonePrzez?.data).getFullYear()))].sort((a, b) => b - a);
   if (!years.includes(selectedYear)) years.unshift(selectedYear);
 
+  // Dostępne kraje
+  const availableCountries = [...new Set(orders.map(o => o.kraj || 'PL'))];
+
+  // Dostępni twórcy
+  const availableCreators = [...new Set(orders.map(o => ({
+    id: o.utworzonePrzez?.oddzial || o.kontrahentId || 'unknown',
+    name: o.utworzonePrzez?.nazwa || 'Nieznany'
+  })).map(c => JSON.stringify(c)))].map(c => JSON.parse(c));
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-stats" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="stats-header-title">
             <h2>📊 Statystyki finansowe</h2>
-            <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} className="year-select">
+          </div>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        {/* FILTRY */}
+        <div className="stats-filters">
+          <div className="filter-group">
+            <label>📅 Rok:</label>
+            <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
-          <button className="btn-close" onClick={onClose}>×</button>
+          <div className="filter-group">
+            <label>🌍 Kraj:</label>
+            <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
+              <option value="all">Wszystkie kraje</option>
+              {availableCountries.map(kod => {
+                const c = COUNTRIES.find(x => x.code === kod) || { code: kod, flag: '🏳️', name: kod };
+                return <option key={kod} value={kod}>{c.flag} {c.name}</option>;
+              })}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>👤 Pracownik:</label>
+            <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}>
+              <option value="all">Wszyscy</option>
+              {availableCreators.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* ZAKŁADKI */}
+        <div className="stats-tabs">
+          <button 
+            className={`stats-tab ${activeTab === 'monthly' ? 'active' : ''}`}
+            onClick={() => setActiveTab('monthly')}
+          >
+            📅 Miesięcznie
+          </button>
+          <button 
+            className={`stats-tab ${activeTab === 'countries' ? 'active' : ''}`}
+            onClick={() => setActiveTab('countries')}
+          >
+            🌍 Kraje
+          </button>
+          <button 
+            className={`stats-tab ${activeTab === 'creators' ? 'active' : ''}`}
+            onClick={() => setActiveTab('creators')}
+          >
+            👥 Pracownicy
+          </button>
         </div>
 
         <div className="modal-body stats-body">
@@ -2392,7 +2515,7 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
             <div className="summary-card total">
               <div className="summary-icon">📈</div>
               <div className="summary-content">
-                <span className="summary-label">Obrót roczny (brutto)</span>
+                <span className="summary-label">Obrót (brutto)</span>
                 <span className="summary-value">{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</span>
               </div>
             </div>
@@ -2436,84 +2559,265 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
             </div>
           </div>
 
-          {/* WYKRES SŁUPKOWY */}
-          <div className="stats-chart-section">
-            <h3>📊 Przegląd miesięczny</h3>
-            <div className="chart-container">
-              <div className="chart-bars">
-                {monthlyData.map((m, i) => (
-                  <div key={i} className="chart-bar-group">
-                    <div className="chart-bar-container">
-                      <div 
-                        className="chart-bar obrót" 
-                        style={{ height: `${(m.obrotNetto / maxValue) * 100}%` }}
-                        title={`Obrót netto: ${formatCurrency(m.obrotNetto, 'PLN')}`}
-                      >
-                        <span className="bar-value">{m.obrotNetto > 0 ? Math.round(m.obrotNetto / 1000) + 'k' : ''}</span>
+          {/* ZAKŁADKA: MIESIĘCZNIE */}
+          {activeTab === 'monthly' && (
+            <>
+              {/* WYKRES SŁUPKOWY */}
+              <div className="stats-chart-section">
+                <h3>📊 Przegląd miesięczny {selectedYear}</h3>
+                <div className="chart-container">
+                  <div className="chart-bars">
+                    {monthlyData.map((m, i) => (
+                      <div key={i} className="chart-bar-group">
+                        <div className="chart-bar-container">
+                          <div 
+                            className="chart-bar obrot" 
+                            style={{ height: `${(m.obrotNetto / maxValue) * 100}%` }}
+                            title={`Obrót netto: ${formatCurrency(m.obrotNetto, 'PLN')}`}
+                          >
+                            <span className="bar-value">{m.obrotNetto > 0 ? Math.round(m.obrotNetto / 1000) + 'k' : ''}</span>
+                          </div>
+                          <div 
+                            className={`chart-bar marza ${m.marza >= 0 ? 'positive' : 'negative'}`}
+                            style={{ height: `${Math.abs(m.marza) / maxValue * 100}%` }}
+                            title={`Marża: ${formatCurrency(m.marza, 'PLN')}`}
+                          />
+                        </div>
+                        <span className="chart-label">{m.shortName}</span>
                       </div>
-                      <div 
-                        className={`chart-bar marza ${m.marza >= 0 ? 'positive' : 'negative'}`}
-                        style={{ height: `${Math.abs(m.marza) / maxValue * 100}%` }}
-                        title={`Marża: ${formatCurrency(m.marza, 'PLN')}`}
-                      />
+                    ))}
+                  </div>
+                  <div className="chart-legend">
+                    <span className="legend-item"><span className="legend-color obrot"></span> Obrót netto</span>
+                    <span className="legend-item"><span className="legend-color marza"></span> Marża</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TABELA MIESIĘCZNA */}
+              <div className="stats-table-section">
+                <h3>📋 Szczegółowe zestawienie miesięczne</h3>
+                <div className="stats-table-wrapper">
+                  <table className="stats-table">
+                    <thead>
+                      <tr>
+                        <th>Miesiąc</th>
+                        <th>Zamówienia</th>
+                        <th>Obrót brutto</th>
+                        <th>Obrót netto</th>
+                        <th>Koszt towaru</th>
+                        <th>Koszt transportu</th>
+                        <th>Marża</th>
+                        <th>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyData.map((m, i) => (
+                        <tr key={i} className={m.zamowienia === 0 ? 'empty' : ''}>
+                          <td className="month-name">{m.name}</td>
+                          <td className="center">{m.zamowienia}</td>
+                          <td className="money">{formatCurrency(m.obrotBrutto, 'PLN')}</td>
+                          <td className="money">{formatCurrency(m.obrotNetto, 'PLN')}</td>
+                          <td className="money expense">{formatCurrency(m.kosztTowaru, 'PLN')}</td>
+                          <td className="money expense">{formatCurrency(m.kosztTransportu, 'PLN')}</td>
+                          <td className={`money ${m.marza >= 0 ? 'profit' : 'loss'}`}>{formatCurrency(m.marza, 'PLN')}</td>
+                          <td className={`percent ${m.marza >= 0 ? 'profit' : 'loss'}`}>{m.marzaProc.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="summary-row">
+                        <td><strong>RAZEM {selectedYear}</strong></td>
+                        <td className="center"><strong>{yearSummary.zamowienia}</strong></td>
+                        <td className="money"><strong>{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</strong></td>
+                        <td className="money"><strong>{formatCurrency(yearSummary.obrotNetto, 'PLN')}</strong></td>
+                        <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</strong></td>
+                        <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</strong></td>
+                        <td className={`money ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{formatCurrency(yearSummary.marza, 'PLN')}</strong></td>
+                        <td className={`percent ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{yearSummary.marzaProc.toFixed(1)}%</strong></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ZAKŁADKA: KRAJE */}
+          {activeTab === 'countries' && (
+            <div className="stats-table-section">
+              <h3>🌍 Statystyki według krajów ({selectedYear})</h3>
+              
+              {/* Karty krajów */}
+              <div className="country-cards">
+                {countryStats.slice(0, 6).map((c, i) => (
+                  <div key={c.kod} className={`country-card ${i === 0 ? 'top' : ''}`}>
+                    <div className="country-card-header">
+                      <span className="country-flag-large">{c.flag}</span>
+                      <span className="country-name">{c.name}</span>
+                      {i === 0 && <span className="top-badge">🏆 TOP</span>}
                     </div>
-                    <span className="chart-label">{m.shortName}</span>
+                    <div className="country-card-stats">
+                      <div className="country-stat">
+                        <span className="stat-label">Zamówienia</span>
+                        <span className="stat-value">{c.zamowienia}</span>
+                      </div>
+                      <div className="country-stat">
+                        <span className="stat-label">Obrót netto</span>
+                        <span className="stat-value">{formatCurrency(c.obrotNetto, 'PLN')}</span>
+                      </div>
+                      <div className="country-stat">
+                        <span className="stat-label">Marża</span>
+                        <span className={`stat-value ${c.marza >= 0 ? 'profit' : 'loss'}`}>
+                          {formatCurrency(c.marza, 'PLN')} ({c.marzaProc.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="chart-legend">
-                <span className="legend-item"><span className="legend-color obrót"></span> Obrót netto</span>
-                <span className="legend-item"><span className="legend-color marza"></span> Marża</span>
+
+              {/* Tabela krajów */}
+              <div className="stats-table-wrapper">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th>Kraj</th>
+                      <th>Zamówienia</th>
+                      <th>Obrót brutto</th>
+                      <th>Obrót netto</th>
+                      <th>Koszt towaru</th>
+                      <th>Koszt transportu</th>
+                      <th>Marża</th>
+                      <th>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {countryStats.map((c) => (
+                      <tr key={c.kod}>
+                        <td className="country-cell">
+                          <span className="country-flag">{c.flag}</span>
+                          <span>{c.name}</span>
+                        </td>
+                        <td className="center">{c.zamowienia}</td>
+                        <td className="money">{formatCurrency(c.obrotBrutto, 'PLN')}</td>
+                        <td className="money">{formatCurrency(c.obrotNetto, 'PLN')}</td>
+                        <td className="money expense">{formatCurrency(c.kosztTowaru, 'PLN')}</td>
+                        <td className="money expense">{formatCurrency(c.kosztTransportu, 'PLN')}</td>
+                        <td className={`money ${c.marza >= 0 ? 'profit' : 'loss'}`}>{formatCurrency(c.marza, 'PLN')}</td>
+                        <td className={`percent ${c.marza >= 0 ? 'profit' : 'loss'}`}>{c.marzaProc.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="summary-row">
+                      <td><strong>RAZEM</strong></td>
+                      <td className="center"><strong>{yearSummary.zamowienia}</strong></td>
+                      <td className="money"><strong>{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</strong></td>
+                      <td className="money"><strong>{formatCurrency(yearSummary.obrotNetto, 'PLN')}</strong></td>
+                      <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</strong></td>
+                      <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</strong></td>
+                      <td className={`money ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{formatCurrency(yearSummary.marza, 'PLN')}</strong></td>
+                      <td className={`percent ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{yearSummary.marzaProc.toFixed(1)}%</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* TABELA MIESIĘCZNA */}
-          <div className="stats-table-section">
-            <h3>📋 Szczegółowe zestawienie</h3>
-            <div className="stats-table-wrapper">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th>Miesiąc</th>
-                    <th>Zamówienia</th>
-                    <th>Obrót brutto</th>
-                    <th>Obrót netto</th>
-                    <th>Koszt towaru</th>
-                    <th>Koszt transportu</th>
-                    <th>Marża</th>
-                    <th>%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthlyData.map((m, i) => (
-                    <tr key={i} className={m.zamowienia === 0 ? 'empty' : ''}>
-                      <td className="month-name">{m.name}</td>
-                      <td className="center">{m.zamowienia}</td>
-                      <td className="money">{formatCurrency(m.obrotBrutto, 'PLN')}</td>
-                      <td className="money">{formatCurrency(m.obrotNetto, 'PLN')}</td>
-                      <td className="money expense">{formatCurrency(m.kosztTowaru, 'PLN')}</td>
-                      <td className="money expense">{formatCurrency(m.kosztTransportu, 'PLN')}</td>
-                      <td className={`money ${m.marza >= 0 ? 'profit' : 'loss'}`}>{formatCurrency(m.marza, 'PLN')}</td>
-                      <td className={`percent ${m.marza >= 0 ? 'profit' : 'loss'}`}>{m.marzaProc.toFixed(1)}%</td>
+          {/* ZAKŁADKA: PRACOWNICY */}
+          {activeTab === 'creators' && (
+            <div className="stats-table-section">
+              <h3>👥 Statystyki według pracowników/kontrahentów ({selectedYear})</h3>
+              
+              {/* Karty najlepszych pracowników */}
+              <div className="creator-cards">
+                {creatorStats.slice(0, 4).map((c, i) => (
+                  <div key={c.id} className={`creator-card ${i === 0 ? 'top' : ''}`}>
+                    <div className="creator-card-header">
+                      <div className="creator-avatar">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '👤'}
+                      </div>
+                      <div className="creator-info">
+                        <span className="creator-name">{c.name}</span>
+                        <span className="creator-orders">{c.zamowienia} zamówień</span>
+                      </div>
+                    </div>
+                    <div className="creator-card-stats">
+                      <div className="creator-stat-row">
+                        <span className="stat-label">Obrót netto:</span>
+                        <span className="stat-value">{formatCurrency(c.obrotNetto, 'PLN')}</span>
+                      </div>
+                      <div className="creator-stat-row">
+                        <span className="stat-label">Marża:</span>
+                        <span className={`stat-value ${c.marza >= 0 ? 'profit' : 'loss'}`}>
+                          {formatCurrency(c.marza, 'PLN')}
+                        </span>
+                      </div>
+                      <div className="creator-stat-row">
+                        <span className="stat-label">Rentowność:</span>
+                        <span className={`stat-value ${c.marzaProc >= 20 ? 'profit' : c.marzaProc >= 0 ? '' : 'loss'}`}>
+                          {c.marzaProc.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabela pracowników */}
+              <div className="stats-table-wrapper">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Pracownik / Kontrahent</th>
+                      <th>Zamówienia</th>
+                      <th>Obrót brutto</th>
+                      <th>Obrót netto</th>
+                      <th>Koszt towaru</th>
+                      <th>Koszt transportu</th>
+                      <th>Marża</th>
+                      <th>%</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="summary-row">
-                    <td><strong>RAZEM {selectedYear}</strong></td>
-                    <td className="center"><strong>{yearSummary.zamowienia}</strong></td>
-                    <td className="money"><strong>{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</strong></td>
-                    <td className="money"><strong>{formatCurrency(yearSummary.obrotNetto, 'PLN')}</strong></td>
-                    <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</strong></td>
-                    <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</strong></td>
-                    <td className={`money ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{formatCurrency(yearSummary.marza, 'PLN')}</strong></td>
-                    <td className={`percent ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{yearSummary.marzaProc.toFixed(1)}%</strong></td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody>
+                    {creatorStats.map((c, i) => (
+                      <tr key={c.id}>
+                        <td className="center rank">
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                        </td>
+                        <td className="creator-cell">
+                          <span className="creator-name">{c.name}</span>
+                        </td>
+                        <td className="center">{c.zamowienia}</td>
+                        <td className="money">{formatCurrency(c.obrotBrutto, 'PLN')}</td>
+                        <td className="money">{formatCurrency(c.obrotNetto, 'PLN')}</td>
+                        <td className="money expense">{formatCurrency(c.kosztTowaru, 'PLN')}</td>
+                        <td className="money expense">{formatCurrency(c.kosztTransportu, 'PLN')}</td>
+                        <td className={`money ${c.marza >= 0 ? 'profit' : 'loss'}`}>{formatCurrency(c.marza, 'PLN')}</td>
+                        <td className={`percent ${c.marza >= 0 ? 'profit' : 'loss'}`}>{c.marzaProc.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="summary-row">
+                      <td></td>
+                      <td><strong>RAZEM</strong></td>
+                      <td className="center"><strong>{yearSummary.zamowienia}</strong></td>
+                      <td className="money"><strong>{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</strong></td>
+                      <td className="money"><strong>{formatCurrency(yearSummary.obrotNetto, 'PLN')}</strong></td>
+                      <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</strong></td>
+                      <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</strong></td>
+                      <td className={`money ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{formatCurrency(yearSummary.marza, 'PLN')}</strong></td>
+                      <td className={`percent ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{yearSummary.marzaProc.toFixed(1)}%</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -3074,6 +3378,7 @@ const App = () => {
           orders={orders}
           exchangeRates={exchangeRates}
           onClose={() => setShowStatistics(false)}
+          users={users}
         />
       )}
     </div>
