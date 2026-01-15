@@ -2040,3 +2040,146 @@ input.margin-negative {
   background: #FEE2E2;
   color: #DC2626;
 }
+
+/* ============================================
+   KALKULATOR KOSZTÓW I MARŻY - NOWE STYLE
+   ============================================ */
+
+/* Sekcja kosztów */
+.form-section.costs {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  border-color: #C7D2FE;
+  padding: 20px;
+}
+.form-section.costs h3 {
+  color: #4338CA;
+  margin-bottom: 16px;
+}
+
+/* Wiersz kosztów */
+.costs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Input z walutą */
+.input-with-currency {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-with-currency input {
+  width: 100%;
+  padding-right: 50px;
+}
+.input-with-currency .currency-label {
+  position: absolute;
+  right: 12px;
+  color: #64748B;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Podsumowanie marży */
+.margin-summary {
+  margin-top: 20px;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid #C7D2FE;
+}
+
+.margin-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.margin-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.margin-item .margin-label {
+  color: #475569;
+}
+.margin-item .margin-value {
+  font-weight: 600;
+  color: #1E293B;
+}
+.margin-item .margin-value small.converted {
+  font-weight: 400;
+  color: #94A3B8;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.margin-item.subtract .margin-label {
+  color: #DC2626;
+}
+.margin-item.subtract .margin-value {
+  color: #DC2626;
+}
+
+/* Suma marży */
+.margin-total {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+.margin-total.positive {
+  background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+  border: 2px solid #34D399;
+}
+.margin-total.positive .margin-label,
+.margin-total.positive .margin-value {
+  color: #059669;
+}
+.margin-total.negative {
+  background: linear-gradient(135deg, #FEE2E2, #FECACA);
+  border: 2px solid #F87171;
+}
+.margin-total.negative .margin-label,
+.margin-total.negative .margin-value {
+  color: #DC2626;
+}
+.margin-total .margin-percent {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-left: 8px;
+}
+
+/* Info o kursach walut */
+.exchange-rates-info {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  text-align: center;
+}
+.exchange-rates-info small {
+  color: #64748B;
+  font-size: 11px;
+}
+
+/* Responsywność */
+@media (max-width: 900px) {
+  .costs-row {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .margin-total {
+    flex-direction: column;
+    text-align: center;
+    gap: 4px;
+  }
+}
