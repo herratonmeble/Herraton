@@ -523,6 +523,66 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
             </div>
           )}
 
+          {/* UMOWA ODBIORU */}
+          {order.umowaOdbioru && (
+            <div className="detail-section contract-section">
+              <label>📋 PROTOKÓŁ ODBIORU TOWARU</label>
+              <div className="contract-display">
+                <div className="contract-row">
+                  <span className="contract-label">Data dostawy:</span>
+                  <span>{formatDateTime(order.umowaOdbioru.dataDostawy)}</span>
+                </div>
+                <div className="contract-row">
+                  <span className="contract-label">Godzina:</span>
+                  <span>{order.umowaOdbioru.godzinaDostawy}</span>
+                </div>
+                <div className="contract-row">
+                  <span className="contract-label">Kierowca:</span>
+                  <span>{order.umowaOdbioru.kierowca}</span>
+                </div>
+                <div className="contract-row">
+                  <span className="contract-label">Odbiorca:</span>
+                  <span>{order.umowaOdbioru.klient?.imie}</span>
+                </div>
+                <div className="contract-row">
+                  <span className="contract-label">Adres:</span>
+                  <span>{order.umowaOdbioru.klient?.adres}</span>
+                </div>
+                <div className="contract-row">
+                  <span className="contract-label">Produkt:</span>
+                  <span>{order.umowaOdbioru.produkt}</span>
+                </div>
+                {order.umowaOdbioru.uwagiKlienta ? (
+                  <div className="contract-remarks warning">
+                    <span className="contract-label">⚠️ Uwagi klienta:</span>
+                    <span>{order.umowaOdbioru.uwagiKlienta}</span>
+                  </div>
+                ) : (
+                  <div className="contract-remarks ok">
+                    <span>✅ Klient nie zgłosił uwag - produkt zaakceptowany bez zastrzeżeń</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* RABAT PRZY DOSTAWIE */}
+          {order.rabatPrzyDostawie && (
+            <div className="detail-section discount-section">
+              <label>💸 RABAT PRZY DOSTAWIE</label>
+              <div className="discount-display">
+                <div className="discount-amount">
+                  -{formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci?.waluta)}
+                </div>
+                <div className="discount-details">
+                  <p><strong>Powód:</strong> {order.rabatPrzyDostawie.powod}</p>
+                  <p><strong>Udzielony przez:</strong> {order.rabatPrzyDostawie.kierowca}</p>
+                  <p><strong>Data:</strong> {formatDateTime(order.rabatPrzyDostawie.data)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
         </div>
 
@@ -1978,12 +2038,19 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [activeTab, setActiveTab] = useState('pickup');
   const [showNotes, setShowNotes] = useState(null);
   const [showSignature, setShowSignature] = useState(null);
+  const [showDiscount, setShowDiscount] = useState(null);
   const [notes, setNotes] = useState('');
   const [estPickup, setEstPickup] = useState('');
   const [estDelivery, setEstDelivery] = useState('');
   const [photoTarget, setPhotoTarget] = useState(null);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  
+  // Nowe state dla rabatu i uwag klienta
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
+  const [clientRemarks, setClientRemarks] = useState('');
+  const [showPhotoManager, setShowPhotoManager] = useState(null);
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -2008,6 +2075,14 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     }
   };
 
+  // Statusy dostępne dla kierowcy do cofania
+  const DRIVER_STATUSES = [
+    { id: 'gotowe_do_odbioru', name: 'Gotowe do odbioru', icon: '📦' },
+    { id: 'odebrane', name: 'Odebrane', icon: '🚚' },
+    { id: 'w_transporcie', name: 'W transporcie', icon: '🚗' },
+    { id: 'dostarczone', name: 'Dostarczone', icon: '✔️' },
+  ];
+
   const changeStatus = async (order, newStatus) => {
     const statusName = getStatus(newStatus).name;
     await onUpdateOrder(order.id, {
@@ -2016,6 +2091,74 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Status: ${statusName}` }]
     });
     onAddNotification({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `Kierowca ${user.name} zmienił status na: ${statusName}`, orderId: order.id });
+  };
+
+  // Zapisz rabat
+  const saveDiscount = async () => {
+    const order = orders.find(o => o.id === showDiscount);
+    if (!order) return;
+    
+    const amount = parseFloat(discountAmount) || 0;
+    if (amount <= 0) {
+      alert('Podaj kwotę rabatu');
+      return;
+    }
+
+    const rabat = {
+      kwota: amount,
+      powod: discountReason || 'Brak podanego powodu',
+      data: new Date().toISOString(),
+      kierowca: user.name
+    };
+
+    // Aktualizuj płatności
+    const newDoZaplaty = Math.max(0, (order.platnosci?.doZaplaty || 0) - amount);
+
+    await onUpdateOrder(order.id, {
+      ...order,
+      rabatPrzyDostawie: rabat,
+      platnosci: {
+        ...order.platnosci,
+        doZaplaty: newDoZaplaty,
+        rabat: amount
+      },
+      historia: [...(order.historia || []), { 
+        data: new Date().toISOString(), 
+        uzytkownik: user.name, 
+        akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
+      }]
+    });
+
+    onAddNotification({ 
+      icon: '💸', 
+      title: `Rabat: ${order.nrWlasny}`, 
+      message: `Kierowca ${user.name} udzielił rabatu ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason}`, 
+      orderId: order.id 
+    });
+
+    setShowDiscount(null);
+    setDiscountAmount('');
+    setDiscountReason('');
+  };
+
+  // Usuń zdjęcie
+  const deletePhoto = async (orderId, type, photoIndex) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const field = type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy';
+    const photos = [...(order[field] || [])];
+    photos.splice(photoIndex, 1);
+
+    await onUpdateOrder(orderId, {
+      ...order,
+      [field]: photos,
+      historia: [...(order.historia || []), { 
+        data: new Date().toISOString(), 
+        uzytkownik: user.name, 
+        akcja: `Usunięto zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` 
+      }]
+    });
   };
 
   // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
@@ -2145,13 +2288,51 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     const order = orders.find(o => o.id === showSignature);
     if (!order) return;
     const dataUrl = canvasRef.current.toDataURL();
+    const now = new Date();
+    
+    // Tworzenie pełnej umowy odbioru
+    const umowaOdbioru = {
+      dataDostawy: now.toISOString(),
+      godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+      klient: {
+        imie: order.klient?.imie || '',
+        adres: order.klient?.adres || '',
+        telefon: order.klient?.telefon || '',
+        email: order.klient?.email || ''
+      },
+      produkt: order.towar || '',
+      nrZamowienia: order.nrWlasny || '',
+      kierowca: user.name,
+      uwagiKlienta: clientRemarks || '',
+      akceptacjaBezUwag: !clientRemarks || clientRemarks.trim() === '',
+      podpis: { url: dataUrl, timestamp: now.toISOString() },
+      trescUmowy: `Potwierdzam odbiór zamówienia nr ${order.nrWlasny}. Produkt: ${order.towar || 'brak opisu'}. ${!clientRemarks ? 'Nie zgłaszam uwag do produktu ani do dostawy.' : `Uwagi: ${clientRemarks}`}`
+    };
+
     await onUpdateOrder(order.id, {
       ...order,
-      podpisKlienta: { url: dataUrl, timestamp: new Date().toISOString(), by: user.name },
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Podpis klienta' }]
+      podpisKlienta: { url: dataUrl, timestamp: now.toISOString(), by: user.name },
+      umowaOdbioru: umowaOdbioru,
+      historia: [...(order.historia || []), { 
+        data: now.toISOString(), 
+        uzytkownik: user.name, 
+        akcja: `Podpis klienta${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
+      }]
     });
-    onAddNotification({ icon: '✍️', title: `Podpis: ${order.nrWlasny}`, message: `Kierowca ${user.name} zebrał podpis klienta`, orderId: order.id });
+    onAddNotification({ 
+      icon: '✍️', 
+      title: `Podpis: ${order.nrWlasny}`, 
+      message: `Kierowca ${user.name} zebrał podpis klienta${clientRemarks ? ' (z uwagami)' : ''}`, 
+      orderId: order.id 
+    });
     setShowSignature(null);
+    setClientRemarks('');
+  };
+
+  // Otwórz modal podpisu
+  const openSignatureModal = (orderId) => {
+    setClientRemarks('');
+    setShowSignature(orderId);
   };
 
   useEffect(() => {
@@ -2320,12 +2501,16 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                         </div>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'odebrane')}>✅ Oznacz jako odebrane</button>
+                        {(order.zdjeciaOdbioru?.length > 0) && (
+                          <button className="btn-driver photos-manage" onClick={() => setShowPhotoManager({ orderId: order.id, type: 'pickup' })}>🖼️ Zarządzaj zdjęciami</button>
+                        )}
                       </>
                     )}
                     {activeTab === 'picked' && (
                       <>
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi / Daty</button>
                         <button className="btn-driver status" onClick={() => changeStatus(order, 'w_transporcie')}>🚗 Rozpocznij transport</button>
+                        <button className="btn-driver back" onClick={() => changeStatus(order, 'gotowe_do_odbioru')}>⬅️ Cofnij do odbioru</button>
                       </>
                     )}
                     {activeTab === 'transit' && (
@@ -2340,17 +2525,35 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                             <input id={`delivery-gallery-${order.id}`} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handlePhotoCapture(order, 'delivery', e)} />
                           </label>
                         </div>
-                        <button className="btn-driver signature" onClick={() => setShowSignature(order.id)}>✍️ Podpis klienta</button>
+                        <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
+                        {order.platnosci?.doZaplaty > 0 && (
+                          <button className="btn-driver discount" onClick={() => setShowDiscount(order.id)}>💸 Udziel rabatu</button>
+                        )}
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
                         <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
+                        <button className="btn-driver back" onClick={() => changeStatus(order, 'odebrane')}>⬅️ Cofnij</button>
+                        {(order.zdjeciaDostawy?.length > 0) && (
+                          <button className="btn-driver photos-manage" onClick={() => setShowPhotoManager({ orderId: order.id, type: 'delivery' })}>🖼️ Zarządzaj zdjęciami</button>
+                        )}
                       </>
                     )}
                     {activeTab === 'delivered' && (
-                      <div className="delivered-info">
-                        ✔️ Dostarczono: {formatDateTime(order.potwierdzenieDostawy?.data)}
-                      </div>
+                      <>
+                        <div className="delivered-info">
+                          ✔️ Dostarczono: {formatDateTime(order.potwierdzenieDostawy?.data)}
+                        </div>
+                        <button className="btn-driver back" onClick={() => changeStatus(order, 'w_transporcie')}>⬅️ Cofnij do transportu</button>
+                      </>
                     )}
                   </div>
+
+                  {/* Wyświetl info o rabacie jeśli był */}
+                  {order.rabatPrzyDostawie && (
+                    <div className="discount-info-card">
+                      <span className="discount-badge">💸 Rabat: {formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci?.waluta)}</span>
+                      <span className="discount-reason">{order.rabatPrzyDostawie.powod}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2388,35 +2591,200 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
         </div>
       )}
 
+      {/* Modal rabatu */}
+      {showDiscount && (
+        <div className="modal-overlay" onClick={() => setShowDiscount(null)}>
+          <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>💸 Udziel rabatu</h2>
+              <button className="btn-close" onClick={() => setShowDiscount(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const order = orders.find(o => o.id === showDiscount);
+                return order && (
+                  <>
+                    <div className="discount-order-info">
+                      <p><strong>Zamówienie:</strong> {order.nrWlasny}</p>
+                      <p><strong>Do zapłaty:</strong> {formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}</p>
+                    </div>
+                    <div className="form-group">
+                      <label>Kwota rabatu ({order.platnosci?.waluta || 'PLN'})</label>
+                      <input 
+                        type="number" 
+                        value={discountAmount} 
+                        onChange={e => setDiscountAmount(e.target.value)} 
+                        placeholder="0.00"
+                        step="0.01"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Powód rabatu *</label>
+                      <textarea 
+                        value={discountReason} 
+                        onChange={e => setDiscountReason(e.target.value)} 
+                        rows={3} 
+                        placeholder="Opisz powód rabatu (np. drobne uszkodzenie, rekompensata za opóźnienie...)"
+                      />
+                    </div>
+                    <div className="discount-summary">
+                      <p>Nowa kwota do zapłaty: <strong>{formatCurrency(Math.max(0, (order.platnosci?.doZaplaty || 0) - (parseFloat(discountAmount) || 0)), order.platnosci?.waluta)}</strong></p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowDiscount(null)}>Anuluj</button>
+              <button className="btn-primary" onClick={saveDiscount}>💸 Zatwierdź rabat</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal zarządzania zdjęciami */}
+      {showPhotoManager && (
+        <div className="modal-overlay" onClick={() => setShowPhotoManager(null)}>
+          <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🖼️ Zarządzaj zdjęciami {showPhotoManager.type === 'pickup' ? 'odbioru' : 'dostawy'}</h2>
+              <button className="btn-close" onClick={() => setShowPhotoManager(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const order = orders.find(o => o.id === showPhotoManager.orderId);
+                const photos = order?.[showPhotoManager.type === 'pickup' ? 'zdjeciaOdbioru' : 'zdjeciaDostawy'] || [];
+                return (
+                  <div className="photo-manager-grid">
+                    {photos.length === 0 ? (
+                      <div className="empty-photos">Brak zdjęć</div>
+                    ) : (
+                      photos.map((photo, index) => (
+                        <div key={index} className="photo-manager-item">
+                          <img src={photo.url} alt={`Zdjęcie ${index + 1}`} />
+                          <div className="photo-manager-info">
+                            <span>{formatDateTime(photo.timestamp)}</span>
+                          </div>
+                          <button 
+                            className="photo-delete-btn" 
+                            onClick={() => {
+                              if (window.confirm('Czy na pewno chcesz usunąć to zdjęcie?')) {
+                                deletePhoto(showPhotoManager.orderId, showPhotoManager.type, index);
+                              }
+                            }}
+                          >
+                            🗑️ Usuń
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowPhotoManager(null)}>Zamknij</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal podpisu */}
       {showSignature && (
         <div className="modal-overlay" onClick={() => setShowSignature(null)}>
-          <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
+          <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>✍️ Podpis klienta</h2>
-              <button className="btn-close" onClick={() => setShowSignature(null)}>×</button>
+              <h2>✍️ Protokół odbioru towaru</h2>
+              <button className="btn-close" onClick={() => { setShowSignature(null); setClientRemarks(''); }}>×</button>
             </div>
             <div className="modal-body">
-              <div className="signature-container">
-                <canvas
-                  ref={canvasRef}
-                  width={340}
-                  height={170}
-                  className="signature-canvas"
-                  onMouseDown={startDraw}
-                  onMouseMove={draw}
-                  onMouseUp={stopDraw}
-                  onMouseLeave={stopDraw}
-                  onTouchStart={startDraw}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDraw}
-                />
-                <div className="signature-line">Podpis klienta powyżej</div>
-              </div>
-              <div className="signature-actions">
-                <button className="btn-secondary" onClick={clearCanvas}>🗑️ Wyczyść</button>
-                <button className="btn-primary" onClick={saveSignature}>✅ Zapisz podpis</button>
-              </div>
+              {(() => {
+                const order = orders.find(o => o.id === showSignature);
+                const now = new Date();
+                return order && (
+                  <>
+                    {/* Treść umowy */}
+                    <div className="delivery-contract">
+                      <div className="contract-header">
+                        <h3>📋 PROTOKÓŁ ODBIORU TOWARU</h3>
+                        <p className="contract-date">Data: {now.toLocaleDateString('pl-PL')} | Godzina: {now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      
+                      <div className="contract-section">
+                        <h4>📦 Dane zamówienia</h4>
+                        <p><strong>Nr zamówienia:</strong> {order.nrWlasny}</p>
+                        <p><strong>Produkt:</strong> {order.towar || 'brak opisu'}</p>
+                        {order.platnosci?.cenaCalkowita > 0 && (
+                          <p><strong>Wartość:</strong> {formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</p>
+                        )}
+                      </div>
+
+                      <div className="contract-section">
+                        <h4>👤 Dane odbiorcy</h4>
+                        <p><strong>Imię i nazwisko:</strong> {order.klient?.imie || '—'}</p>
+                        <p><strong>Adres dostawy:</strong> {order.klient?.adres || '—'}</p>
+                        <p><strong>Telefon:</strong> {order.klient?.telefon || '—'}</p>
+                      </div>
+
+                      <div className="contract-section">
+                        <h4>🚚 Dane dostawy</h4>
+                        <p><strong>Kierowca:</strong> {user.name}</p>
+                        <p><strong>Data dostawy:</strong> {now.toLocaleDateString('pl-PL')}</p>
+                        <p><strong>Godzina dostawy:</strong> {now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+
+                      <div className="contract-declaration">
+                        <p>
+                          Ja, niżej podpisany/a, potwierdzam odbiór powyższego towaru. 
+                          Towar został sprawdzony w obecności kierowcy.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Uwagi klienta */}
+                    <div className="form-group remarks-section">
+                      <label>📝 Uwagi do produktu lub dostawy (opcjonalnie)</label>
+                      <textarea 
+                        value={clientRemarks} 
+                        onChange={e => setClientRemarks(e.target.value)} 
+                        rows={3} 
+                        placeholder="Jeśli klient ma uwagi dotyczące produktu lub dostawy, wpisz je tutaj..."
+                      />
+                      {!clientRemarks && (
+                        <div className="no-remarks-info">
+                          ✅ Brak uwag = klient akceptuje produkt bez zastrzeżeń
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Podpis */}
+                    <div className="signature-section">
+                      <label>✍️ Podpis klienta</label>
+                      <div className="signature-container">
+                        <canvas
+                          ref={canvasRef}
+                          width={340}
+                          height={170}
+                          className="signature-canvas"
+                          onMouseDown={startDraw}
+                          onMouseMove={draw}
+                          onMouseUp={stopDraw}
+                          onMouseLeave={stopDraw}
+                          onTouchStart={startDraw}
+                          onTouchMove={draw}
+                          onTouchEnd={stopDraw}
+                        />
+                        <div className="signature-line">Podpis powyżej potwierdza odbiór towaru</div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={clearCanvas}>🗑️ Wyczyść podpis</button>
+              <button className="btn-secondary" onClick={() => { setShowSignature(null); setClientRemarks(''); }}>Anuluj</button>
+              <button className="btn-primary" onClick={saveSignature}>✅ Zatwierdź i zapisz</button>
             </div>
           </div>
         </div>
