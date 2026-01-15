@@ -528,7 +528,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
 // MODAL EDYCJI ZAMÓWIENIA - POPRAWIONY (zamyka się po zapisie)
 // ============================================
 
-const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin }) => {
+const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin, exchangeRates }) => {
   const [form, setForm] = useState(order || {
     nrWlasny: '',
     kraj: 'PL',
@@ -538,7 +538,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     zaladunek: '',
     klient: { imie: '', adres: '', telefon: '', email: '', facebookUrl: '' },
     platnosci: { waluta: 'PLN', zaplacono: 0, metodaZaplaty: '', dataZaplaty: '', doZaplaty: 0, cenaCalkowita: 0 },
-    koszty: { zakupNetto: 0, zakupBrutto: 0, transport: 0 },
+    koszty: { 
+      waluta: 'PLN', 
+      zakupNetto: 0, 
+      zakupBrutto: 0, 
+      transport: 0,
+      vatRate: 23 // domyślna stawka VAT
+    },
     uwagi: '',
     dataOdbioru: '',
     dataDostawy: '',
@@ -562,14 +568,76 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     }
     setForm({ ...form, platnosci: p });
   };
-  const updateKoszty = (k, v) => setForm({ ...form, koszty: { ...form.koszty, [k]: v } });
+  
+  // Aktualizacja kosztów z auto-przeliczaniem netto↔brutto
+  const updateKoszty = (field, value) => {
+    const koszty = { ...form.koszty };
+    const vatMultiplier = 1 + (koszty.vatRate || 23) / 100;
+    
+    if (field === 'zakupNetto') {
+      koszty.zakupNetto = value;
+      koszty.zakupBrutto = Math.round(value * vatMultiplier * 100) / 100;
+    } else if (field === 'zakupBrutto') {
+      koszty.zakupBrutto = value;
+      koszty.zakupNetto = Math.round(value / vatMultiplier * 100) / 100;
+    } else if (field === 'vatRate') {
+      koszty.vatRate = value;
+      // Przelicz brutto na nowo na podstawie netto
+      if (koszty.zakupNetto > 0) {
+        const newMultiplier = 1 + value / 100;
+        koszty.zakupBrutto = Math.round(koszty.zakupNetto * newMultiplier * 100) / 100;
+      }
+    } else {
+      koszty[field] = value;
+    }
+    
+    setForm({ ...form, koszty });
+  };
 
-  // Wyliczenie marży
+  // Konwersja waluty kosztów na walutę sprzedaży
+  const convertToSalesСurrency = (amount, fromCurrency) => {
+    const toCurrency = form.platnosci?.waluta || 'PLN';
+    if (fromCurrency === toCurrency || !exchangeRates) return amount;
+    
+    // Przelicz przez PLN jako walutę bazową
+    const rateFrom = exchangeRates[fromCurrency] || 1;
+    const rateTo = exchangeRates[toCurrency] || 1;
+    
+    // amount w fromCurrency -> PLN -> toCurrency
+    const inPLN = amount * rateFrom;
+    return Math.round(inPLN / rateTo * 100) / 100;
+  };
+
+  // Wyliczenie marży (prawidłowe)
+  // Cena brutto od klienta → Cena netto (÷1.23) → minus koszty zakupu netto → minus transport
   const calcMarza = () => {
-    const cena = form.platnosci?.cenaCalkowita || 0;
-    const zakup = form.koszty?.zakupBrutto || form.koszty?.zakupNetto || 0;
+    const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
+    const vatRate = form.koszty?.vatRate || 23;
+    const vatMultiplier = 1 + vatRate / 100;
+    
+    // Cena netto od klienta
+    const cenaNetto = cenaBrutto / vatMultiplier;
+    
+    // Koszty w walucie kosztów
+    const zakupNetto = form.koszty?.zakupNetto || 0;
     const transport = form.koszty?.transport || 0;
-    return cena - zakup - transport;
+    
+    // Konwertuj koszty do waluty sprzedaży jeśli różne
+    const kosztWaluta = form.koszty?.waluta || 'PLN';
+    const zakupNettoConverted = convertToSalesСurrency(zakupNetto, kosztWaluta);
+    const transportConverted = convertToSalesСurrency(transport, kosztWaluta);
+    
+    // Marża = cena netto - koszty zakupu netto - transport
+    const marza = cenaNetto - zakupNettoConverted - transportConverted;
+    
+    return {
+      cenaBrutto,
+      cenaNetto: Math.round(cenaNetto * 100) / 100,
+      zakupNetto: zakupNettoConverted,
+      transport: transportConverted,
+      marza: Math.round(marza * 100) / 100,
+      marzaProcentowa: cenaNetto > 0 ? Math.round(marza / cenaNetto * 100) : 0
+    };
   };
 
   const handleSave = async () => {
@@ -702,29 +770,120 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
           {isAdmin && (
             <div className="form-section costs">
               <h3>📊 Koszty i marża (widoczne tylko dla admina)</h3>
+              
+              {/* Wiersz 1: Waluta kosztów i stawka VAT */}
               <div className="form-grid">
                 <div className="form-group">
+                  <label>WALUTA KOSZTÓW</label>
+                  <select value={form.koszty?.waluta || 'PLN'} onChange={e => updateKoszty('waluta', e.target.value)}>
+                    {CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] ? `- kurs: ${exchangeRates[c.code].toFixed(4)}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>STAWKA VAT (%)</label>
+                  <select value={form.koszty?.vatRate || 23} onChange={e => updateKoszty('vatRate', parseInt(e.target.value))}>
+                    <option value={23}>23% (standard)</option>
+                    <option value={8}>8%</option>
+                    <option value={5}>5%</option>
+                    <option value={0}>0% (zwolniony)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Wiersz 2: Koszty zakupu - auto przeliczanie */}
+              <div className="costs-row">
+                <div className="form-group">
                   <label>KOSZT ZAKUPU NETTO</label>
-                  <input type="number" value={form.koszty?.zakupNetto || ''} onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+                  <div className="input-with-currency">
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={form.koszty?.zakupNetto || ''} 
+                      onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} 
+                      placeholder="0.00" 
+                    />
+                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                  </div>
+                  <small>Wpisz netto - brutto przeliczy się automatycznie</small>
                 </div>
                 <div className="form-group">
                   <label>KOSZT ZAKUPU BRUTTO</label>
-                  <input type="number" value={form.koszty?.zakupBrutto || ''} onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+                  <div className="input-with-currency">
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={form.koszty?.zakupBrutto || ''} 
+                      onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} 
+                      placeholder="0.00" 
+                    />
+                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                  </div>
+                  <small>Lub wpisz brutto - netto przeliczy się automatycznie</small>
                 </div>
                 <div className="form-group">
-                  <label>KOSZT TRANSPORTU</label>
-                  <input type="number" value={form.koszty?.transport || ''} onChange={e => updateKoszty('transport', parseFloat(e.target.value) || 0)} placeholder="0.00" />
-                </div>
-                <div className="form-group">
-                  <label>MARŻA</label>
-                  <input 
-                    type="text" 
-                    value={formatCurrency(calcMarza(), form.platnosci?.waluta)} 
-                    readOnly 
-                    className={calcMarza() >= 0 ? 'margin-positive' : 'margin-negative'} 
-                  />
+                  <label>KOSZT TRANSPORTU (NETTO)</label>
+                  <div className="input-with-currency">
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={form.koszty?.transport || ''} 
+                      onChange={e => updateKoszty('transport', parseFloat(e.target.value) || 0)} 
+                      placeholder="0.00" 
+                    />
+                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Wiersz 3: Podsumowanie marży */}
+              <div className="margin-summary">
+                <div className="margin-breakdown">
+                  <div className="margin-item">
+                    <span className="margin-label">Cena od klienta (brutto)</span>
+                    <span className="margin-value">{formatCurrency(calcMarza().cenaBrutto, form.platnosci?.waluta)}</span>
+                  </div>
+                  <div className="margin-item">
+                    <span className="margin-label">Cena od klienta (netto po VAT {form.koszty?.vatRate || 23}%)</span>
+                    <span className="margin-value">{formatCurrency(calcMarza().cenaNetto, form.platnosci?.waluta)}</span>
+                  </div>
+                  <div className="margin-item subtract">
+                    <span className="margin-label">− Koszt zakupu (netto)</span>
+                    <span className="margin-value">
+                      {formatCurrency(calcMarza().zakupNetto, form.platnosci?.waluta)}
+                      {form.koszty?.waluta !== form.platnosci?.waluta && form.koszty?.zakupNetto > 0 && (
+                        <small className="converted"> (z {formatCurrency(form.koszty?.zakupNetto, form.koszty?.waluta)})</small>
+                      )}
+                    </span>
+                  </div>
+                  <div className="margin-item subtract">
+                    <span className="margin-label">− Transport (netto)</span>
+                    <span className="margin-value">
+                      {formatCurrency(calcMarza().transport, form.platnosci?.waluta)}
+                      {form.koszty?.waluta !== form.platnosci?.waluta && form.koszty?.transport > 0 && (
+                        <small className="converted"> (z {formatCurrency(form.koszty?.transport, form.koszty?.waluta)})</small>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className={`margin-total ${calcMarza().marza >= 0 ? 'positive' : 'negative'}`}>
+                  <span className="margin-label">= MARŻA NETTO</span>
+                  <span className="margin-value">
+                    {formatCurrency(calcMarza().marza, form.platnosci?.waluta)}
+                    <span className="margin-percent">({calcMarza().marzaProcentowa}%)</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Informacja o kursach */}
+              {exchangeRates && (
+                <div className="exchange-rates-info">
+                  <small>💱 Kursy walut (NBP): {Object.entries(exchangeRates).filter(([k]) => k !== 'PLN').slice(0, 4).map(([k, v]) => `${k}: ${v.toFixed(4)}`).join(' | ')}</small>
+                </div>
+              )}
             </div>
           )}
 
@@ -1531,12 +1690,22 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
 
-  // Wyliczenie marży
+  // Prawidłowe wyliczenie marży
+  // Cena brutto od klienta → dzielę przez VAT → minus koszty netto
   const calcMarza = () => {
-    const cena = order.platnosci?.cenaCalkowita || 0;
-    const zakup = order.koszty?.zakupBrutto || order.koszty?.zakupNetto || 0;
+    const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
+    const vatRate = order.koszty?.vatRate || 23;
+    const vatMultiplier = 1 + vatRate / 100;
+    
+    // Cena netto od klienta
+    const cenaNetto = cenaBrutto / vatMultiplier;
+    
+    // Koszty
+    const zakupNetto = order.koszty?.zakupNetto || 0;
     const transport = order.koszty?.transport || 0;
-    return cena - zakup - transport;
+    
+    // Marża = cena netto - koszty zakupu netto - transport
+    return Math.round((cenaNetto - zakupNetto - transport) * 100) / 100;
   };
 
   const handleDelete = (e) => {
@@ -2067,6 +2236,7 @@ const App = () => {
   const [producers, setProducers] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [complaints, setComplaints] = useState([]);
+  const [exchangeRates, setExchangeRates] = useState(null);
 
   const [filter, setFilter] = useState('all');
   const [countryFilter, setCountryFilter] = useState('all');
@@ -2090,9 +2260,46 @@ const App = () => {
   const isContractor = user?.role === 'contractor';
   const isAdmin = user?.role === 'admin';
 
+  // Pobieranie kursów walut z NBP API
+  const fetchExchangeRates = async () => {
+    try {
+      // NBP API - tabela A (średnie kursy)
+      const response = await fetch('https://api.nbp.pl/api/exchangerates/tables/A/?format=json');
+      if (response.ok) {
+        const data = await response.json();
+        const rates = { PLN: 1 }; // PLN jako baza
+        data[0].rates.forEach(rate => {
+          rates[rate.code] = rate.mid;
+        });
+        setExchangeRates(rates);
+        console.log('💱 Kursy walut pobrane z NBP:', rates);
+      }
+    } catch (error) {
+      console.error('Błąd pobierania kursów walut:', error);
+      // Fallback - ustaw domyślne kursy
+      setExchangeRates({
+        PLN: 1,
+        EUR: 4.35,
+        USD: 4.05,
+        GBP: 5.10,
+        CHF: 4.55,
+        CZK: 0.17,
+        SEK: 0.38,
+        NOK: 0.37,
+        DKK: 0.58,
+        HUF: 0.011,
+        RON: 0.87,
+        UAH: 0.10,
+        CAD: 2.95,
+        AUD: 2.60
+      });
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       await initializeDefaultData();
+      await fetchExchangeRates(); // Pobierz kursy walut przy starcie
       setLoading(false);
     };
     init();
@@ -2108,6 +2315,9 @@ const App = () => {
       setUser(JSON.parse(savedUser));
     }
 
+    // Odświeżaj kursy co godzinę
+    const ratesInterval = setInterval(fetchExchangeRates, 3600000);
+
     return () => {
       unsubOrders();
       unsubUsers();
@@ -2115,6 +2325,7 @@ const App = () => {
       unsubNotifs();
       unsubComplaints();
       unsubNotifs();
+      clearInterval(ratesInterval);
     };
   }, []);
 
@@ -2507,6 +2718,7 @@ const App = () => {
           orders={orders}
           isContractor={isContractor}
           isAdmin={isAdmin}
+          exchangeRates={exchangeRates}
         />
       )}
 
