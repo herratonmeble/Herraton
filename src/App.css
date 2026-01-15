@@ -2755,3 +2755,332 @@ input.margin-negative {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   PANEL ZAINTERESOWANYCH (LEADS)
+   ============================================ */
+.modal-content.modal-xlarge {
+  max-width: 1400px;
+}
+
+/* Statystyki leads */
+.leads-stats {
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+.lead-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+}
+.lead-stat-card.hot {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-color: #F59E0B;
+}
+.lead-stat-card.success {
+  background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+  border-color: #34D399;
+}
+.lead-stat-card.value {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  border-color: #6366F1;
+}
+.lead-stat-icon {
+  font-size: 24px;
+}
+.lead-stat-content {
+  display: flex;
+  flex-direction: column;
+}
+.lead-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1E293B;
+}
+.lead-stat-label {
+  font-size: 11px;
+  color: #64748B;
+  text-transform: uppercase;
+}
+
+/* Pasek przypomnień */
+.leads-reminders-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-bottom: 2px solid #F59E0B;
+  animation: pulse 2s infinite;
+}
+.reminder-icon {
+  font-size: 20px;
+}
+
+/* Toolbar leads */
+.leads-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.leads-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.leads-search input {
+  padding: 10px 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  width: 220px;
+}
+
+/* Grid leads */
+.leads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+/* Karta lead */
+.lead-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+.lead-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.lead-card.hot {
+  border-color: #F59E0B;
+  border-width: 2px;
+}
+.lead-card.has-reminder {
+  background: linear-gradient(180deg, #FEF3C7 0%, white 30%);
+}
+.lead-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #F1F5F9;
+}
+.lead-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lead-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.hot-badge {
+  font-size: 14px;
+}
+.lead-status-select {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lead-card-body {
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.lead-source {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #64748B;
+}
+.lead-value {
+  font-weight: 700;
+  color: #059669;
+}
+.lead-products {
+  font-size: 14px;
+  color: #1E293B;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.lead-contacts {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lead-contacts a {
+  font-size: 12px;
+  color: #6366F1;
+  text-decoration: none;
+}
+.lead-contacts a:hover {
+  text-decoration: underline;
+}
+.lead-reminder-badge {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #FEF3C7;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #B45309;
+  font-weight: 600;
+}
+.lead-last-contact {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #94A3B8;
+}
+.lead-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #F8FAFC;
+  font-size: 11px;
+  color: #64748B;
+}
+.lead-actions {
+  display: flex;
+  gap: 6px;
+}
+.lead-actions .btn-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+.btn-success-small {
+  background: #D1FAE5 !important;
+}
+
+/* Przycisk Zainteresowani */
+.leads-btn {
+  background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+  color: white !important;
+}
+
+/* Timeline kontaktów */
+.contacts-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.contact-item {
+  padding: 10px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  border-left: 3px solid #6366F1;
+}
+.contact-date {
+  font-size: 11px;
+  color: #64748B;
+}
+.contact-author {
+  font-size: 11px;
+  color: #6366F1;
+  margin-left: 10px;
+}
+.contact-note {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #1E293B;
+}
+
+/* ============================================
+   POPUP POWIADOMIEŃ
+   ============================================ */
+.notification-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  border-left: 4px solid #6366F1;
+  z-index: 10000;
+  animation: slideInRight 0.3s ease-out, fadeOut 0.5s 4.5s forwards;
+  cursor: pointer;
+  max-width: 400px;
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.popup-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.popup-content {
+  flex: 1;
+}
+.popup-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+.popup-message {
+  font-size: 12px;
+  color: #64748B;
+  line-height: 1.4;
+}
+.popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #F1F5F9;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .leads-stats {
+    flex-wrap: wrap;
+  }
+  .lead-stat-card {
+    flex: 1 1 calc(50% - 8px);
+  }
+  .leads-grid {
+    grid-template-columns: 1fr;
+  }
+  .notification-popup {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+}
