@@ -542,8 +542,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
       waluta: 'PLN', 
       zakupNetto: 0, 
       zakupBrutto: 0, 
-      transport: 0,
-      vatRate: 23 // domyślna stawka VAT
+      transportWaluta: 'PLN',
+      transportBrutto: 0,
+      transportNetto: 0,
+      vatRate: 23
     },
     uwagi: '',
     dataOdbioru: '',
@@ -580,12 +582,21 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     } else if (field === 'zakupBrutto') {
       koszty.zakupBrutto = value;
       koszty.zakupNetto = Math.round(value / vatMultiplier * 100) / 100;
+    } else if (field === 'transportBrutto') {
+      koszty.transportBrutto = value;
+      koszty.transportNetto = Math.round(value / vatMultiplier * 100) / 100;
+    } else if (field === 'transportNetto') {
+      koszty.transportNetto = value;
+      koszty.transportBrutto = Math.round(value * vatMultiplier * 100) / 100;
     } else if (field === 'vatRate') {
       koszty.vatRate = value;
-      // Przelicz brutto na nowo na podstawie netto
+      const newMultiplier = 1 + value / 100;
+      // Przelicz wszystko na nowo
       if (koszty.zakupNetto > 0) {
-        const newMultiplier = 1 + value / 100;
         koszty.zakupBrutto = Math.round(koszty.zakupNetto * newMultiplier * 100) / 100;
+      }
+      if (koszty.transportNetto > 0) {
+        koszty.transportBrutto = Math.round(koszty.transportNetto * newMultiplier * 100) / 100;
       }
     } else {
       koszty[field] = value;
@@ -594,22 +605,26 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     setForm({ ...form, koszty });
   };
 
+  // Konwersja waluty na PLN
+  const convertToPLN = (amount, fromCurrency) => {
+    if (fromCurrency === 'PLN' || !exchangeRates) return amount;
+    const rate = exchangeRates[fromCurrency] || 1;
+    return Math.round(amount * rate * 100) / 100;
+  };
+
   // Konwersja waluty kosztów na walutę sprzedaży
-  const convertToSalesСurrency = (amount, fromCurrency) => {
+  const convertToSalesCurrency = (amount, fromCurrency) => {
     const toCurrency = form.platnosci?.waluta || 'PLN';
     if (fromCurrency === toCurrency || !exchangeRates) return amount;
     
-    // Przelicz przez PLN jako walutę bazową
     const rateFrom = exchangeRates[fromCurrency] || 1;
     const rateTo = exchangeRates[toCurrency] || 1;
     
-    // amount w fromCurrency -> PLN -> toCurrency
     const inPLN = amount * rateFrom;
     return Math.round(inPLN / rateTo * 100) / 100;
   };
 
   // Wyliczenie marży (prawidłowe)
-  // Cena brutto od klienta → Cena netto (÷1.23) → minus koszty zakupu netto → minus transport
   const calcMarza = () => {
     const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
     const vatRate = form.koszty?.vatRate || 23;
@@ -618,25 +633,38 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     // Cena netto od klienta
     const cenaNetto = cenaBrutto / vatMultiplier;
     
-    // Koszty w walucie kosztów
+    // Koszty zakupu w walucie kosztów
     const zakupNetto = form.koszty?.zakupNetto || 0;
-    const transport = form.koszty?.transport || 0;
-    
-    // Konwertuj koszty do waluty sprzedaży jeśli różne
     const kosztWaluta = form.koszty?.waluta || 'PLN';
-    const zakupNettoConverted = convertToSalesСurrency(zakupNetto, kosztWaluta);
-    const transportConverted = convertToSalesСurrency(transport, kosztWaluta);
     
-    // Marża = cena netto - koszty zakupu netto - transport
-    const marza = cenaNetto - zakupNettoConverted - transportConverted;
+    // Transport w osobnej walucie
+    const transportNetto = form.koszty?.transportNetto || 0;
+    const transportWaluta = form.koszty?.transportWaluta || 'PLN';
+    
+    // Konwertuj wszystko do PLN dla porównania
+    const zakupNettoPLN = convertToPLN(zakupNetto, kosztWaluta);
+    const transportNettoPLN = convertToPLN(transportNetto, transportWaluta);
+    const cenaNettoPLN = convertToPLN(cenaNetto, form.platnosci?.waluta);
+    
+    // Marża w PLN
+    const marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
+    
+    // Konwertuj do waluty sprzedaży dla wyświetlenia
+    const zakupNettoConverted = convertToSalesCurrency(zakupNetto, kosztWaluta);
+    const transportNettoConverted = convertToSalesCurrency(transportNetto, transportWaluta);
     
     return {
       cenaBrutto,
       cenaNetto: Math.round(cenaNetto * 100) / 100,
       zakupNetto: zakupNettoConverted,
-      transport: transportConverted,
-      marza: Math.round(marza * 100) / 100,
-      marzaProcentowa: cenaNetto > 0 ? Math.round(marza / cenaNetto * 100) : 0
+      zakupNettoOriginal: zakupNetto,
+      zakupWaluta: kosztWaluta,
+      transportNetto: transportNettoConverted,
+      transportNettoOriginal: transportNetto,
+      transportWaluta: transportWaluta,
+      marza: Math.round((cenaNetto - zakupNettoConverted - transportNettoConverted) * 100) / 100,
+      marzaPLN: Math.round(marzaPLN * 100) / 100,
+      marzaProcentowa: cenaNetto > 0 ? Math.round((cenaNetto - zakupNettoConverted - transportNettoConverted) / cenaNetto * 100) : 0
     };
   };
 
@@ -771,18 +799,8 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
             <div className="form-section costs">
               <h3>📊 Koszty i marża (widoczne tylko dla admina)</h3>
               
-              {/* Wiersz 1: Waluta kosztów i stawka VAT */}
+              {/* Wiersz 1: Stawka VAT */}
               <div className="form-grid">
-                <div className="form-group">
-                  <label>WALUTA KOSZTÓW</label>
-                  <select value={form.koszty?.waluta || 'PLN'} onChange={e => updateKoszty('waluta', e.target.value)}>
-                    {CURRENCIES.map(c => (
-                      <option key={c.code} value={c.code}>
-                        {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] ? `- kurs: ${exchangeRates[c.code].toFixed(4)}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <div className="form-group">
                   <label>STAWKA VAT (%)</label>
                   <select value={form.koszty?.vatRate || 23} onChange={e => updateKoszty('vatRate', parseInt(e.target.value))}>
@@ -794,52 +812,93 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 </div>
               </div>
 
-              {/* Wiersz 2: Koszty zakupu - auto przeliczanie */}
-              <div className="costs-row">
-                <div className="form-group">
-                  <label>KOSZT ZAKUPU NETTO</label>
-                  <div className="input-with-currency">
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={form.koszty?.zakupNetto || ''} 
-                      onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} 
-                      placeholder="0.00" 
-                    />
-                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+              {/* KOSZT TOWARU */}
+              <div className="cost-section">
+                <h4>🏭 Koszt towaru</h4>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>WALUTA</label>
+                    <select value={form.koszty?.waluta || 'PLN'} onChange={e => updateKoszty('waluta', e.target.value)}>
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] && c.code !== 'PLN' ? `• ${exchangeRates[c.code].toFixed(4)} PLN` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <small>Wpisz netto - brutto przeliczy się automatycznie</small>
-                </div>
-                <div className="form-group">
-                  <label>KOSZT ZAKUPU BRUTTO</label>
-                  <div className="input-with-currency">
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={form.koszty?.zakupBrutto || ''} 
-                      onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} 
-                      placeholder="0.00" 
-                    />
-                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                  <div className="form-group">
+                    <label>KOSZT BRUTTO</label>
+                    <div className="input-with-currency">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={form.koszty?.zakupBrutto || ''} 
+                        onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} 
+                        placeholder="0.00" 
+                      />
+                      <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                    </div>
                   </div>
-                  <small>Lub wpisz brutto - netto przeliczy się automatycznie</small>
-                </div>
-                <div className="form-group">
-                  <label>KOSZT TRANSPORTU (NETTO)</label>
-                  <div className="input-with-currency">
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={form.koszty?.transport || ''} 
-                      onChange={e => updateKoszty('transport', parseFloat(e.target.value) || 0)} 
-                      placeholder="0.00" 
-                    />
-                    <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                  <div className="form-group">
+                    <label>KOSZT NETTO (auto)</label>
+                    <div className="input-with-currency">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={form.koszty?.zakupNetto || ''} 
+                        onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} 
+                        placeholder="0.00" 
+                      />
+                      <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Wiersz 3: Podsumowanie marży */}
+              {/* KOSZT TRANSPORTU */}
+              <div className="cost-section">
+                <h4>🚚 Koszt transportu</h4>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>WALUTA</label>
+                    <select value={form.koszty?.transportWaluta || 'PLN'} onChange={e => updateKoszty('transportWaluta', e.target.value)}>
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] && c.code !== 'PLN' ? `• ${exchangeRates[c.code].toFixed(4)} PLN` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>KOSZT BRUTTO</label>
+                    <div className="input-with-currency">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={form.koszty?.transportBrutto || ''} 
+                        onChange={e => updateKoszty('transportBrutto', parseFloat(e.target.value) || 0)} 
+                        placeholder="0.00" 
+                      />
+                      <span className="currency-label">{getCurrency(form.koszty?.transportWaluta || 'PLN').symbol}</span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>KOSZT NETTO (auto)</label>
+                    <div className="input-with-currency">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={form.koszty?.transportNetto || ''} 
+                        onChange={e => updateKoszty('transportNetto', parseFloat(e.target.value) || 0)} 
+                        placeholder="0.00" 
+                      />
+                      <span className="currency-label">{getCurrency(form.koszty?.transportWaluta || 'PLN').symbol}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Podsumowanie marży */}
               <div className="margin-summary">
                 <div className="margin-breakdown">
                   <div className="margin-item">
@@ -851,20 +910,20 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                     <span className="margin-value">{formatCurrency(calcMarza().cenaNetto, form.platnosci?.waluta)}</span>
                   </div>
                   <div className="margin-item subtract">
-                    <span className="margin-label">− Koszt zakupu (netto)</span>
+                    <span className="margin-label">− Koszt towaru (netto)</span>
                     <span className="margin-value">
                       {formatCurrency(calcMarza().zakupNetto, form.platnosci?.waluta)}
-                      {form.koszty?.waluta !== form.platnosci?.waluta && form.koszty?.zakupNetto > 0 && (
-                        <small className="converted"> (z {formatCurrency(form.koszty?.zakupNetto, form.koszty?.waluta)})</small>
+                      {form.koszty?.waluta !== form.platnosci?.waluta && calcMarza().zakupNettoOriginal > 0 && (
+                        <small className="converted"> (z {formatCurrency(calcMarza().zakupNettoOriginal, form.koszty?.waluta)})</small>
                       )}
                     </span>
                   </div>
                   <div className="margin-item subtract">
                     <span className="margin-label">− Transport (netto)</span>
                     <span className="margin-value">
-                      {formatCurrency(calcMarza().transport, form.platnosci?.waluta)}
-                      {form.koszty?.waluta !== form.platnosci?.waluta && form.koszty?.transport > 0 && (
-                        <small className="converted"> (z {formatCurrency(form.koszty?.transport, form.koszty?.waluta)})</small>
+                      {formatCurrency(calcMarza().transportNetto, form.platnosci?.waluta)}
+                      {form.koszty?.transportWaluta !== form.platnosci?.waluta && calcMarza().transportNettoOriginal > 0 && (
+                        <small className="converted"> (z {formatCurrency(calcMarza().transportNettoOriginal, form.koszty?.transportWaluta)})</small>
                       )}
                     </span>
                   </div>
@@ -881,7 +940,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               {/* Informacja o kursach */}
               {exchangeRates && (
                 <div className="exchange-rates-info">
-                  <small>💱 Kursy walut (NBP): {Object.entries(exchangeRates).filter(([k]) => k !== 'PLN').slice(0, 4).map(([k, v]) => `${k}: ${v.toFixed(4)}`).join(' | ')}</small>
+                  <small>💱 Kursy NBP: {Object.entries(exchangeRates).filter(([k]) => ['EUR', 'USD', 'GBP', 'CHF'].includes(k)).map(([k, v]) => `${k}: ${v.toFixed(4)}`).join(' | ')}</small>
                 </div>
               )}
             </div>
@@ -2225,6 +2284,243 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 };
 
 // ============================================
+// PANEL STATYSTYK MIESIĘCZNYCH (tylko admin)
+// ============================================
+
+const StatisticsPanel = ({ orders, exchangeRates, onClose }) => {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  const MONTHS = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
+                  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+
+  // Konwersja do PLN
+  const convertToPLN = (amount, currency) => {
+    if (!amount || currency === 'PLN' || !exchangeRates) return amount || 0;
+    return (amount || 0) * (exchangeRates[currency] || 1);
+  };
+
+  // Oblicz statystyki dla miesiąca
+  const getMonthStats = (month, year) => {
+    const monthOrders = orders.filter(o => {
+      const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
+
+    let obrotBrutto = 0;
+    let obrotNetto = 0;
+    let kosztTowaru = 0;
+    let kosztTransportu = 0;
+    let marza = 0;
+    
+    monthOrders.forEach(order => {
+      const vatRate = order.koszty?.vatRate || 23;
+      const vatMultiplier = 1 + vatRate / 100;
+      
+      // Obrót (cena od klienta)
+      const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
+      const cenaBruttoPLN = convertToPLN(cenaBrutto, order.platnosci?.waluta);
+      obrotBrutto += cenaBruttoPLN;
+      obrotNetto += cenaBruttoPLN / vatMultiplier;
+      
+      // Koszt towaru
+      const zakupNetto = order.koszty?.zakupNetto || 0;
+      const zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
+      kosztTowaru += zakupNettoPLN;
+      
+      // Koszt transportu
+      const transportNetto = order.koszty?.transportNetto || 0;
+      const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta);
+      kosztTransportu += transportNettoPLN;
+    });
+
+    marza = obrotNetto - kosztTowaru - kosztTransportu;
+    const marzaProc = obrotNetto > 0 ? (marza / obrotNetto * 100) : 0;
+
+    return {
+      zamowienia: monthOrders.length,
+      obrotBrutto: Math.round(obrotBrutto * 100) / 100,
+      obrotNetto: Math.round(obrotNetto * 100) / 100,
+      kosztTowaru: Math.round(kosztTowaru * 100) / 100,
+      kosztTransportu: Math.round(kosztTransportu * 100) / 100,
+      marza: Math.round(marza * 100) / 100,
+      marzaProc: Math.round(marzaProc * 10) / 10
+    };
+  };
+
+  // Dane dla wszystkich miesięcy
+  const monthlyData = MONTHS.map((name, index) => ({
+    name,
+    shortName: name.substring(0, 3),
+    ...getMonthStats(index, selectedYear)
+  }));
+
+  // Podsumowanie roczne
+  const yearSummary = monthlyData.reduce((acc, m) => ({
+    zamowienia: acc.zamowienia + m.zamowienia,
+    obrotBrutto: acc.obrotBrutto + m.obrotBrutto,
+    obrotNetto: acc.obrotNetto + m.obrotNetto,
+    kosztTowaru: acc.kosztTowaru + m.kosztTowaru,
+    kosztTransportu: acc.kosztTransportu + m.kosztTransportu,
+    marza: acc.marza + m.marza
+  }), { zamowienia: 0, obrotBrutto: 0, obrotNetto: 0, kosztTowaru: 0, kosztTransportu: 0, marza: 0 });
+
+  yearSummary.marzaProc = yearSummary.obrotNetto > 0 ? (yearSummary.marza / yearSummary.obrotNetto * 100) : 0;
+
+  // Maksymalna wartość dla wykresu
+  const maxValue = Math.max(...monthlyData.map(m => m.obrotNetto), 1);
+
+  // Dostępne lata
+  const years = [...new Set(orders.map(o => new Date(o.dataZlecenia || o.utworzonePrzez?.data).getFullYear()))].sort((a, b) => b - a);
+  if (!years.includes(selectedYear)) years.unshift(selectedYear);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-stats" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="stats-header-title">
+            <h2>📊 Statystyki finansowe</h2>
+            <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} className="year-select">
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body stats-body">
+          {/* PODSUMOWANIE ROCZNE */}
+          <div className="stats-summary">
+            <div className="summary-card total">
+              <div className="summary-icon">📈</div>
+              <div className="summary-content">
+                <span className="summary-label">Obrót roczny (brutto)</span>
+                <span className="summary-value">{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</span>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon">🧾</div>
+              <div className="summary-content">
+                <span className="summary-label">Obrót netto</span>
+                <span className="summary-value">{formatCurrency(yearSummary.obrotNetto, 'PLN')}</span>
+              </div>
+            </div>
+            <div className="summary-card expense">
+              <div className="summary-icon">🏭</div>
+              <div className="summary-content">
+                <span className="summary-label">Koszty towaru</span>
+                <span className="summary-value">{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</span>
+              </div>
+            </div>
+            <div className="summary-card expense">
+              <div className="summary-icon">🚚</div>
+              <div className="summary-content">
+                <span className="summary-label">Koszty transportu</span>
+                <span className="summary-value">{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</span>
+              </div>
+            </div>
+            <div className={`summary-card profit ${yearSummary.marza >= 0 ? 'positive' : 'negative'}`}>
+              <div className="summary-icon">💰</div>
+              <div className="summary-content">
+                <span className="summary-label">ZYSK / MARŻA</span>
+                <span className="summary-value">
+                  {formatCurrency(yearSummary.marza, 'PLN')}
+                  <span className="summary-percent">({yearSummary.marzaProc.toFixed(1)}%)</span>
+                </span>
+              </div>
+            </div>
+            <div className="summary-card orders">
+              <div className="summary-icon">📦</div>
+              <div className="summary-content">
+                <span className="summary-label">Zamówień</span>
+                <span className="summary-value">{yearSummary.zamowienia}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* WYKRES SŁUPKOWY */}
+          <div className="stats-chart-section">
+            <h3>📊 Przegląd miesięczny</h3>
+            <div className="chart-container">
+              <div className="chart-bars">
+                {monthlyData.map((m, i) => (
+                  <div key={i} className="chart-bar-group">
+                    <div className="chart-bar-container">
+                      <div 
+                        className="chart-bar obrót" 
+                        style={{ height: `${(m.obrotNetto / maxValue) * 100}%` }}
+                        title={`Obrót netto: ${formatCurrency(m.obrotNetto, 'PLN')}`}
+                      >
+                        <span className="bar-value">{m.obrotNetto > 0 ? Math.round(m.obrotNetto / 1000) + 'k' : ''}</span>
+                      </div>
+                      <div 
+                        className={`chart-bar marza ${m.marza >= 0 ? 'positive' : 'negative'}`}
+                        style={{ height: `${Math.abs(m.marza) / maxValue * 100}%` }}
+                        title={`Marża: ${formatCurrency(m.marza, 'PLN')}`}
+                      />
+                    </div>
+                    <span className="chart-label">{m.shortName}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="chart-legend">
+                <span className="legend-item"><span className="legend-color obrót"></span> Obrót netto</span>
+                <span className="legend-item"><span className="legend-color marza"></span> Marża</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TABELA MIESIĘCZNA */}
+          <div className="stats-table-section">
+            <h3>📋 Szczegółowe zestawienie</h3>
+            <div className="stats-table-wrapper">
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th>Miesiąc</th>
+                    <th>Zamówienia</th>
+                    <th>Obrót brutto</th>
+                    <th>Obrót netto</th>
+                    <th>Koszt towaru</th>
+                    <th>Koszt transportu</th>
+                    <th>Marża</th>
+                    <th>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyData.map((m, i) => (
+                    <tr key={i} className={m.zamowienia === 0 ? 'empty' : ''}>
+                      <td className="month-name">{m.name}</td>
+                      <td className="center">{m.zamowienia}</td>
+                      <td className="money">{formatCurrency(m.obrotBrutto, 'PLN')}</td>
+                      <td className="money">{formatCurrency(m.obrotNetto, 'PLN')}</td>
+                      <td className="money expense">{formatCurrency(m.kosztTowaru, 'PLN')}</td>
+                      <td className="money expense">{formatCurrency(m.kosztTransportu, 'PLN')}</td>
+                      <td className={`money ${m.marza >= 0 ? 'profit' : 'loss'}`}>{formatCurrency(m.marza, 'PLN')}</td>
+                      <td className={`percent ${m.marza >= 0 ? 'profit' : 'loss'}`}>{m.marzaProc.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="summary-row">
+                    <td><strong>RAZEM {selectedYear}</strong></td>
+                    <td className="center"><strong>{yearSummary.zamowienia}</strong></td>
+                    <td className="money"><strong>{formatCurrency(yearSummary.obrotBrutto, 'PLN')}</strong></td>
+                    <td className="money"><strong>{formatCurrency(yearSummary.obrotNetto, 'PLN')}</strong></td>
+                    <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTowaru, 'PLN')}</strong></td>
+                    <td className="money expense"><strong>{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</strong></td>
+                    <td className={`money ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{formatCurrency(yearSummary.marza, 'PLN')}</strong></td>
+                    <td className={`percent ${yearSummary.marza >= 0 ? 'profit' : 'loss'}`}><strong>{yearSummary.marzaProc.toFixed(1)}%</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // GŁÓWNA APLIKACJA
 // ============================================
 
@@ -2252,6 +2548,7 @@ const App = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showComplaintsPanel, setShowComplaintsPanel] = useState(false);
+  const [showStatistics, setShowStatistics] = useState(false);
   const [emailModal, setEmailModal] = useState(null);
 
   const prevNotifCount = useRef(0);
@@ -2536,6 +2833,7 @@ const App = () => {
 
             {isAdmin && (
               <>
+                <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Statystyki</button>
                 <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
                 <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
                 <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️ Ustawienia</button>
@@ -2768,6 +3066,14 @@ const App = () => {
           onClose={() => setShowComplaintsPanel(false)}
           currentUser={user}
           onAddNotification={addNotif}
+        />
+      )}
+
+      {showStatistics && (
+        <StatisticsPanel
+          orders={orders}
+          exchangeRates={exchangeRates}
+          onClose={() => setShowStatistics(false)}
         />
       )}
     </div>
