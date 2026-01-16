@@ -4393,6 +4393,7 @@ input.margin-negative {
 .messenger-chats-list {
   flex: 1;
   overflow-y: auto;
+  max-height: calc(550px - 70px); /* wysokość panelu - header */
 }
 
 .chat-item {
@@ -4512,6 +4513,7 @@ input.margin-negative {
 .new-chat-users {
   flex: 1;
   overflow-y: auto;
+  max-height: calc(550px - 110px); /* wysokość panelu - header */
 }
 
 .new-chat-user {
@@ -4779,5 +4781,180 @@ input.margin-negative {
     right: 16px;
     width: 56px;
     height: 56px;
+  }
+}
+
+/* ============================================
+   KOSZ - TRASH PANEL STYLES
+   ============================================ */
+.trash-search {
+  margin-bottom: 20px;
+}
+
+.trash-search input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.trash-search input:focus {
+  border-color: #EF4444;
+  outline: none;
+}
+
+.trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+.trash-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #FEF2F2, #FFF);
+  border: 1px solid #FECACA;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.trash-item:hover {
+  border-color: #F87171;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+}
+
+.trash-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.trash-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trash-order-number {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1E293B;
+}
+
+.trash-deleted-info {
+  font-size: 12px;
+  color: #EF4444;
+  background: #FEE2E2;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.trash-item-details {
+  margin-bottom: 10px;
+}
+
+.trash-item-product {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+}
+
+.trash-item-client {
+  font-size: 14px;
+  color: #1E293B;
+  margin: 0;
+  font-weight: 500;
+}
+
+.trash-item-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.trash-deleted-by {
+  color: #DC2626;
+}
+
+.trash-created-by {
+  color: #64748B;
+}
+
+.trash-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-restore {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-restore:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-permanent-delete {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-permanent-delete:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.trash-footer-info {
+  flex: 1;
+}
+
+.trash-warning {
+  color: #F59E0B;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Responsywność kosza */
+@media (max-width: 640px) {
+  .trash-item {
+    flex-direction: column;
+  }
+  
+  .trash-item-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+  
+  .trash-item-actions button {
+    flex: 1;
   }
 }
