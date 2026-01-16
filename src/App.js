@@ -953,6 +953,60 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     kontrahentId: isContractor ? currentUser.id : null
   });
   const [saving, setSaving] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+
+  // Wyciągnij unikalne kontakty z zamówień do sugestii
+  const getContactSuggestions = (searchText) => {
+    if (!searchText || searchText.length < 2) return [];
+    
+    const relevantOrders = isContractor 
+      ? orders.filter(o => o.kontrahentId === currentUser?.id && !o.usuniety)
+      : orders.filter(o => !o.usuniety);
+
+    const contactsMap = new Map();
+    relevantOrders.forEach(order => {
+      if (!order.klient?.imie) return;
+      const key = `${order.klient.imie}_${order.klient.telefon || order.klient.email || ''}`;
+      if (!contactsMap.has(key)) {
+        contactsMap.set(key, {
+          imie: order.klient.imie,
+          telefon: order.klient.telefon || '',
+          email: order.klient.email || '',
+          adres: order.klient.adres || '',
+          facebookUrl: order.klient.facebookUrl || ''
+        });
+      }
+    });
+
+    const searchLower = searchText.toLowerCase();
+    return Array.from(contactsMap.values())
+      .filter(c => c.imie.toLowerCase().includes(searchLower))
+      .slice(0, 5);
+  };
+
+  // Obsługa zmiany imienia - szukaj sugestii
+  const handleNameChange = (value) => {
+    updateKlient('imie', value);
+    const sugg = getContactSuggestions(value);
+    setSuggestions(sugg);
+    setShowSuggestions(sugg.length > 0);
+  };
+
+  // Wybór sugestii
+  const selectSuggestion = (contact) => {
+    setForm({
+      ...form,
+      klient: {
+        imie: contact.imie,
+        telefon: contact.telefon,
+        email: contact.email,
+        adres: contact.adres,
+        facebookUrl: contact.facebookUrl
+      }
+    });
+    setShowSuggestions(false);
+  };
 
   // Generuj numer zamówienia dla nowych zamówień (bez ID)
   useEffect(() => {
@@ -1124,9 +1178,38 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
           <div className="form-section">
             <h3>👤 Dane klienta</h3>
             <div className="form-grid">
-              <div className="form-group">
+              <div className="form-group name-autocomplete">
                 <label>IMIĘ I NAZWISKO</label>
-                <input value={form.klient?.imie || ''} onChange={e => updateKlient('imie', e.target.value)} placeholder="Jan Kowalski" />
+                <input 
+                  value={form.klient?.imie || ''} 
+                  onChange={e => handleNameChange(e.target.value)} 
+                  onFocus={() => {
+                    const sugg = getContactSuggestions(form.klient?.imie || '');
+                    setSuggestions(sugg);
+                    setShowSuggestions(sugg.length > 0);
+                  }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  placeholder="Jan Kowalski" 
+                  autoComplete="off"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="suggestions-dropdown">
+                    <div className="suggestions-header">📇 Znalezieni klienci:</div>
+                    {suggestions.map((s, idx) => (
+                      <div 
+                        key={idx} 
+                        className="suggestion-item"
+                        onMouseDown={() => selectSuggestion(s)}
+                      >
+                        <div className="suggestion-name">{s.imie}</div>
+                        <div className="suggestion-details">
+                          {s.telefon && <span>📞 {s.telefon}</span>}
+                          {s.email && <span>✉️ {s.email}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>TELEFON</label>
@@ -4864,6 +4947,275 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
 };
 
 // ============================================
+// PANEL KONTAKTÓW (BAZA KLIENTÓW)
+// ============================================
+
+const ContactsPanel = ({ orders, onClose, isContractor, currentUser, onCreateOrder }) => {
+  const [search, setSearch] = useState('');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [selectedContact, setSelectedContact] = useState(null);
+
+  // Wyciągnij unikalne kontakty z zamówień
+  const extractContacts = () => {
+    const contactsMap = new Map();
+    
+    // Dla kontrahenta - tylko jego zamówienia
+    const relevantOrders = isContractor 
+      ? orders.filter(o => o.kontrahentId === currentUser?.id && !o.usuniety)
+      : orders.filter(o => !o.usuniety);
+
+    relevantOrders.forEach(order => {
+      if (!order.klient?.imie) return;
+      
+      // Klucz: imię + telefon lub email
+      const key = `${order.klient.imie.toLowerCase()}_${order.klient.telefon || order.klient.email || ''}`.trim();
+      
+      if (contactsMap.has(key)) {
+        const existing = contactsMap.get(key);
+        existing.orders.push(order);
+        existing.totalSpent += order.platnosci?.cenaCalkowita || 0;
+        existing.currencies.add(order.platnosci?.waluta || 'PLN');
+        if (new Date(order.dataZlecenia) > new Date(existing.lastOrder)) {
+          existing.lastOrder = order.dataZlecenia;
+        }
+        if (new Date(order.dataZlecenia) < new Date(existing.firstOrder)) {
+          existing.firstOrder = order.dataZlecenia;
+        }
+      } else {
+        contactsMap.set(key, {
+          id: key,
+          imie: order.klient.imie,
+          telefon: order.klient.telefon || '',
+          email: order.klient.email || '',
+          adres: order.klient.adres || '',
+          facebookUrl: order.klient.facebookUrl || '',
+          kraj: order.kraj || 'PL',
+          orders: [order],
+          totalSpent: order.platnosci?.cenaCalkowita || 0,
+          currencies: new Set([order.platnosci?.waluta || 'PLN']),
+          firstOrder: order.dataZlecenia || order.utworzonePrzez?.data,
+          lastOrder: order.dataZlecenia || order.utworzonePrzez?.data
+        });
+      }
+    });
+
+    return Array.from(contactsMap.values()).sort((a, b) => 
+      new Date(b.lastOrder) - new Date(a.lastOrder)
+    );
+  };
+
+  const contacts = extractContacts();
+
+  // Filtrowanie
+  const filteredContacts = contacts.filter(c => {
+    if (countryFilter !== 'all' && c.kraj !== countryFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const hay = [c.imie, c.telefon, c.email, c.adres].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    }
+    return true;
+  });
+
+  // Dostępne kraje
+  const availableCountries = [...new Set(contacts.map(c => c.kraj).filter(Boolean))];
+
+  // Stwórz nowe zamówienie z danymi kontaktu
+  const handleCreateOrder = (contact) => {
+    onCreateOrder({
+      klient: {
+        imie: contact.imie,
+        telefon: contact.telefon,
+        email: contact.email,
+        adres: contact.adres,
+        facebookUrl: contact.facebookUrl
+      },
+      kraj: contact.kraj
+    });
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>📇 Kontakty</h2>
+            <p className="modal-subtitle">Baza klientów ({contacts.length} kontaktów)</p>
+          </div>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          {/* Filtry */}
+          <div className="contacts-filters">
+            <div className="filter-group">
+              <input
+                type="text"
+                placeholder="🔍 Szukaj klienta..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="contacts-search"
+              />
+            </div>
+            <div className="filter-group">
+              <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
+                <option value="all">🌍 Wszystkie kraje</option>
+                {availableCountries.map(code => {
+                  const c = getCountry(code);
+                  return <option key={code} value={code}>{c?.flag} {c?.name}</option>;
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* Lista kontaktów lub szczegóły */}
+          {selectedContact ? (
+            <div className="contact-details">
+              <button className="btn-back" onClick={() => setSelectedContact(null)}>
+                ← Wróć do listy
+              </button>
+
+              <div className="contact-header">
+                <div className="contact-avatar">
+                  {selectedContact.imie.charAt(0).toUpperCase()}
+                </div>
+                <div className="contact-info">
+                  <h3>{selectedContact.imie}</h3>
+                  <p>{getCountry(selectedContact.kraj)?.flag} {getCountry(selectedContact.kraj)?.name}</p>
+                </div>
+                <button className="btn-primary" onClick={() => handleCreateOrder(selectedContact)}>
+                  ➕ Nowe zamówienie
+                </button>
+              </div>
+
+              <div className="contact-data-grid">
+                {selectedContact.telefon && (
+                  <div className="contact-data-item">
+                    <span className="label">📞 Telefon</span>
+                    <a href={`tel:${selectedContact.telefon}`}>{selectedContact.telefon}</a>
+                  </div>
+                )}
+                {selectedContact.email && (
+                  <div className="contact-data-item">
+                    <span className="label">✉️ Email</span>
+                    <a href={`mailto:${selectedContact.email}`}>{selectedContact.email}</a>
+                  </div>
+                )}
+                {selectedContact.adres && (
+                  <div className="contact-data-item">
+                    <span className="label">📍 Adres</span>
+                    <span>{selectedContact.adres}</span>
+                  </div>
+                )}
+                {selectedContact.facebookUrl && (
+                  <div className="contact-data-item">
+                    <span className="label">📘 Facebook</span>
+                    <a href={selectedContact.facebookUrl} target="_blank" rel="noopener noreferrer">Profil</a>
+                  </div>
+                )}
+              </div>
+
+              <div className="contact-stats">
+                <div className="stat-box">
+                  <div className="stat-value">{selectedContact.orders.length}</div>
+                  <div className="stat-label">Zamówień</div>
+                </div>
+                <div className="stat-box highlight">
+                  <div className="stat-value">{formatCurrency(selectedContact.totalSpent, 'PLN')}</div>
+                  <div className="stat-label">Wydano łącznie</div>
+                </div>
+                <div className="stat-box">
+                  <div className="stat-value">{formatDate(selectedContact.firstOrder)}</div>
+                  <div className="stat-label">Pierwszy zakup</div>
+                </div>
+                <div className="stat-box">
+                  <div className="stat-value">{formatDate(selectedContact.lastOrder)}</div>
+                  <div className="stat-label">Ostatni zakup</div>
+                </div>
+              </div>
+
+              <div className="contact-orders-history">
+                <h4>📦 Historia zamówień</h4>
+                <div className="orders-history-list">
+                  {selectedContact.orders.map(order => (
+                    <div key={order.id} className="history-order-item">
+                      <div className="history-order-header">
+                        <span className="history-order-number">
+                          {getCountry(order.kraj)?.flag} {order.nrWlasny}
+                        </span>
+                        <span className={`history-order-status`} style={{ 
+                          background: getStatus(order.status)?.bgColor, 
+                          color: getStatus(order.status)?.color 
+                        }}>
+                          {getStatus(order.status)?.icon} {getStatus(order.status)?.name}
+                        </span>
+                      </div>
+                      <p className="history-order-product">{order.towar?.substring(0, 80)}...</p>
+                      <div className="history-order-meta">
+                        <span>📅 {formatDate(order.dataZlecenia)}</span>
+                        <span>💰 {formatCurrency(order.platnosci?.cenaCalkowita, order.platnosci?.waluta)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="contacts-list">
+              {filteredContacts.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">📇</div>
+                  <p>{contacts.length === 0 ? 'Brak kontaktów' : 'Nie znaleziono kontaktów'}</p>
+                </div>
+              ) : (
+                filteredContacts.map(contact => (
+                  <div 
+                    key={contact.id} 
+                    className="contact-card"
+                    onClick={() => setSelectedContact(contact)}
+                  >
+                    <div className="contact-card-avatar">
+                      {contact.imie.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="contact-card-main">
+                      <div className="contact-card-name">
+                        {getCountry(contact.kraj)?.flag} {contact.imie}
+                      </div>
+                      <div className="contact-card-details">
+                        {contact.telefon && <span>📞 {contact.telefon}</span>}
+                        {contact.email && <span>✉️ {contact.email}</span>}
+                      </div>
+                    </div>
+                    <div className="contact-card-stats">
+                      <div className="contact-orders-count">{contact.orders.length} zam.</div>
+                      <div className="contact-total-spent">{formatCurrency(contact.totalSpent, 'PLN')}</div>
+                    </div>
+                    <button 
+                      className="btn-create-order-small"
+                      onClick={(e) => { e.stopPropagation(); handleCreateOrder(contact); }}
+                    >
+                      ➕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <span className="contacts-summary">
+            {filteredContacts.length} z {contacts.length} kontaktów
+          </span>
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // PANEL KOSZA
 // ============================================
 
@@ -5010,16 +5362,30 @@ const App = () => {
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
   const [showTrashPanel, setShowTrashPanel] = useState(false); // Kosz
+  const [showContactsPanel, setShowContactsPanel] = useState(false); // Kontakty
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false); // Menu rozwijane
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
 
   const prevNotifCount = useRef(0);
+  const settingsMenuRef = useRef(null);
 
   const drivers = users.filter(u => u.role === 'driver');
   const isContractor = user?.role === 'contractor';
   const isAdmin = user?.role === 'admin';
+
+  // Zamknij menu po kliknięciu poza nim
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Pobieranie kursów walut z NBP API
   const fetchExchangeRates = async () => {
@@ -5510,29 +5876,76 @@ const App = () => {
               </button>
             )}
 
+            {/* Przycisk Kontakty - dla admina i pracownika */}
+            {(isAdmin || user?.role === 'worker') && (
+              <button className="btn-secondary contacts-btn" onClick={() => setShowContactsPanel(true)}>
+                📇 Kontakty
+              </button>
+            )}
+
+            {/* Kosz - dla admina i pracownika */}
+            {(isAdmin || user?.role === 'worker') && (
+              <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
+                🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
+              </button>
+            )}
+
+            {/* Menu rozwijane Ustawienia - dla admina */}
             {isAdmin && (
-              <>
-                <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Statystyki</button>
-                <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
-                <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
-                <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
-                  🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
+              <div className="settings-dropdown" ref={settingsMenuRef}>
+                <button 
+                  className="btn-secondary settings-btn" 
+                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                >
+                  ⚙️ Ustawienia {showSettingsMenu ? '▲' : '▼'}
                 </button>
-                <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️ Ustawienia</button>
-              </>
+                {showSettingsMenu && (
+                  <div className="settings-menu">
+                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
+                      📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
+                      👥 Użytkownicy
+                    </button>
+                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
+                      🏭 Producenci
+                    </button>
+                    <button onClick={() => { setShowSettingsModal(true); setShowSettingsMenu(false); }}>
+                      🔧 Konfiguracja
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
+            {/* Menu dla pracownika */}
             {user?.role === 'worker' && (
-              <>
-                <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
-                <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
-                  🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
+              <div className="settings-dropdown" ref={settingsMenuRef}>
+                <button 
+                  className="btn-secondary settings-btn" 
+                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                >
+                  ⚙️ Ustawienia {showSettingsMenu ? '▲' : '▼'}
                 </button>
-              </>
+                {showSettingsMenu && (
+                  <div className="settings-menu">
+                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
+                      📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
+                      🏭 Producenci
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
+            {/* Kontrahent - kontakty i dane firmy */}
             {isContractor && (
               <>
+                <button className="btn-secondary contacts-btn" onClick={() => setShowContactsPanel(true)}>
+                  📇 Moje kontakty
+                </button>
                 <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Moje statystyki</button>
                 <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
               </>
@@ -5886,8 +6299,21 @@ const App = () => {
         />
       )}
 
-      {/* POPUP POWIADOMIEŃ */}
-      {popupNotification && (
+      {showContactsPanel && (
+        <ContactsPanel
+          orders={orders}
+          onClose={() => setShowContactsPanel(false)}
+          isContractor={isContractor}
+          currentUser={user}
+          onCreateOrder={(contactData) => {
+            setEditingOrder(contactData);
+            setShowOrderModal(true);
+          }}
+        />
+      )}
+
+      {/* POPUP POWIADOMIEŃ - nie dla kontrahenta */}
+      {popupNotification && !isContractor && (
         <div className="notification-popup" onClick={() => setPopupNotification(null)}>
           <div className="popup-icon">{popupNotification.icon || '🔔'}</div>
           <div className="popup-content">
