@@ -4764,19 +4764,38 @@ const App = () => {
     // Zamknij panel leads
     setShowLeadsPanel(false);
     // Otwórz formularz zamówienia z danymi klienta i powiązaniem do leada
+    // WAŻNE: nie ustawiamy id, więc handleSaveOrder utworzy nowe zamówienie
     setEditingOrder({
+      // Domyślne wartości dla nowego zamówienia
+      kraj: 'PL',
+      status: 'nowe',
+      dataZlecenia: new Date().toISOString().split('T')[0],
+      // Dane z leada
       klient: {
         imie: lead.imie || '',
         telefon: lead.telefon || '',
         email: lead.email || '',
-        facebookUrl: lead.facebookUrl || ''
+        facebookUrl: lead.facebookUrl || '',
+        adres: ''
       },
       towar: lead.produkty || '',
       platnosci: {
         waluta: lead.waluta || 'PLN',
-        cenaCalkowita: parseFloat(lead.szacowanaKwota) || 0
+        cenaCalkowita: parseFloat(lead.szacowanaKwota) || 0,
+        zaplacono: 0,
+        doZaplaty: parseFloat(lead.szacowanaKwota) || 0,
+        metodaZaplaty: ''
       },
-      linkedLeadId: lead.id // Powiązanie z leadem
+      koszty: { 
+        waluta: 'PLN', 
+        zakupNetto: 0, 
+        zakupBrutto: 0, 
+        transportWaluta: 'PLN',
+        transportBrutto: 0,
+        transportNetto: 0,
+        vatRate: 23
+      },
+      linkedLeadId: lead.id // Powiązanie z leadem - bez id zamówienia!
     });
     setShowOrderModal(true);
   };
