@@ -13,6 +13,54 @@ import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScr
 import './App.css';
 
 // ============================================
+// KONFIGURACJA MAILERSEND
+// ============================================
+
+const MAILERSEND_CONFIG = {
+  apiToken: 'mlsn.ce3bf924d0ed92f4921bd786dde0c1b8e36fcd7beb983a9e2f91fd3cd5c56cd0',
+  senderEmail: 'noreply@test-z0vklo6jm07l7qrx.mlsender.net',
+  senderName: 'Herraton - Zamówienia'
+};
+
+// Funkcja wysyłania emaila przez MailerSend
+const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htmlContent = null) => {
+  try {
+    const response = await fetch('https://api.mailersend.com/v1/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MAILERSEND_CONFIG.apiToken}`
+      },
+      body: JSON.stringify({
+        from: {
+          email: MAILERSEND_CONFIG.senderEmail,
+          name: MAILERSEND_CONFIG.senderName
+        },
+        to: [{
+          email: toEmail,
+          name: toName || 'Klient'
+        }],
+        subject: subject,
+        text: textContent,
+        html: htmlContent || textContent.replace(/\n/g, '<br>')
+      })
+    });
+
+    if (response.ok || response.status === 202) {
+      console.log('Email wysłany pomyślnie!');
+      return { success: true };
+    } else {
+      const error = await response.json();
+      console.error('Błąd wysyłania emaila:', error);
+      return { success: false, error };
+    }
+  } catch (error) {
+    console.error('Błąd połączenia z MailerSend:', error);
+    return { success: false, error };
+  }
+};
+
+// ============================================
 // KONFIGURACJA
 // ============================================
 
@@ -670,8 +718,20 @@ ${t.team}
 ---
 📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
 
-    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+    // Wyślij przez MailerSend
+    sendEmailViaMailerSend(
+      order.klient.email,
+      order.klient.imie,
+      subject,
+      body
+    ).then(result => {
+      if (result.success) {
+        alert('✅ Email z potwierdzeniem dostawy został wysłany!');
+      } else {
+        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      }
+    });
+    
     setShowDeliveryEmailModal(false);
   };
 
@@ -728,8 +788,21 @@ Zespół obsługi zamówień`;
     }
     
     const { subject, body } = generateConfirmationEmail();
-    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+    
+    // Wyślij przez MailerSend
+    sendEmailViaMailerSend(
+      order.klient.email,
+      order.klient.imie,
+      subject,
+      body
+    ).then(result => {
+      if (result.success) {
+        alert('✅ Email z potwierdzeniem zamówienia został wysłany!');
+      } else {
+        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      }
+    });
+    
     setShowEmailConfirmation(false);
   };
 
@@ -1425,9 +1498,19 @@ Zespół obsługi zamówień`;
     
     const { subject, body } = generateConfirmationEmail();
     
-    // Otwórz klienta email z wypełnioną treścią
-    const mailtoLink = `mailto:${form.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+    // Wyślij przez MailerSend
+    sendEmailViaMailerSend(
+      form.klient.email,
+      form.klient.imie,
+      subject,
+      body
+    ).then(result => {
+      if (result.success) {
+        alert('✅ Email z potwierdzeniem zamówienia został wysłany!');
+      } else {
+        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      }
+    });
     
     setShowConfirmationModal(false);
   };
@@ -3434,8 +3517,20 @@ ${st.team}
 ---
 📧 ${st.noReply}`;
 
-    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+    // Wyślij przez MailerSend
+    sendEmailViaMailerSend(
+      order.klient.email,
+      order.klient.imie,
+      subject,
+      body
+    ).then(result => {
+      if (result.success) {
+        alert('✅ Email o zmianie statusu został wysłany!');
+      } else {
+        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      }
+    });
+    
     setShowStatusChangeEmail(null);
   };
 
@@ -4002,8 +4097,20 @@ ${t.team}
 ---
 📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
 
-    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+    // Wyślij przez MailerSend
+    sendEmailViaMailerSend(
+      order.klient.email,
+      order.klient.imie,
+      subject,
+      body
+    ).then(result => {
+      if (result.success) {
+        alert('✅ Email z potwierdzeniem dostawy został wysłany!');
+      } else {
+        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      }
+    });
+    
     setShowDeliveryConfirmation(null);
   };
 
@@ -7039,7 +7146,7 @@ const App = () => {
   };
 
   // Funkcja wysyłania emaila o zmianie statusu
-  const sendStatusChangeEmail = (modalData) => {
+  const sendStatusChangeEmail = async (modalData) => {
     const { order, oldStatus, newStatus, newStatusCode } = modalData;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
     const zaplacono = order.platnosci?.zaplacono || 0;
@@ -7093,10 +7200,26 @@ ${additionalInfo}${paymentInfo}
 W razie pytań prosimy o kontakt.
 
 Pozdrawiamy,
-Zespół obsługi zamówień`;
+Zespół obsługi zamówień
 
-    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
+---
+📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
+
+    // Wyślij przez MailerSend
+    const result = await sendEmailViaMailerSend(
+      order.klient.email,
+      order.klient.imie,
+      subject,
+      body
+    );
+    
+    if (result.success) {
+      alert('✅ Email został wysłany pomyślnie!');
+    } else {
+      alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      console.error('Błąd MailerSend:', result.error);
+    }
+    
     setStatusChangeModal(null);
   };
 
