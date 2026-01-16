@@ -1301,6 +1301,177 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
 };
 
 // ============================================
+// MODAL DANYCH FIRMY KONTRAHENTA
+// ============================================
+
+const CompanyDataModal = ({ user, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    companyName: user?.companyName || '',
+    nip: user?.nip || '',
+    regon: user?.regon || '',
+    companyAddress: user?.companyAddress || '',
+    companyCity: user?.companyCity || '',
+    companyPostCode: user?.companyPostCode || '',
+    companyCountry: user?.companyCountry || 'Polska',
+    bankName: user?.bankName || '',
+    bankAccount: user?.bankAccount || '',
+    companyEmail: user?.companyEmail || '',
+    companyPhone: user?.companyPhone || '',
+    companyWebsite: user?.companyWebsite || '',
+    notes: user?.notes || ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave({
+        ...user,
+        ...formData
+      });
+      onClose();
+    } catch (err) {
+      alert('Błąd zapisu: ' + err.message);
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>🏢 Dane firmy</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group full">
+              <label>NAZWA FIRMY *</label>
+              <input 
+                value={formData.companyName} 
+                onChange={e => setFormData({...formData, companyName: e.target.value})} 
+                placeholder="Pełna nazwa firmy"
+              />
+            </div>
+            <div className="form-group">
+              <label>NIP</label>
+              <input 
+                value={formData.nip} 
+                onChange={e => setFormData({...formData, nip: e.target.value})} 
+                placeholder="123-456-78-90"
+              />
+            </div>
+            <div className="form-group">
+              <label>REGON</label>
+              <input 
+                value={formData.regon} 
+                onChange={e => setFormData({...formData, regon: e.target.value})} 
+                placeholder="123456789"
+              />
+            </div>
+            <div className="form-group full">
+              <label>ADRES</label>
+              <input 
+                value={formData.companyAddress} 
+                onChange={e => setFormData({...formData, companyAddress: e.target.value})} 
+                placeholder="ul. Przykładowa 123"
+              />
+            </div>
+            <div className="form-group">
+              <label>KOD POCZTOWY</label>
+              <input 
+                value={formData.companyPostCode} 
+                onChange={e => setFormData({...formData, companyPostCode: e.target.value})} 
+                placeholder="00-000"
+              />
+            </div>
+            <div className="form-group">
+              <label>MIASTO</label>
+              <input 
+                value={formData.companyCity} 
+                onChange={e => setFormData({...formData, companyCity: e.target.value})} 
+                placeholder="Warszawa"
+              />
+            </div>
+            <div className="form-group">
+              <label>KRAJ</label>
+              <input 
+                value={formData.companyCountry} 
+                onChange={e => setFormData({...formData, companyCountry: e.target.value})} 
+                placeholder="Polska"
+              />
+            </div>
+          </div>
+
+          <h3 style={{marginTop: '20px', marginBottom: '10px'}}>💳 Dane bankowe</h3>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>NAZWA BANKU</label>
+              <input 
+                value={formData.bankName} 
+                onChange={e => setFormData({...formData, bankName: e.target.value})} 
+                placeholder="Nazwa banku"
+              />
+            </div>
+            <div className="form-group">
+              <label>NUMER KONTA</label>
+              <input 
+                value={formData.bankAccount} 
+                onChange={e => setFormData({...formData, bankAccount: e.target.value})} 
+                placeholder="PL00 0000 0000 0000 0000 0000 0000"
+              />
+            </div>
+          </div>
+
+          <h3 style={{marginTop: '20px', marginBottom: '10px'}}>📞 Kontakt</h3>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>EMAIL FIRMOWY</label>
+              <input 
+                value={formData.companyEmail} 
+                onChange={e => setFormData({...formData, companyEmail: e.target.value})} 
+                placeholder="firma@example.com"
+              />
+            </div>
+            <div className="form-group">
+              <label>TELEFON FIRMOWY</label>
+              <input 
+                value={formData.companyPhone} 
+                onChange={e => setFormData({...formData, companyPhone: e.target.value})} 
+                placeholder="+48 123 456 789"
+              />
+            </div>
+            <div className="form-group full">
+              <label>STRONA WWW</label>
+              <input 
+                value={formData.companyWebsite} 
+                onChange={e => setFormData({...formData, companyWebsite: e.target.value})} 
+                placeholder="https://www.firma.pl"
+              />
+            </div>
+            <div className="form-group full">
+              <label>DODATKOWE INFORMACJE</label>
+              <textarea 
+                value={formData.notes} 
+                onChange={e => setFormData({...formData, notes: e.target.value})} 
+                rows={3}
+                placeholder="Dodatkowe informacje o firmie..."
+              />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Anuluj</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? '⏳...' : '💾 Zapisz'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // MODAL UŻYTKOWNIKÓW - Z RESETOWANIEM HASŁA
 // ============================================
 
@@ -2011,7 +2182,34 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
 // ============================================
 
 const EmailModal = ({ order, producer, onClose }) => {
-  const body = `Dzień dobry, chciała bym się zapytać\n\no zamówienie nr ${order.nrWlasny || 'BRAK'} - które ma termin odbioru: ${formatDate(order.dataOdbioru)}.\n\nOpis: ${order.towar}\n\nZ poważaniem Karolina`;
+  const [emailType, setEmailType] = useState('inquiry'); // inquiry, order
+  
+  const inquiryBody = `Dzień dobry,
+
+Pytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${formatDate(order.dataOdbioru)}.
+
+Opis: ${order.towar}
+
+Proszę o informację o statusie realizacji.
+
+Z poważaniem`;
+
+  const orderBody = `Dzień dobry,
+
+Zlecam realizację zamówienia:
+
+Nr zamówienia: ${order.nrWlasny || 'BRAK'}
+Opis: ${order.towar}
+Termin odbioru: ${formatDate(order.dataOdbioru) || 'Do ustalenia'}
+
+Proszę o potwierdzenie przyjęcia zlecenia.
+
+Z poważaniem`;
+
+  const body = emailType === 'inquiry' ? inquiryBody : orderBody;
+  const subject = emailType === 'inquiry' 
+    ? `Zapytanie - zamówienie ${order.nrWlasny}` 
+    : `ZLECENIE - zamówienie ${order.nrWlasny}`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -2027,10 +2225,178 @@ const EmailModal = ({ order, producer, onClose }) => {
             <span>📞 {producer?.phone || '—'}</span>
             {producer?.address && <span>📍 {producer.address}</span>}
           </div>
+
+          <div className="email-type-selector">
+            <button 
+              className={`email-type-btn ${emailType === 'inquiry' ? 'active' : ''}`}
+              onClick={() => setEmailType('inquiry')}
+            >
+              ❓ Zapytanie o produkt
+            </button>
+            <button 
+              className={`email-type-btn ${emailType === 'order' ? 'active' : ''}`}
+              onClick={() => setEmailType('order')}
+            >
+              📦 Zleć zamówienie
+            </button>
+          </div>
+
+          <div className="email-preview">
+            <label>Podgląd wiadomości:</label>
+            <pre>{body}</pre>
+          </div>
+
           <div className="contact-actions">
             {producer?.phone && <a href={`tel:${producer.phone}`} className="btn-secondary">📞 Zadzwoń</a>}
-            {producer?.email && <a href={`mailto:${producer.email}?subject=Zamówienie ${order.nrWlasny}&body=${encodeURIComponent(body)}`} className="btn-primary">✉️ Email</a>}
+            {producer?.email && (
+              <a 
+                href={`mailto:${producer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`} 
+                className="btn-primary"
+              >
+                ✉️ Wyślij {emailType === 'order' ? 'zlecenie' : 'zapytanie'}
+              </a>
+            )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// MODAL ZBIORCZEGO EMAILA
+// ============================================
+
+const BulkEmailModal = ({ orders, producer, onClose }) => {
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [emailType, setEmailType] = useState('inquiry'); // inquiry, order
+
+  const toggleOrder = (orderId) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const selectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map(o => o.id));
+    }
+  };
+
+  const generateBody = () => {
+    const selected = orders.filter(o => selectedOrders.includes(o.id));
+    
+    if (emailType === 'inquiry') {
+      const ordersList = selected.map(o => 
+        `• Nr ${o.nrWlasny} - ${o.towar?.substring(0, 50) || 'brak opisu'}... (termin: ${formatDate(o.dataOdbioru) || 'brak'})`
+      ).join('\n');
+
+      return `Dzień dobry,
+
+Proszę o informację o statusie realizacji następujących zamówień:
+
+${ordersList}
+
+Proszę o informację zwrotną.
+
+Z poważaniem`;
+    } else {
+      const ordersList = selected.map(o => 
+        `━━━━━━━━━━━━━━━━━━━━━━
+Nr zamówienia: ${o.nrWlasny}
+Opis: ${o.towar || 'brak opisu'}
+Termin odbioru: ${formatDate(o.dataOdbioru) || 'Do ustalenia'}`
+      ).join('\n\n');
+
+      return `Dzień dobry,
+
+Zlecam realizację następujących zamówień:
+
+${ordersList}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Proszę o potwierdzenie przyjęcia zleceń.
+
+Z poważaniem`;
+    }
+  };
+
+  const body = generateBody();
+  const subject = emailType === 'inquiry'
+    ? `Zapytanie zbiorcze - ${selectedOrders.length} zamówień`
+    : `ZLECENIE ZBIORCZE - ${selectedOrders.length} zamówień`;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📧 Zbiorczy email do: {producer?.name}</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="email-type-selector">
+            <button 
+              className={`email-type-btn ${emailType === 'inquiry' ? 'active' : ''}`}
+              onClick={() => setEmailType('inquiry')}
+            >
+              ❓ Zbiorcze zapytanie
+            </button>
+            <button 
+              className={`email-type-btn ${emailType === 'order' ? 'active' : ''}`}
+              onClick={() => setEmailType('order')}
+            >
+              📦 Zbiorcze zlecenie
+            </button>
+          </div>
+
+          <div className="bulk-orders-section">
+            <div className="bulk-orders-header">
+              <h3>Wybierz zamówienia ({selectedOrders.length}/{orders.length})</h3>
+              <button className="btn-secondary small" onClick={selectAll}>
+                {selectedOrders.length === orders.length ? '☐ Odznacz wszystko' : '☑ Zaznacz wszystko'}
+              </button>
+            </div>
+            <div className="bulk-orders-list">
+              {orders.map(order => (
+                <label key={order.id} className={`bulk-order-item ${selectedOrders.includes(order.id) ? 'selected' : ''}`}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedOrders.includes(order.id)}
+                    onChange={() => toggleOrder(order.id)}
+                  />
+                  <div className="bulk-order-info">
+                    <span className="bulk-order-number">{order.nrWlasny}</span>
+                    <span className="bulk-order-desc">{order.towar?.substring(0, 40)}...</span>
+                    <span className="bulk-order-date">📅 {formatDate(order.dataOdbioru)}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {selectedOrders.length > 0 && (
+            <div className="email-preview">
+              <label>Podgląd wiadomości:</label>
+              <pre>{body}</pre>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Anuluj</button>
+          {producer?.email && selectedOrders.length > 0 && (
+            <a 
+              href={`mailto:${producer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`} 
+              className="btn-primary"
+              onClick={onClose}
+            >
+              ✉️ Wyślij {emailType === 'order' ? 'zlecenie' : 'zapytanie'} ({selectedOrders.length})
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -4236,6 +4602,9 @@ const App = () => {
   const [showComplaintsPanel, setShowComplaintsPanel] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
   const [showLeadsPanel, setShowLeadsPanel] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+  const [selectedOrdersForEmail, setSelectedOrdersForEmail] = useState([]);
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
@@ -4357,18 +4726,39 @@ const App = () => {
 
   const handleSaveOrder = async (form, currentUser) => {
     const now = new Date().toISOString();
-    if (editingOrder) {
+    
+    // Sprawdź czy to edycja istniejącego zamówienia (ma ID) czy nowe
+    if (editingOrder?.id) {
       await updateOrder(editingOrder.id, {
         ...form,
         historia: [...(form.historia || []), { data: now, uzytkownik: currentUser.name, akcja: 'Edycja zamówienia' }]
       });
     } else {
+      // Nowe zamówienie (w tym z leada)
       const newOrder = {
         ...form,
+        linkedLeadId: editingOrder?.linkedLeadId || null, // Zachowaj powiązanie z leadem
         utworzonePrzez: { id: currentUser.id, nazwa: currentUser.name, data: now, oddzial: currentUser.id },
         historia: [{ data: now, uzytkownik: currentUser.name, akcja: 'Utworzono zamówienie' }]
       };
       await addOrder(newOrder);
+      
+      // Jeśli było powiązanie z leadem, zaktualizuj lead
+      if (editingOrder?.linkedLeadId) {
+        const lead = leads.find(l => l.id === editingOrder.linkedLeadId);
+        if (lead) {
+          await handleSaveLead({
+            ...lead,
+            status: 'zamowil',
+            ostatniaAktualizacja: now,
+            historia: [...(lead.historia || []), {
+              data: now,
+              uzytkownik: currentUser.name,
+              akcja: `Utworzono zamówienie: ${form.nrWlasny}`
+            }]
+          }, lead.id);
+        }
+      }
       
       // Powiadomienie o nowym zamówieniu - dla wszystkich
       await addNotif({ 
@@ -4615,6 +5005,10 @@ const App = () => {
               <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
             )}
 
+            {isContractor && (
+              <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
+            )}
+
             <button className="btn-logout" onClick={onLogout}>Wyloguj</button>
           </div>
         </div>
@@ -4710,7 +5104,7 @@ const App = () => {
 
             {creators.length > 1 && (
               <div className="filter-group">
-                <label>👤 Pracownik:</label>
+                <label>👤 Twórca:</label>
                 <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}>
                   <option value="all">Wszyscy</option>
                   {creators.map(c => <option key={c} value={c}>{c}</option>)}
@@ -4738,6 +5132,19 @@ const App = () => {
                   {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
+            )}
+
+            {/* Przycisk zbiorczego emaila */}
+            {producerFilter !== 'all' && producerFilter !== 'unassigned' && filteredOrders.length > 0 && (
+              <button 
+                className="btn-bulk-email"
+                onClick={() => {
+                  setSelectedOrdersForEmail([]);
+                  setShowBulkEmailModal(true);
+                }}
+              >
+                📧 Zbiorczy email ({filteredOrders.length})
+              </button>
             )}
           </div>
         </div>
@@ -4823,6 +5230,16 @@ const App = () => {
         />
       )}
 
+      {showCompanyModal && (
+        <CompanyDataModal
+          user={user}
+          onSave={async (updatedUser) => {
+            await updateUser(user.id, updatedUser);
+          }}
+          onClose={() => setShowCompanyModal(false)}
+        />
+      )}
+
       {showProducersModal && (
         <ProducersModal
           producers={producers}
@@ -4838,6 +5255,14 @@ const App = () => {
           order={emailModal.order}
           producer={emailModal.producer}
           onClose={() => setEmailModal(null)}
+        />
+      )}
+
+      {showBulkEmailModal && producerFilter !== 'all' && producerFilter !== 'unassigned' && (
+        <BulkEmailModal
+          orders={filteredOrders}
+          producer={producers[producerFilter]}
+          onClose={() => setShowBulkEmailModal(false)}
         />
       )}
 
