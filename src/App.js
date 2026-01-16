@@ -5406,16 +5406,16 @@ const Messenger = ({
   // Scroll do ostatniej wiadomości
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentChatMessages]);
+  }, [currentChatMessages.length, selectedChat]);
 
   // Oznacz jako przeczytane po otwarciu chatu
   useEffect(() => {
     if (selectedChat && currentChat) {
-      currentChat.messages
-        .filter(m => m.receiverId === currentUser?.id && !m.read)
-        .forEach(m => onMarkAsRead(m.id));
+      const unreadMessages = currentChat.messages.filter(m => m.receiverId === currentUser?.id && !m.read);
+      unreadMessages.forEach(m => onMarkAsRead(m.id));
     }
-  }, [selectedChat, currentChat, currentUser, onMarkAsRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat]);
 
   // Wyślij wiadomość
   const handleSend = () => {
