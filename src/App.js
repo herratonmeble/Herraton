@@ -6,6 +6,7 @@ import {
   subscribeToNotifications, addNotification, updateNotification, deleteNotification,
   subscribeToComplaints, addComplaint, updateComplaint, deleteComplaint,
   subscribeToLeads, addLead, updateLead, deleteLead,
+  subscribeToMessages, addMessage, updateMessage,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -5327,6 +5328,311 @@ const TrashPanel = ({ orders, onRestore, onPermanentDelete, onClose, isAdmin, cu
 };
 
 // ============================================
+// MESSENGER - SYSTEM WIADOMOŚCI
+// ============================================
+
+const Messenger = ({ 
+  currentUser, 
+  users, 
+  messages, 
+  onSendMessage, 
+  onMarkAsRead,
+  orders,
+  isOpen, 
+  onClose,
+  selectedChat,
+  setSelectedChat 
+}) => {
+  const [newMessage, setNewMessage] = useState('');
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [attachedOrder, setAttachedOrder] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  // Filtruj wiadomości dla aktualnego użytkownika
+  const myMessages = messages.filter(m => 
+    m.senderId === currentUser?.id || m.receiverId === currentUser?.id
+  );
+
+  // Grupuj wiadomości po rozmówcach
+  const getChats = () => {
+    const chatsMap = new Map();
+    
+    myMessages.forEach(msg => {
+      const partnerId = msg.senderId === currentUser?.id ? msg.receiverId : msg.senderId;
+      const partner = users.find(u => u.id === partnerId);
+      
+      if (!partner) return;
+      
+      if (!chatsMap.has(partnerId)) {
+        chatsMap.set(partnerId, {
+          partnerId,
+          partnerName: partner.name,
+          partnerRole: partner.role,
+          messages: [],
+          unread: 0,
+          lastMessage: null
+        });
+      }
+      
+      const chat = chatsMap.get(partnerId);
+      chat.messages.push(msg);
+      
+      // Policz nieprzeczytane
+      if (msg.receiverId === currentUser?.id && !msg.read) {
+        chat.unread++;
+      }
+      
+      // Ostatnia wiadomość
+      if (!chat.lastMessage || new Date(msg.timestamp) > new Date(chat.lastMessage.timestamp)) {
+        chat.lastMessage = msg;
+      }
+    });
+
+    // Sortuj po ostatniej wiadomości
+    return Array.from(chatsMap.values()).sort((a, b) => 
+      new Date(b.lastMessage?.timestamp || 0) - new Date(a.lastMessage?.timestamp || 0)
+    );
+  };
+
+  const chats = getChats();
+  const totalUnread = chats.reduce((sum, c) => sum + c.unread, 0);
+  
+  // Aktualny chat
+  const currentChat = selectedChat ? chats.find(c => c.partnerId === selectedChat) : null;
+  const currentChatMessages = currentChat 
+    ? currentChat.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    : [];
+
+  // Scroll do ostatniej wiadomości
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentChatMessages]);
+
+  // Oznacz jako przeczytane po otwarciu chatu
+  useEffect(() => {
+    if (selectedChat && currentChat) {
+      currentChat.messages
+        .filter(m => m.receiverId === currentUser?.id && !m.read)
+        .forEach(m => onMarkAsRead(m.id));
+    }
+  }, [selectedChat, currentChat, currentUser, onMarkAsRead]);
+
+  // Wyślij wiadomość
+  const handleSend = () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    
+    onSendMessage({
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      receiverId: selectedChat,
+      text: newMessage.trim(),
+      attachedOrderId: attachedOrder?.id || null,
+      attachedOrderNumber: attachedOrder?.nrWlasny || null,
+      timestamp: new Date().toISOString(),
+      read: false
+    });
+    
+    setNewMessage('');
+    setAttachedOrder(null);
+  };
+
+  // Rozpocznij nowy chat
+  const startNewChat = (userId) => {
+    setSelectedChat(userId);
+    setShowNewChat(false);
+  };
+
+  // Ikona roli
+  const getRoleIcon = (role) => {
+    switch(role) {
+      case 'admin': return '👑';
+      case 'worker': return '👷';
+      case 'driver': return '🚚';
+      case 'contractor': return '🏢';
+      default: return '👤';
+    }
+  };
+
+  // Dostępni użytkownicy do chatu (nie ja)
+  const availableUsers = users.filter(u => u.id !== currentUser?.id);
+
+  if (!isOpen) {
+    return (
+      <div 
+        className="messenger-fab" 
+        onClick={() => onClose(true)}
+        title="Wiadomości"
+      >
+        💬
+        {totalUnread > 0 && <span className="fab-badge">{totalUnread}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="messenger-panel">
+      <div className="messenger-header">
+        <h3>💬 Wiadomości</h3>
+        <div className="messenger-header-actions">
+          <button className="btn-new-chat" onClick={() => setShowNewChat(true)} title="Nowa rozmowa">
+            ✏️
+          </button>
+          <button className="btn-close-messenger" onClick={() => onClose(false)}>×</button>
+        </div>
+      </div>
+
+      {showNewChat ? (
+        <div className="messenger-new-chat">
+          <div className="new-chat-header">
+            <button className="btn-back-chat" onClick={() => setShowNewChat(false)}>← Wróć</button>
+            <span>Nowa rozmowa</span>
+          </div>
+          <div className="new-chat-users">
+            {availableUsers.map(u => (
+              <div key={u.id} className="new-chat-user" onClick={() => startNewChat(u.id)}>
+                <span className="user-role-icon">{getRoleIcon(u.role)}</span>
+                <div className="user-info">
+                  <div className="user-name">{u.name}</div>
+                  <div className="user-role-label">{
+                    u.role === 'admin' ? 'Administrator' :
+                    u.role === 'worker' ? 'Pracownik' :
+                    u.role === 'driver' ? 'Kierowca' :
+                    u.role === 'contractor' ? 'Kontrahent' : 'Użytkownik'
+                  }</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : selectedChat ? (
+        <div className="messenger-chat">
+          <div className="chat-header">
+            <button className="btn-back-chat" onClick={() => setSelectedChat(null)}>←</button>
+            <span className="chat-partner-icon">{getRoleIcon(currentChat?.partnerRole)}</span>
+            <span className="chat-partner-name">{currentChat?.partnerName}</span>
+          </div>
+          
+          <div className="chat-messages">
+            {currentChatMessages.map((msg, idx) => (
+              <div 
+                key={msg.id || idx} 
+                className={`chat-message ${msg.senderId === currentUser?.id ? 'sent' : 'received'}`}
+              >
+                {msg.attachedOrderNumber && (
+                  <div className="message-order-tag">
+                    📦 Zamówienie: {msg.attachedOrderNumber}
+                  </div>
+                )}
+                <div className="message-text">{msg.text}</div>
+                <div className="message-time">
+                  {new Date(msg.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                  {msg.senderId === currentUser?.id && (
+                    <span className="message-status">{msg.read ? ' ✓✓' : ' ✓'}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {attachedOrder && (
+            <div className="attached-order-preview">
+              📦 {attachedOrder.nrWlasny}
+              <button onClick={() => setAttachedOrder(null)}>×</button>
+            </div>
+          )}
+
+          <div className="chat-input-area">
+            <div className="chat-input-row">
+              <select 
+                className="attach-order-select"
+                value={attachedOrder?.id || ''}
+                onChange={e => {
+                  const order = orders.find(o => o.id === e.target.value);
+                  setAttachedOrder(order || null);
+                }}
+              >
+                <option value="">📎 Dołącz zamówienie...</option>
+                {orders.filter(o => !o.usuniety).slice(0, 20).map(o => (
+                  <option key={o.id} value={o.id}>{o.nrWlasny}</option>
+                ))}
+              </select>
+            </div>
+            <div className="chat-input-row">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && handleSend()}
+                placeholder="Napisz wiadomość..."
+              />
+              <button className="btn-send" onClick={handleSend} disabled={!newMessage.trim()}>
+                ➤
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="messenger-chats-list">
+          {chats.length === 0 ? (
+            <div className="no-chats">
+              <p>Brak rozmów</p>
+              <button className="btn-start-chat" onClick={() => setShowNewChat(true)}>
+                ✏️ Rozpocznij rozmowę
+              </button>
+            </div>
+          ) : (
+            chats.map(chat => (
+              <div 
+                key={chat.partnerId} 
+                className={`chat-item ${chat.unread > 0 ? 'has-unread' : ''}`}
+                onClick={() => setSelectedChat(chat.partnerId)}
+              >
+                <div className="chat-item-avatar">
+                  {getRoleIcon(chat.partnerRole)}
+                </div>
+                <div className="chat-item-content">
+                  <div className="chat-item-header">
+                    <span className="chat-item-name">{chat.partnerName}</span>
+                    <span className="chat-item-time">
+                      {chat.lastMessage && formatTime(chat.lastMessage.timestamp)}
+                    </span>
+                  </div>
+                  <div className="chat-item-preview">
+                    {chat.lastMessage?.senderId === currentUser?.id && 'Ty: '}
+                    {chat.lastMessage?.text?.substring(0, 30)}
+                    {chat.lastMessage?.text?.length > 30 ? '...' : ''}
+                  </div>
+                </div>
+                {chat.unread > 0 && (
+                  <div className="chat-item-badge">{chat.unread}</div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Formatowanie czasu dla messengera
+const formatTime = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 24 * 60 * 60 * 1000) {
+    return date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  } else if (diff < 7 * 24 * 60 * 60 * 1000) {
+    return date.toLocaleDateString('pl-PL', { weekday: 'short' });
+  } else {
+    return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  }
+};
+
+// ============================================
 // GŁÓWNA APLIKACJA
 // ============================================
 
@@ -5368,8 +5674,15 @@ const App = () => {
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
+  
+  // Messenger state
+  const [messages, setMessages] = useState([]);
+  const [showMessenger, setShowMessenger] = useState(false);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [newMessagePopup, setNewMessagePopup] = useState(null);
 
   const prevNotifCount = useRef(0);
+  const prevMessageCount = useRef(0);
   const settingsMenuRef = useRef(null);
 
   const drivers = users.filter(u => u.role === 'driver');
@@ -5437,6 +5750,7 @@ const App = () => {
     const unsubNotifs = subscribeToNotifications(setNotifications);
     const unsubComplaints = subscribeToComplaints(setComplaints);
     const unsubLeads = subscribeToLeads(setLeads);
+    const unsubMessages = subscribeToMessages ? subscribeToMessages(setMessages) : () => {};
 
     const savedUser = localStorage.getItem('herratonUser');
     if (savedUser) {
@@ -5453,6 +5767,7 @@ const App = () => {
       unsubNotifs();
       unsubComplaints();
       unsubLeads();
+      unsubMessages();
       clearInterval(ratesInterval);
     };
   }, []);
@@ -5717,6 +6032,37 @@ const App = () => {
   const handleDeleteLead = async (id) => {
     await deleteLead(id);
   };
+
+  // MESSENGER - funkcje obsługi wiadomości
+  const handleSendMessage = async (messageData) => {
+    if (addMessage) {
+      await addMessage(messageData);
+    }
+  };
+
+  const handleMarkMessageAsRead = async (messageId) => {
+    if (updateMessage) {
+      await updateMessage(messageId, { read: true });
+    }
+  };
+
+  // Popup dla nowych wiadomości
+  useEffect(() => {
+    const myMessages = messages.filter(m => m.receiverId === user?.id && !m.read);
+    const unreadCount = myMessages.length;
+    
+    if (unreadCount > prevMessageCount.current && messages.length > 0) {
+      const newest = myMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      if (newest && !showMessenger) {
+        setNewMessagePopup({
+          senderName: newest.senderName,
+          text: newest.text?.substring(0, 50) + (newest.text?.length > 50 ? '...' : '')
+        });
+        setTimeout(() => setNewMessagePopup(null), 4000);
+      }
+    }
+    prevMessageCount.current = unreadCount;
+  }, [messages, user, showMessenger]);
 
   const handleConvertLeadToOrder = (lead) => {
     // Zamknij panel leads
@@ -6321,6 +6667,31 @@ const App = () => {
             <div className="popup-message">{popupNotification.message}</div>
           </div>
           <button className="popup-close" onClick={() => setPopupNotification(null)}>×</button>
+        </div>
+      )}
+
+      {/* MESSENGER */}
+      <Messenger
+        currentUser={user}
+        users={users}
+        messages={messages}
+        orders={orders}
+        onSendMessage={handleSendMessage}
+        onMarkAsRead={handleMarkMessageAsRead}
+        isOpen={showMessenger}
+        onClose={(open) => setShowMessenger(open)}
+        selectedChat={selectedChat}
+        setSelectedChat={setSelectedChat}
+      />
+
+      {/* POPUP NOWEJ WIADOMOŚCI */}
+      {newMessagePopup && !showMessenger && (
+        <div className="message-popup" onClick={() => { setNewMessagePopup(null); setShowMessenger(true); }}>
+          <div className="message-popup-icon">💬</div>
+          <div className="message-popup-content">
+            <div className="message-popup-sender">{newMessagePopup.senderName}</div>
+            <div className="message-popup-text">{newMessagePopup.text}</div>
+          </div>
         </div>
       )}
     </div>
