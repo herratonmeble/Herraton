@@ -515,9 +515,92 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
     const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLang] || DELIVERY_EMAIL_TRANSLATIONS.pl;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
     const zaplacono = order.platnosci?.zaplacono || 0;
+    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
+    const hasSignature = order.podpisKlienta;
     const driverName = driver?.name || order.potwierdzenieDostawy?.kierowca || '-';
+    
+    // Tłumaczenia protokołu
+    const PROTOCOL_TRANS = {
+      pl: {
+        protocolTitle: 'PROTOKÓŁ ODBIORU TOWARU',
+        orderNumber: 'Nr zamówienia',
+        product: 'Produkt',
+        value: 'Wartość',
+        recipient: 'Odbiorca',
+        address: 'Adres dostawy',
+        deliveryDate: 'Data dostawy',
+        driver: 'Kierowca',
+        declaration: 'Potwierdzam odbiór powyższego towaru. Towar został sprawdzony w obecności kierowcy.',
+        clientRemarks: 'Uwagi klienta',
+        noRemarks: 'Brak uwag - produkt zaakceptowany bez zastrzeżeń',
+        signature: 'Podpis klienta: ZŁOŻONY ELEKTRONICZNIE',
+        noSignature: 'Podpis klienta: OCZEKUJE NA PODPIS'
+      },
+      en: {
+        protocolTitle: 'GOODS RECEIPT PROTOCOL',
+        orderNumber: 'Order number',
+        product: 'Product',
+        value: 'Value',
+        recipient: 'Recipient',
+        address: 'Delivery address',
+        deliveryDate: 'Delivery date',
+        driver: 'Driver',
+        declaration: 'I confirm receipt of the above goods. The goods have been inspected in the presence of the driver.',
+        clientRemarks: 'Client remarks',
+        noRemarks: 'No remarks - product accepted without reservations',
+        signature: 'Client signature: SIGNED ELECTRONICALLY',
+        noSignature: 'Client signature: AWAITING SIGNATURE'
+      },
+      de: {
+        protocolTitle: 'WARENEMPFANGSPROTOKOLL',
+        orderNumber: 'Bestellnummer',
+        product: 'Produkt',
+        value: 'Wert',
+        recipient: 'Empfänger',
+        address: 'Lieferadresse',
+        deliveryDate: 'Lieferdatum',
+        driver: 'Fahrer',
+        declaration: 'Ich bestätige den Empfang der oben genannten Waren. Die Ware wurde in Anwesenheit des Fahrers geprüft.',
+        clientRemarks: 'Kundenanmerkungen',
+        noRemarks: 'Keine Anmerkungen - Produkt ohne Vorbehalt akzeptiert',
+        signature: 'Kundenunterschrift: ELEKTRONISCH UNTERSCHRIEBEN',
+        noSignature: 'Kundenunterschrift: WARTET AUF UNTERSCHRIFT'
+      },
+      es: {
+        protocolTitle: 'PROTOCOLO DE RECEPCIÓN DE MERCANCÍAS',
+        orderNumber: 'Número de pedido',
+        product: 'Producto',
+        value: 'Valor',
+        recipient: 'Destinatario',
+        address: 'Dirección de entrega',
+        deliveryDate: 'Fecha de entrega',
+        driver: 'Conductor',
+        declaration: 'Confirmo la recepción de la mercancía anterior. La mercancía ha sido inspeccionada en presencia del conductor.',
+        clientRemarks: 'Observaciones del cliente',
+        noRemarks: 'Sin observaciones - producto aceptado sin reservas',
+        signature: 'Firma del cliente: FIRMADO ELECTRÓNICAMENTE',
+        noSignature: 'Firma del cliente: ESPERANDO FIRMA'
+      },
+      nl: {
+        protocolTitle: 'ONTVANGSTPROTOCOL',
+        orderNumber: 'Bestelnummer',
+        product: 'Product',
+        value: 'Waarde',
+        recipient: 'Ontvanger',
+        address: 'Afleveradres',
+        deliveryDate: 'Leverdatum',
+        driver: 'Chauffeur',
+        declaration: 'Ik bevestig de ontvangst van bovenstaande goederen. De goederen zijn geïnspecteerd in aanwezigheid van de chauffeur.',
+        clientRemarks: 'Opmerkingen klant',
+        noRemarks: 'Geen opmerkingen - product zonder voorbehoud geaccepteerd',
+        signature: 'Handtekening klant: ELEKTRONISCH ONDERTEKEND',
+        noSignature: 'Handtekening klant: WACHT OP HANDTEKENING'
+      }
+    };
+    
+    const pt = PROTOCOL_TRANS[deliveryEmailLang] || PROTOCOL_TRANS.pl;
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
@@ -530,6 +613,35 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
     }
+    
+    // Protokół odbioru jako tekst
+    const protocolText = `
+
+═══════════════════════════════════════════════════════════
+📋 ${pt.protocolTitle}
+═══════════════════════════════════════════════════════════
+
+${pt.orderNumber}: ${order.nrWlasny}
+${pt.deliveryDate}: ${formatDate(dataPlatnosci)}
+${pt.driver}: ${driverName}
+
+───────────────────────────────────────────────────────────
+${pt.product}:
+${order.towar || '-'}
+
+${pt.value}: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+───────────────────────────────────────────────────────────
+
+${pt.recipient}: ${order.klient?.imie || '-'}
+${pt.address}: ${order.klient?.adres || '-'}
+
+───────────────────────────────────────────────────────────
+${pt.declaration}
+
+${pt.clientRemarks}: ${order.uwagiKlienta || pt.noRemarks}
+
+${hasSignature ? pt.signature : pt.noSignature}
+═══════════════════════════════════════════════════════════`;
     
     const body = `${t.greeting} ${order.klient?.imie || t.client},
 
@@ -546,15 +658,17 @@ ${t.intro}
 📦 ${t.product}:
 ${order.towar || '-'}
 ${paymentInfo}
-
-📋 ${t.protocolInfo}
-${hasPhotos ? `📸 ${t.photosInfo}` : ''}
+${protocolText}
+${hasPhotos ? `\n📸 ${t.photosInfo} (${order.zdjeciaDostawy.length} zdjęć)` : ''}
 
 ${t.thanks}
 ${t.welcome}
 
 ${t.regards},
-${t.team}`;
+${t.team}
+
+---
+📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
 
     const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailtoLink, '_blank');
@@ -3150,6 +3264,9 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // State dla wysyłania potwierdzenia dostawy
   const [showDeliveryConfirmation, setShowDeliveryConfirmation] = useState(null);
   const [deliveryEmailLanguage, setDeliveryEmailLanguage] = useState('pl');
+  
+  // State dla modala zmiany statusu (odebrane, w_transporcie)
+  const [showStatusChangeEmail, setShowStatusChangeEmail] = useState(null); // { order, oldStatus, newStatus }
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -3174,13 +3291,153 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     }
   };
   const changeStatus = async (order, newStatus) => {
+    const oldStatusName = getStatus(order.status)?.name || order.status;
     const statusName = getStatus(newStatus).name;
+    
     await onUpdateOrder(order.id, {
       ...order,
       status: newStatus,
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Status: ${statusName}` }]
     });
     onAddNotification({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `Kierowca ${user.name} zmienił status na: ${statusName}`, orderId: order.id });
+    
+    // Dla statusów "odebrane" i "w_transporcie" - zapytaj o email
+    if ((newStatus === 'odebrane' || newStatus === 'w_transporcie') && order.klient?.email) {
+      setShowStatusChangeEmail({
+        order,
+        oldStatus: oldStatusName,
+        newStatus: statusName,
+        newStatusCode: newStatus
+      });
+    }
+  };
+
+  // Funkcja wysyłania emaila o zmianie statusu przez kierowcę
+  const sendDriverStatusEmail = () => {
+    const { order, oldStatus, newStatus, newStatusCode } = showStatusChangeEmail;
+    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
+    
+    // Tłumaczenia dla zmiany statusu
+    const STATUS_EMAIL_TRANSLATIONS = {
+      pl: {
+        subject: 'Zmiana statusu zamówienia nr',
+        greeting: 'Szanowny/a',
+        intro: 'Informujemy o zmianie statusu Twojego zamówienia.',
+        title: 'ZMIANA STATUSU ZAMÓWIENIA',
+        orderNumber: 'Numer zamówienia',
+        statusChanged: 'Status zmieniony',
+        previous: 'Poprzedni',
+        current: 'Aktualny',
+        pickedUpInfo: 'Twoje zamówienie zostało odebrane od producenta i przygotowywane jest do transportu.',
+        inTransitInfo: 'Twoje zamówienie jest w drodze! Wkrótce skontaktuje się z Tobą nasz kierowca.',
+        questions: 'W razie pytań prosimy o kontakt.',
+        regards: 'Pozdrawiamy',
+        team: 'Zespół obsługi zamówień',
+        noReply: 'Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.'
+      },
+      en: {
+        subject: 'Order status change no.',
+        greeting: 'Dear',
+        intro: 'We inform you about the status change of your order.',
+        title: 'ORDER STATUS CHANGE',
+        orderNumber: 'Order number',
+        statusChanged: 'Status changed',
+        previous: 'Previous',
+        current: 'Current',
+        pickedUpInfo: 'Your order has been picked up from the manufacturer and is being prepared for transport.',
+        inTransitInfo: 'Your order is on its way! Our driver will contact you soon.',
+        questions: 'If you have any questions, please contact us.',
+        regards: 'Best regards',
+        team: 'Order Service Team',
+        noReply: 'This message was sent automatically. Please do not reply to this email.'
+      },
+      de: {
+        subject: 'Statusänderung der Bestellung Nr.',
+        greeting: 'Sehr geehrte/r',
+        intro: 'Wir informieren Sie über die Statusänderung Ihrer Bestellung.',
+        title: 'BESTELLSTATUSÄNDERUNG',
+        orderNumber: 'Bestellnummer',
+        statusChanged: 'Status geändert',
+        previous: 'Vorheriger',
+        current: 'Aktueller',
+        pickedUpInfo: 'Ihre Bestellung wurde beim Hersteller abgeholt und wird für den Transport vorbereitet.',
+        inTransitInfo: 'Ihre Bestellung ist unterwegs! Unser Fahrer wird Sie bald kontaktieren.',
+        questions: 'Bei Fragen kontaktieren Sie uns bitte.',
+        regards: 'Mit freundlichen Grüßen',
+        team: 'Bestellservice-Team',
+        noReply: 'Diese Nachricht wurde automatisch gesendet. Bitte antworten Sie nicht auf diese E-Mail.'
+      },
+      es: {
+        subject: 'Cambio de estado del pedido nº',
+        greeting: 'Estimado/a',
+        intro: 'Le informamos sobre el cambio de estado de su pedido.',
+        title: 'CAMBIO DE ESTADO DEL PEDIDO',
+        orderNumber: 'Número de pedido',
+        statusChanged: 'Estado cambiado',
+        previous: 'Anterior',
+        current: 'Actual',
+        pickedUpInfo: 'Su pedido ha sido recogido del fabricante y se está preparando para el transporte.',
+        inTransitInfo: '¡Su pedido está en camino! Nuestro conductor se pondrá en contacto con usted pronto.',
+        questions: 'Si tiene alguna pregunta, por favor contáctenos.',
+        regards: 'Saludos cordiales',
+        team: 'Equipo de servicio de pedidos',
+        noReply: 'Este mensaje fue enviado automáticamente. Por favor no responda a este correo.'
+      },
+      nl: {
+        subject: 'Statuswijziging bestelling nr.',
+        greeting: 'Geachte',
+        intro: 'Wij informeren u over de statuswijziging van uw bestelling.',
+        title: 'BESTELSTATUSWIJZIGING',
+        orderNumber: 'Bestelnummer',
+        statusChanged: 'Status gewijzigd',
+        previous: 'Vorige',
+        current: 'Huidige',
+        pickedUpInfo: 'Uw bestelling is opgehaald bij de fabrikant en wordt voorbereid voor transport.',
+        inTransitInfo: 'Uw bestelling is onderweg! Onze chauffeur neemt binnenkort contact met u op.',
+        questions: 'Als u vragen heeft, neem dan contact met ons op.',
+        regards: 'Met vriendelijke groet',
+        team: 'Bestelservice Team',
+        noReply: 'Dit bericht is automatisch verzonden. Gelieve niet te antwoorden op deze e-mail.'
+      }
+    };
+    
+    const st = STATUS_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || STATUS_EMAIL_TRANSLATIONS.pl;
+    
+    const subject = `${st.subject} ${order.nrWlasny}`;
+    
+    let additionalInfo = '';
+    if (newStatusCode === 'odebrane') {
+      additionalInfo = `\n\n📦 ${st.pickedUpInfo}`;
+    } else if (newStatusCode === 'w_transporcie') {
+      additionalInfo = `\n\n🚚 ${st.inTransitInfo}`;
+    }
+    
+    const body = `${st.greeting} ${order.klient?.imie || 'Kliencie'},
+
+${st.intro}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 ${st.title}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 ${st.orderNumber}: ${order.nrWlasny}
+
+📊 ${st.statusChanged}:
+   ❌ ${st.previous}: ${oldStatus}
+   ✅ ${st.current}: ${newStatus}
+${additionalInfo}
+
+${st.questions}
+
+${st.regards},
+${st.team}
+
+---
+📧 ${st.noReply}`;
+
+    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setShowStatusChangeEmail(null);
   };
 
   // Zapisz rabat
@@ -3592,8 +3849,91 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
     const zaplacono = order.platnosci?.zaplacono || 0;
+    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
+    const hasSignature = order.podpisKlienta;
+    
+    // Tłumaczenia protokołu
+    const PROTOCOL_TRANS = {
+      pl: {
+        protocolTitle: 'PROTOKÓŁ ODBIORU TOWARU',
+        orderNumber: 'Nr zamówienia',
+        product: 'Produkt',
+        value: 'Wartość',
+        recipient: 'Odbiorca',
+        address: 'Adres dostawy',
+        deliveryDate: 'Data dostawy',
+        driver: 'Kierowca',
+        declaration: 'Potwierdzam odbiór powyższego towaru. Towar został sprawdzony w obecności kierowcy.',
+        clientRemarks: 'Uwagi klienta',
+        noRemarks: 'Brak uwag - produkt zaakceptowany bez zastrzeżeń',
+        signature: 'Podpis klienta: ZŁOŻONY ELEKTRONICZNIE',
+        noSignature: 'Podpis klienta: OCZEKUJE NA PODPIS'
+      },
+      en: {
+        protocolTitle: 'GOODS RECEIPT PROTOCOL',
+        orderNumber: 'Order number',
+        product: 'Product',
+        value: 'Value',
+        recipient: 'Recipient',
+        address: 'Delivery address',
+        deliveryDate: 'Delivery date',
+        driver: 'Driver',
+        declaration: 'I confirm receipt of the above goods. The goods have been inspected in the presence of the driver.',
+        clientRemarks: 'Client remarks',
+        noRemarks: 'No remarks - product accepted without reservations',
+        signature: 'Client signature: SIGNED ELECTRONICALLY',
+        noSignature: 'Client signature: AWAITING SIGNATURE'
+      },
+      de: {
+        protocolTitle: 'WARENEMPFANGSPROTOKOLL',
+        orderNumber: 'Bestellnummer',
+        product: 'Produkt',
+        value: 'Wert',
+        recipient: 'Empfänger',
+        address: 'Lieferadresse',
+        deliveryDate: 'Lieferdatum',
+        driver: 'Fahrer',
+        declaration: 'Ich bestätige den Empfang der oben genannten Waren. Die Ware wurde in Anwesenheit des Fahrers geprüft.',
+        clientRemarks: 'Kundenanmerkungen',
+        noRemarks: 'Keine Anmerkungen - Produkt ohne Vorbehalt akzeptiert',
+        signature: 'Kundenunterschrift: ELEKTRONISCH UNTERSCHRIEBEN',
+        noSignature: 'Kundenunterschrift: WARTET AUF UNTERSCHRIFT'
+      },
+      es: {
+        protocolTitle: 'PROTOCOLO DE RECEPCIÓN DE MERCANCÍAS',
+        orderNumber: 'Número de pedido',
+        product: 'Producto',
+        value: 'Valor',
+        recipient: 'Destinatario',
+        address: 'Dirección de entrega',
+        deliveryDate: 'Fecha de entrega',
+        driver: 'Conductor',
+        declaration: 'Confirmo la recepción de la mercancía anterior. La mercancía ha sido inspeccionada en presencia del conductor.',
+        clientRemarks: 'Observaciones del cliente',
+        noRemarks: 'Sin observaciones - producto aceptado sin reservas',
+        signature: 'Firma del cliente: FIRMADO ELECTRÓNICAMENTE',
+        noSignature: 'Firma del cliente: ESPERANDO FIRMA'
+      },
+      nl: {
+        protocolTitle: 'ONTVANGSTPROTOCOL',
+        orderNumber: 'Bestelnummer',
+        product: 'Product',
+        value: 'Waarde',
+        recipient: 'Ontvanger',
+        address: 'Afleveradres',
+        deliveryDate: 'Leverdatum',
+        driver: 'Chauffeur',
+        declaration: 'Ik bevestig de ontvangst van bovenstaande goederen. De goederen zijn geïnspecteerd in aanwezigheid van de chauffeur.',
+        clientRemarks: 'Opmerkingen klant',
+        noRemarks: 'Geen opmerkingen - product zonder voorbehoud geaccepteerd',
+        signature: 'Handtekening klant: ELEKTRONISCH ONDERTEKEND',
+        noSignature: 'Handtekening klant: WACHT OP HANDTEKENING'
+      }
+    };
+    
+    const pt = PROTOCOL_TRANS[deliveryEmailLanguage] || PROTOCOL_TRANS.pl;
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
@@ -3606,6 +3946,35 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
     }
+    
+    // Protokół odbioru jako tekst
+    const protocolText = `
+
+═══════════════════════════════════════════════════════════
+📋 ${pt.protocolTitle}
+═══════════════════════════════════════════════════════════
+
+${pt.orderNumber}: ${order.nrWlasny}
+${pt.deliveryDate}: ${formatDate(dataPlatnosci)}
+${pt.driver}: ${user.name}
+
+───────────────────────────────────────────────────────────
+${pt.product}:
+${order.towar || '-'}
+
+${pt.value}: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+───────────────────────────────────────────────────────────
+
+${pt.recipient}: ${order.klient?.imie || '-'}
+${pt.address}: ${order.klient?.adres || '-'}
+
+───────────────────────────────────────────────────────────
+${pt.declaration}
+
+${pt.clientRemarks}: ${order.uwagiKlienta || pt.noRemarks}
+
+${hasSignature ? pt.signature : pt.noSignature}
+═══════════════════════════════════════════════════════════`;
     
     const body = `${t.greeting} ${order.klient?.imie || t.client},
 
@@ -3622,15 +3991,17 @@ ${t.intro}
 📦 ${t.product}:
 ${order.towar || '-'}
 ${paymentInfo}
-
-📋 ${t.protocolInfo}
-${hasPhotos ? `📸 ${t.photosInfo}` : ''}
+${protocolText}
+${hasPhotos ? `\n📸 ${t.photosInfo} (${order.zdjeciaDostawy.length} zdjęć)` : ''}
 
 ${t.thanks}
 ${t.welcome}
 
 ${t.regards},
-${t.team}`;
+${t.team}
+
+---
+📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
 
     const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailtoLink, '_blank');
@@ -4175,6 +4546,70 @@ ${t.team}`;
                 ❌ Nie
               </button>
               <button className="btn-primary" onClick={() => sendDeliveryConfirmationEmail(showDeliveryConfirmation)}>
+                ✅ Tak, wyślij
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal zmiany statusu - odebrane/w_transporcie */}
+      {showStatusChangeEmail && (
+        <div className="modal-overlay" onClick={() => setShowStatusChangeEmail(null)}>
+          <div className="modal-content modal-small status-change-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header status-change-header">
+              <h2>📧 Powiadomić klienta?</h2>
+              <button className="btn-close" onClick={() => setShowStatusChangeEmail(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="status-change-info">
+                <p className="status-change-order">
+                  <strong>Zamówienie:</strong> {showStatusChangeEmail.order?.nrWlasny}
+                </p>
+                <p className="status-change-client">
+                  <strong>Klient:</strong> {showStatusChangeEmail.order?.klient?.imie}
+                </p>
+                <p className="status-change-email">
+                  <strong>Email:</strong> {showStatusChangeEmail.order?.klient?.email}
+                </p>
+                
+                <div className="form-group" style={{marginTop: '16px'}}>
+                  <label>Język wiadomości:</label>
+                  <select 
+                    value={deliveryEmailLanguage} 
+                    onChange={e => setDeliveryEmailLanguage(e.target.value)}
+                    className="protocol-language-select"
+                  >
+                    <option value="pl">🇵🇱 Polski</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="nl">🇳🇱 Nederlands</option>
+                  </select>
+                </div>
+                
+                <div className="status-change-visual">
+                  <div className="status-old">
+                    <span className="status-label">Poprzedni</span>
+                    <span className="status-value">{showStatusChangeEmail.oldStatus}</span>
+                  </div>
+                  <div className="status-arrow">→</div>
+                  <div className="status-new">
+                    <span className="status-label">Nowy</span>
+                    <span className="status-value">{showStatusChangeEmail.newStatus}</span>
+                  </div>
+                </div>
+                
+                <p className="status-change-question">
+                  Czy chcesz wysłać email do klienta z informacją o zmianie statusu?
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer status-change-footer">
+              <button className="btn-secondary" onClick={() => setShowStatusChangeEmail(null)}>
+                ❌ Nie
+              </button>
+              <button className="btn-primary" onClick={sendDriverStatusEmail}>
                 ✅ Tak, wyślij
               </button>
             </div>
