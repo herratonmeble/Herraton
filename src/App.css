@@ -3891,44 +3891,47 @@ input.margin-negative {
 }
 
 /* ============================================
-   STATYSTYKI KONTRAHENTA
+   PROTOKÓŁ - WYBÓR JĘZYKA
    ============================================ */
-.contractor-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+.protocol-language-select {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
 }
-.contractor-summary .summary-card.highlight {
-  background: linear-gradient(135deg, #3B82F6, #2563EB);
+.protocol-language-select:focus {
+  border-color: #3B82F6;
+  outline: none;
 }
-.contractor-summary .summary-card.success {
-  background: linear-gradient(135deg, #10B981, #059669);
+.protocol-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: #EEF2FF;
+  border-radius: 8px;
+  color: #4F46E5;
+  font-size: 14px;
 }
-.contractor-summary .summary-card.warning {
-  background: linear-gradient(135deg, #F59E0B, #D97706);
+.protocol-language-group {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
 }
-
-/* Dane firmy kontrahenta w liście użytkowników */
-.contractor-details {
+.protocol-info-small {
+  display: block;
   margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #E2E8F0;
+  color: #6366F1;
   font-size: 12px;
 }
-.contractor-details .list-item-subtitle {
-  color: #64748B;
-  margin-top: 2px;
-}
 
-/* Responsive dla statystyk kontrahenta */
-@media (max-width: 768px) {
-  .contractor-summary {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* Przycisk info dla kontrahenta */
+.btn-info {
+  background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+  color: white !important;
 }
-@media (max-width: 480px) {
-  .contractor-summary {
-    grid-template-columns: 1fr;
-  }
+.btn-info:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
