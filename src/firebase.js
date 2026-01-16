@@ -14,6 +14,7 @@ import {
 // ============================================
 // KONFIGURACJA FIREBASE
 // ============================================
+// WAŻNE: Zamień na swoje dane z Firebase Console!
 
 const firebaseConfig = {
    apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
@@ -38,6 +39,7 @@ const producersCollection = collection(db, 'producers');
 const notificationsCollection = collection(db, 'notifications');
 const complaintsCollection = collection(db, 'complaints');
 const leadsCollection = collection(db, 'leads');
+const messagesCollection = collection(db, 'messages');
 
 // ============================================
 // ZAMÓWIENIA
@@ -224,7 +226,7 @@ export const deleteNotification = async (id) => {
 // ============================================
 
 export const subscribeToComplaints = (callback) => {
-  const q = query(complaintsCollection, orderBy('dataUtworzenia', 'desc'));
+  const q = query(complaintsCollection, orderBy('dataZgloszenia', 'desc'));
   return onSnapshot(q, (snapshot) => {
     const complaints = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(complaints);
@@ -236,11 +238,7 @@ export const subscribeToComplaints = (callback) => {
 
 export const addComplaint = async (complaint) => {
   try {
-    const data = {
-      ...complaint,
-      dataUtworzenia: complaint.dataUtworzenia || new Date().toISOString()
-    };
-    const docRef = await addDoc(complaintsCollection, data);
+    const docRef = await addDoc(complaintsCollection, complaint);
     return docRef.id;
   } catch (error) {
     console.error('Error adding complaint:', error);
@@ -267,7 +265,7 @@ export const deleteComplaint = async (id) => {
 };
 
 // ============================================
-// LEADY (ZAINTERESOWANI KLIENCI)
+// LEADY (ZAINTERESOWANI)
 // ============================================
 
 export const subscribeToLeads = (callback) => {
@@ -283,11 +281,7 @@ export const subscribeToLeads = (callback) => {
 
 export const addLead = async (lead) => {
   try {
-    const data = {
-      ...lead,
-      dataUtworzenia: lead.dataUtworzenia || new Date().toISOString()
-    };
-    const docRef = await addDoc(leadsCollection, data);
+    const docRef = await addDoc(leadsCollection, lead);
     return docRef.id;
   } catch (error) {
     console.error('Error adding lead:', error);
@@ -314,11 +308,55 @@ export const deleteLead = async (id) => {
 };
 
 // ============================================
+// WIADOMOŚCI (MESSENGER)
+// ============================================
+
+export const subscribeToMessages = (callback) => {
+  const q = query(messagesCollection, orderBy('timestamp', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(messages);
+  }, (error) => {
+    console.error('Error subscribing to messages:', error);
+    callback([]);
+  });
+};
+
+export const addMessage = async (message) => {
+  try {
+    const docRef = await addDoc(messagesCollection, message);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding message:', error);
+    throw error;
+  }
+};
+
+export const updateMessage = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'messages', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating message:', error);
+    throw error;
+  }
+};
+
+export const deleteMessage = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'messages', id));
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw error;
+  }
+};
+
+// ============================================
 // INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
 export const initializeDefaultData = async () => {
   try {
+    // Domyślni użytkownicy
     const defaultUsers = [
       { id: 'admin', username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
       { id: 'jan', username: 'jan', password: 'jan123', name: 'Jan Kowalski', role: 'worker' },
@@ -326,16 +364,19 @@ export const initializeDefaultData = async () => {
       { id: 'kontrahent1', username: 'kontrahent1', password: 'kontr123', name: 'Firma ABC', role: 'contractor', companyName: 'Meble ABC Sp. z o.o.' },
     ];
 
+    // Domyślni producenci
     const defaultProducers = [
       { id: 'tomek_meble', name: 'Tomek Meble', email: 'tomek@meble.pl', phone: '+48 123 456 789', address: 'ul. Fabryczna 1, 61-001 Poznań' },
       { id: 'brattex', name: 'Brattex', email: 'zamowienia@brattex.pl', phone: '+48 234 567 890', address: 'ul. Przemysłowa 15, 90-001 Łódź' },
       { id: 'furntex', name: 'FURNTEX', email: 'biuro@furntex.pl', phone: '+48 345 678 901', address: 'ul. Meblowa 8, 02-001 Warszawa' },
     ];
 
+    // Dodaj użytkowników jeśli nie istnieją
     for (const user of defaultUsers) {
       await setDoc(doc(db, 'users', user.id), user, { merge: true });
     }
 
+    // Dodaj producentów jeśli nie istnieją
     for (const producer of defaultProducers) {
       await setDoc(doc(db, 'producers', producer.id), producer, { merge: true });
     }
