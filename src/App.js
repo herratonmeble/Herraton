@@ -3315,7 +3315,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // Funkcja wysyłania emaila o zmianie statusu przez kierowcę
   const sendDriverStatusEmail = () => {
     const { order, oldStatus, newStatus, newStatusCode } = showStatusChangeEmail;
-    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
     
     // Tłumaczenia dla zmiany statusu
     const STATUS_EMAIL_TRANSLATIONS = {
