@@ -408,15 +408,208 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   };
 
   // Funkcja pobierania protokołu PDF
-  const downloadDeliveryProtocol = (order) => {
+  // Tłumaczenia protokołu
+  const PROTOCOL_TRANSLATIONS = {
+    pl: {
+      title: 'PROTOKÓŁ ODBIORU TOWARU',
+      orderNumber: 'Nr zamówienia',
+      orderData: 'Dane zamówienia',
+      product: 'Produkt',
+      value: 'Wartość',
+      recipientData: 'Dane odbiorcy',
+      fullName: 'Imię i nazwisko',
+      deliveryAddress: 'Adres dostawy',
+      phone: 'Telefon',
+      email: 'Email',
+      deliveryData: 'Dane dostawy',
+      deliveryDate: 'Data dostawy',
+      deliveryTime: 'Godzina dostawy',
+      driver: 'Kierowca',
+      declaration: 'Ja, niżej podpisany/a, potwierdzam odbiór powyższego towaru. Towar został sprawdzony w obecności kierowcy.',
+      clientRemarks: 'Uwagi klienta',
+      noRemarks: 'Klient nie zgłosił uwag - produkt zaakceptowany bez zastrzeżeń',
+      clientSignature: 'Podpis klienta',
+      signatureDate: 'Data podpisu',
+      generatedAuto: 'Dokument wygenerowany automatycznie z systemu Herraton',
+      generatedDate: 'Data wygenerowania',
+      polishCopy: 'KOPIA POLSKA'
+    },
+    en: {
+      title: 'GOODS RECEIPT PROTOCOL',
+      orderNumber: 'Order number',
+      orderData: 'Order details',
+      product: 'Product',
+      value: 'Value',
+      recipientData: 'Recipient details',
+      fullName: 'Full name',
+      deliveryAddress: 'Delivery address',
+      phone: 'Phone',
+      email: 'Email',
+      deliveryData: 'Delivery details',
+      deliveryDate: 'Delivery date',
+      deliveryTime: 'Delivery time',
+      driver: 'Driver',
+      declaration: 'I, the undersigned, confirm receipt of the above goods. The goods have been inspected in the presence of the driver.',
+      clientRemarks: 'Client remarks',
+      noRemarks: 'No remarks from client - product accepted without reservations',
+      clientSignature: 'Client signature',
+      signatureDate: 'Signature date',
+      generatedAuto: 'Document generated automatically from Herraton system',
+      generatedDate: 'Generated date',
+      polishCopy: 'POLISH COPY'
+    },
+    de: {
+      title: 'WARENEMPFANGSPROTOKOLL',
+      orderNumber: 'Bestellnummer',
+      orderData: 'Bestelldaten',
+      product: 'Produkt',
+      value: 'Wert',
+      recipientData: 'Empfängerdaten',
+      fullName: 'Vollständiger Name',
+      deliveryAddress: 'Lieferadresse',
+      phone: 'Telefon',
+      email: 'E-Mail',
+      deliveryData: 'Lieferdaten',
+      deliveryDate: 'Lieferdatum',
+      deliveryTime: 'Lieferzeit',
+      driver: 'Fahrer',
+      declaration: 'Ich, der Unterzeichnende, bestätige den Empfang der oben genannten Waren. Die Ware wurde in Anwesenheit des Fahrers geprüft.',
+      clientRemarks: 'Kundenanmerkungen',
+      noRemarks: 'Keine Anmerkungen vom Kunden - Produkt ohne Vorbehalt akzeptiert',
+      clientSignature: 'Kundenunterschrift',
+      signatureDate: 'Unterschriftsdatum',
+      generatedAuto: 'Dokument automatisch aus dem Herraton-System generiert',
+      generatedDate: 'Erstellungsdatum',
+      polishCopy: 'POLNISCHE KOPIE'
+    },
+    es: {
+      title: 'PROTOCOLO DE RECEPCIÓN DE MERCANCÍAS',
+      orderNumber: 'Número de pedido',
+      orderData: 'Datos del pedido',
+      product: 'Producto',
+      value: 'Valor',
+      recipientData: 'Datos del destinatario',
+      fullName: 'Nombre completo',
+      deliveryAddress: 'Dirección de entrega',
+      phone: 'Teléfono',
+      email: 'Correo electrónico',
+      deliveryData: 'Datos de entrega',
+      deliveryDate: 'Fecha de entrega',
+      deliveryTime: 'Hora de entrega',
+      driver: 'Conductor',
+      declaration: 'Yo, el abajo firmante, confirmo la recepción de los bienes mencionados. Los bienes han sido inspeccionados en presencia del conductor.',
+      clientRemarks: 'Observaciones del cliente',
+      noRemarks: 'Sin observaciones del cliente - producto aceptado sin reservas',
+      clientSignature: 'Firma del cliente',
+      signatureDate: 'Fecha de firma',
+      generatedAuto: 'Documento generado automáticamente desde el sistema Herraton',
+      generatedDate: 'Fecha de generación',
+      polishCopy: 'COPIA POLACA'
+    },
+    nl: {
+      title: 'GOEDERENONTVANGSTPROTOCOL',
+      orderNumber: 'Ordernummer',
+      orderData: 'Ordergegevens',
+      product: 'Product',
+      value: 'Waarde',
+      recipientData: 'Ontvangersgegevens',
+      fullName: 'Volledige naam',
+      deliveryAddress: 'Afleveradres',
+      phone: 'Telefoon',
+      email: 'E-mail',
+      deliveryData: 'Leveringsgegevens',
+      deliveryDate: 'Leverdatum',
+      deliveryTime: 'Levertijd',
+      driver: 'Chauffeur',
+      declaration: 'Ik, ondergetekende, bevestig de ontvangst van bovengenoemde goederen. De goederen zijn gecontroleerd in aanwezigheid van de chauffeur.',
+      clientRemarks: 'Opmerkingen klant',
+      noRemarks: 'Geen opmerkingen van klant - product zonder voorbehoud geaccepteerd',
+      clientSignature: 'Handtekening klant',
+      signatureDate: 'Datum handtekening',
+      generatedAuto: 'Document automatisch gegenereerd uit het Herraton-systeem',
+      generatedDate: 'Generatiedatum',
+      polishCopy: 'POOLSE KOPIE'
+    }
+  };
+
+  const [protocolLanguage, setProtocolLanguage] = useState('pl');
+  const [showProtocolModal, setShowProtocolModal] = useState(false);
+  const [protocolOrder, setProtocolOrder] = useState(null);
+
+  const generateProtocolHTML = (order, lang, isPLCopy = false) => {
+    const t = PROTOCOL_TRANSLATIONS[lang];
+    const tPL = PROTOCOL_TRANSLATIONS['pl'];
+    const umowa = order.umowaOdbioru;
+    
+    const copyLabel = isPLCopy ? `<div style="background: #2563EB; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px;">📋 ${t.polishCopy}</div>` : '';
+    const usedT = isPLCopy ? tPL : t;
+
+    return `
+    <div class="protocol-page">
+      ${copyLabel}
+      <div class="header">
+        <h1>📋 ${usedT.title}</h1>
+        <p>${usedT.orderNumber}: <strong>${order.nrWlasny}</strong></p>
+      </div>
+
+      <div class="section">
+        <h2>📦 ${usedT.orderData}</h2>
+        <div class="row"><span class="label">${usedT.orderNumber}:</span><span class="value">${order.nrWlasny}</span></div>
+        <div class="row"><span class="label">${usedT.product}:</span><span class="value">${umowa?.produkt || '—'}</span></div>
+        ${order.platnosci?.cenaCalkowita ? `<div class="row"><span class="label">${usedT.value}:</span><span class="value">${formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</span></div>` : ''}
+      </div>
+
+      <div class="section">
+        <h2>👤 ${usedT.recipientData}</h2>
+        <div class="row"><span class="label">${usedT.fullName}:</span><span class="value">${umowa?.klient?.imie || '—'}</span></div>
+        <div class="row"><span class="label">${usedT.deliveryAddress}:</span><span class="value">${umowa?.klient?.adres || '—'}</span></div>
+        <div class="row"><span class="label">${usedT.phone}:</span><span class="value">${umowa?.klient?.telefon || '—'}</span></div>
+        <div class="row"><span class="label">${usedT.email}:</span><span class="value">${umowa?.klient?.email || '—'}</span></div>
+      </div>
+
+      <div class="section">
+        <h2>🚚 ${usedT.deliveryData}</h2>
+        <div class="row"><span class="label">${usedT.deliveryDate}:</span><span class="value">${formatDateTime(umowa?.dataDostawy)}</span></div>
+        <div class="row"><span class="label">${usedT.deliveryTime}:</span><span class="value">${umowa?.godzinaDostawy || '—'}</span></div>
+        <div class="row"><span class="label">${usedT.driver}:</span><span class="value">${umowa?.kierowca || '—'}</span></div>
+      </div>
+
+      <div class="declaration">
+        ${usedT.declaration}
+      </div>
+
+      <div class="remarks ${umowa?.uwagiKlienta ? 'warning' : 'ok'}">
+        ${umowa?.uwagiKlienta 
+          ? `<strong>⚠️ ${usedT.clientRemarks}:</strong><br>${umowa.uwagiKlienta}` 
+          : `✅ ${usedT.noRemarks}`}
+      </div>
+
+      ${order.podpisKlienta ? `
+      <div class="signature-section">
+        <h2>✍️ ${usedT.clientSignature}</h2>
+        <img src="${order.podpisKlienta.url}" alt="Signature" class="signature-img" />
+        <p style="margin-top: 10px; color: #666; font-size: 12px;">
+          ${usedT.signatureDate}: ${formatDateTime(order.podpisKlienta.timestamp)}
+        </p>
+      </div>
+      ` : ''}
+
+      <div class="footer">
+        ${usedT.generatedAuto}<br>
+        ${usedT.generatedDate}: ${new Date().toLocaleString('pl-PL')}
+      </div>
+    </div>
+    `;
+  };
+
+  const downloadDeliveryProtocol = (order, language = 'pl') => {
     if (!order.umowaOdbioru) {
       alert('Brak protokołu odbioru dla tego zamówienia');
       return;
     }
 
-    const umowa = order.umowaOdbioru;
+    const needsPolishCopy = language !== 'pl';
     
-    // Generuj HTML protokołu
     const html = `
 <!DOCTYPE html>
 <html>
@@ -425,7 +618,9 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   <title>Protokół odbioru - ${order.nrWlasny}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+    body { font-family: Arial, sans-serif; color: #333; }
+    .protocol-page { padding: 40px; page-break-after: always; }
+    .protocol-page:last-child { page-break-after: auto; }
     .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #333; }
     .header h1 { font-size: 24px; margin-bottom: 10px; }
     .header p { color: #666; }
@@ -434,83 +629,42 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
     .row { display: flex; margin-bottom: 8px; }
     .label { width: 150px; color: #666; font-size: 13px; }
     .value { flex: 1; font-size: 14px; }
-    .remarks { margin-top: 20px; padding: 15px; background: ${umowa.uwagiKlienta ? '#fff3cd' : '#d4edda'}; border-radius: 8px; }
-    .remarks.warning { border-left: 4px solid #ffc107; }
-    .remarks.ok { border-left: 4px solid #28a745; }
+    .remarks { margin-top: 20px; padding: 15px; border-radius: 8px; }
+    .remarks.warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+    .remarks.ok { background: #d4edda; border-left: 4px solid #28a745; }
     .signature-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; }
     .signature-section h2 { margin-bottom: 15px; }
     .signature-img { max-width: 300px; border: 1px solid #ddd; border-radius: 8px; }
     .declaration { margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-style: italic; }
     .footer { margin-top: 40px; text-align: center; color: #999; font-size: 11px; }
-    @media print { body { padding: 20px; } }
+    @media print { 
+      body { padding: 0; } 
+      .protocol-page { padding: 20px; }
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>📋 PROTOKÓŁ ODBIORU TOWARU</h1>
-    <p>Nr zamówienia: <strong>${order.nrWlasny}</strong></p>
-  </div>
-
-  <div class="section">
-    <h2>📦 Dane zamówienia</h2>
-    <div class="row"><span class="label">Nr zamówienia:</span><span class="value">${order.nrWlasny}</span></div>
-    <div class="row"><span class="label">Produkt:</span><span class="value">${umowa.produkt || '—'}</span></div>
-    ${order.platnosci?.cenaCalkowita ? `<div class="row"><span class="label">Wartość:</span><span class="value">${formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</span></div>` : ''}
-  </div>
-
-  <div class="section">
-    <h2>👤 Dane odbiorcy</h2>
-    <div class="row"><span class="label">Imię i nazwisko:</span><span class="value">${umowa.klient?.imie || '—'}</span></div>
-    <div class="row"><span class="label">Adres dostawy:</span><span class="value">${umowa.klient?.adres || '—'}</span></div>
-    <div class="row"><span class="label">Telefon:</span><span class="value">${umowa.klient?.telefon || '—'}</span></div>
-    <div class="row"><span class="label">Email:</span><span class="value">${umowa.klient?.email || '—'}</span></div>
-  </div>
-
-  <div class="section">
-    <h2>🚚 Dane dostawy</h2>
-    <div class="row"><span class="label">Data dostawy:</span><span class="value">${formatDateTime(umowa.dataDostawy)}</span></div>
-    <div class="row"><span class="label">Godzina dostawy:</span><span class="value">${umowa.godzinaDostawy}</span></div>
-    <div class="row"><span class="label">Kierowca:</span><span class="value">${umowa.kierowca}</span></div>
-  </div>
-
-  <div class="declaration">
-    Ja, niżej podpisany/a, potwierdzam odbiór powyższego towaru.<br>
-    Towar został sprawdzony w obecności kierowcy.
-  </div>
-
-  <div class="remarks ${umowa.uwagiKlienta ? 'warning' : 'ok'}">
-    ${umowa.uwagiKlienta 
-      ? `<strong>⚠️ Uwagi klienta:</strong><br>${umowa.uwagiKlienta}` 
-      : '✅ Klient nie zgłosił uwag - produkt zaakceptowany bez zastrzeżeń'}
-  </div>
-
-  ${order.podpisKlienta ? `
-  <div class="signature-section">
-    <h2>✍️ Podpis klienta</h2>
-    <img src="${order.podpisKlienta.url}" alt="Podpis klienta" class="signature-img" />
-    <p style="margin-top: 10px; color: #666; font-size: 12px;">
-      Data podpisu: ${formatDateTime(order.podpisKlienta.timestamp)}
-    </p>
-  </div>
-  ` : ''}
-
-  <div class="footer">
-    Dokument wygenerowany automatycznie z systemu Herraton<br>
-    Data wygenerowania: ${new Date().toLocaleString('pl-PL')}
-  </div>
+  ${generateProtocolHTML(order, language, false)}
+  ${needsPolishCopy ? generateProtocolHTML(order, language, true) : ''}
 </body>
 </html>
     `;
 
-    // Otwórz w nowym oknie i uruchom drukowanie/pobieranie
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(html);
-    printWindow.document.close();
-    
-    // Poczekaj na załadowanie obrazków i uruchom drukowanie
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    // Utwórz blob i pobierz jako plik
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `protokol-${order.nrWlasny}-${language}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const openProtocolModal = (order) => {
+    setProtocolOrder(order);
+    setShowProtocolModal(true);
   };
 
   return (
@@ -634,8 +788,8 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
             <div className="detail-section contract-section">
               <div className="contract-header-row">
                 <label>📋 PROTOKÓŁ ODBIORU TOWARU</label>
-                <button className="btn-download-pdf" onClick={() => downloadDeliveryProtocol(order)}>
-                  📥 Pobierz PDF
+                <button className="btn-download-pdf" onClick={() => openProtocolModal(order)}>
+                  📥 Pobierz protokół
                 </button>
               </div>
               <div className="contract-display">
@@ -721,6 +875,50 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
 
       {/* Modal podglądu zdjęcia */}
       {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
+
+      {/* Modal wyboru języka protokołu */}
+      {showProtocolModal && protocolOrder && (
+        <div className="modal-overlay" onClick={() => setShowProtocolModal(false)} style={{zIndex: 2000}}>
+          <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📋 Pobierz protokół odbioru</h2>
+              <button className="btn-close" onClick={() => setShowProtocolModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Wybierz język protokołu:</label>
+                <select 
+                  value={protocolLanguage} 
+                  onChange={e => setProtocolLanguage(e.target.value)}
+                  className="protocol-language-select"
+                >
+                  <option value="pl">🇵🇱 Polski</option>
+                  <option value="en">🇬🇧 English (+ kopia PL)</option>
+                  <option value="de">🇩🇪 Deutsch (+ kopia PL)</option>
+                  <option value="es">🇪🇸 Español (+ kopia PL)</option>
+                  <option value="nl">🇳🇱 Nederlands (+ kopia PL)</option>
+                </select>
+              </div>
+              <p className="protocol-info">
+                {protocolLanguage !== 'pl' && '📋 Protokół będzie zawierał 2 strony: oryginał w wybranym języku + kopię po polsku'}
+                {protocolLanguage === 'pl' && '📋 Protokół będzie w języku polskim'}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowProtocolModal(false)}>Anuluj</button>
+              <button 
+                className="btn-primary" 
+                onClick={() => {
+                  downloadDeliveryProtocol(protocolOrder, protocolLanguage);
+                  setShowProtocolModal(false);
+                }}
+              >
+                📥 Pobierz protokół
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1403,7 +1601,7 @@ const CompanyDataModal = ({ user, onSave, onClose }) => {
 // MODAL UŻYTKOWNIKÓW - Z RESETOWANIEM HASŁA
 // ============================================
 
-const UsersModal = ({ users, onSave, onClose, isAdmin }) => {
+const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
   const [list, setList] = useState(users);
   const [newU, setNewU] = useState({ username: '', password: '', name: '', role: 'worker', companyName: '', phone: '' });
   const [editingId, setEditingId] = useState(null);
@@ -1472,6 +1670,9 @@ const UsersModal = ({ users, onSave, onClose, isAdmin }) => {
                     </div>
                     <div className="list-item-actions">
                       {isAdmin && <button className="btn-small" onClick={() => setEditingId(u.id)}>✏️ Edytuj</button>}
+                      {isAdmin && u.role === 'contractor' && onEditContractor && (
+                        <button className="btn-small btn-info" onClick={() => onEditContractor(u)}>🏢 Firma</button>
+                      )}
                       {u.username !== 'admin' && <button className="btn-small btn-danger" onClick={() => setList(list.filter(x => x.id !== u.id))}>🗑️</button>}
                     </div>
                   </>
@@ -2453,6 +2654,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [discountReason, setDiscountReason] = useState('');
   const [clientRemarks, setClientRemarks] = useState('');
   const [showPhotoManager, setShowPhotoManager] = useState(null);
+  const [protocolLanguage, setProtocolLanguage] = useState('pl'); // Język protokołu
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -2734,6 +2936,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       uwagiKlienta: clientRemarks || '',
       akceptacjaBezUwag: !clientRemarks || clientRemarks.trim() === '',
       podpis: { url: dataUrl, timestamp: now.toISOString() },
+      jezyk: protocolLanguage, // Zapisz wybrany język
       trescUmowy: `Potwierdzam odbiór zamówienia nr ${order.nrWlasny}. Produkt: ${order.towar || 'brak opisu'}. ${!clientRemarks ? 'Nie zgłaszam uwag do produktu ani do dostawy.' : `Uwagi: ${clientRemarks}`}`
     };
 
@@ -3169,6 +3372,25 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
                 const now = new Date();
                 return order && (
                   <>
+                    {/* Wybór języka protokołu */}
+                    <div className="form-group protocol-language-group">
+                      <label>🌍 Język protokołu:</label>
+                      <select 
+                        value={protocolLanguage} 
+                        onChange={e => setProtocolLanguage(e.target.value)}
+                        className="protocol-language-select"
+                      >
+                        <option value="pl">🇵🇱 Polski</option>
+                        <option value="en">🇬🇧 English (+ kopia PL)</option>
+                        <option value="de">🇩🇪 Deutsch (+ kopia PL)</option>
+                        <option value="es">🇪🇸 Español (+ kopia PL)</option>
+                        <option value="nl">🇳🇱 Nederlands (+ kopia PL)</option>
+                      </select>
+                      {protocolLanguage !== 'pl' && (
+                        <small className="protocol-info-small">📋 Protokół będzie zawierał 2 kopie</small>
+                      )}
+                    </div>
+
                     {/* Treść umowy */}
                     <div className="delivery-contract">
                       <div className="contract-header">
@@ -4660,6 +4882,7 @@ const App = () => {
   const [creatorFilter, setCreatorFilter] = useState('all');
   const [driverFilter, setDriverFilter] = useState('all');
   const [producerFilter, setProducerFilter] = useState('all');
+  const [dateSort, setDateSort] = useState('newest'); // newest, oldest
   const [search, setSearch] = useState('');
 
   const [editingOrder, setEditingOrder] = useState(null);
@@ -4674,6 +4897,7 @@ const App = () => {
   const [showLeadsPanel, setShowLeadsPanel] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+  const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
@@ -4984,8 +5208,17 @@ const App = () => {
     setShowOrderModal(true);
   };
 
+  // Powiadomienia kontrahenta - TYLKO dotyczące jego zamówień
   const visibleNotifications = isContractor
-    ? notifications.filter(n => n.forContractor === user?.id || (n.orderId && orders.find(o => o.id === n.orderId && o.kontrahentId === user?.id)))
+    ? notifications.filter(n => {
+        // Sprawdź czy powiadomienie dotyczy zamówienia kontrahenta
+        if (n.orderId) {
+          const order = orders.find(o => o.id === n.orderId);
+          return order && order.kontrahentId === user?.id;
+        }
+        // Lub czy jest specjalnie dla tego kontrahenta
+        return n.forContractor === user?.id;
+      })
     : notifications;
 
   const visibleComplaints = isContractor
@@ -5030,6 +5263,11 @@ const App = () => {
       if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
     }
     return true;
+  }).sort((a, b) => {
+    // Sortowanie po dacie
+    const dateA = new Date(a.dataZlecenia || a.utworzonePrzez?.data || 0);
+    const dateB = new Date(b.dataZlecenia || b.utworzonePrzez?.data || 0);
+    return dateSort === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
   const paymentSums = calcPaymentSums(filteredOrders);
@@ -5171,6 +5409,17 @@ const App = () => {
           </div>
 
           <div className="extra-filters">
+            {/* Sortowanie po dacie - tylko dla admina/pracownika */}
+            {!isContractor && (
+              <div className="filter-group">
+                <label>📅 Sortuj:</label>
+                <select value={dateSort} onChange={e => setDateSort(e.target.value)}>
+                  <option value="newest">Najnowsze</option>
+                  <option value="oldest">Najstarsze</option>
+                </select>
+              </div>
+            )}
+
             <div className="filter-group">
               <label>🌍 Kraj:</label>
               <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
@@ -5203,7 +5452,7 @@ const App = () => {
               </div>
             )}
 
-            {drivers.length > 0 && (
+            {drivers.length > 0 && !isContractor && (
               <div className="filter-group">
                 <label>🚚 Kierowca:</label>
                 <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}>
@@ -5214,7 +5463,7 @@ const App = () => {
               </div>
             )}
 
-            {Object.keys(producers).length > 0 && (
+            {Object.keys(producers).length > 0 && !isContractor && (
               <div className="filter-group">
                 <label>🏭 Producent:</label>
                 <select value={producerFilter} onChange={e => setProducerFilter(e.target.value)}>
@@ -5225,8 +5474,8 @@ const App = () => {
               </div>
             )}
 
-            {/* Przycisk zbiorczego emaila */}
-            {producerFilter !== 'all' && producerFilter !== 'unassigned' && filteredOrders.length > 0 && (
+            {/* Przycisk zbiorczego emaila - tylko dla admina/pracownika */}
+            {!isContractor && producerFilter !== 'all' && producerFilter !== 'unassigned' && filteredOrders.length > 0 && (
               <button className="btn-bulk-email" onClick={() => setShowBulkEmailModal(true)}>
                 📧 Zbiorczy email ({filteredOrders.length})
               </button>
@@ -5313,6 +5562,10 @@ const App = () => {
           onSave={handleSaveUsers}
           onClose={() => setShowUsersModal(false)}
           isAdmin={isAdmin}
+          onEditContractor={(contractor) => {
+            setEditingContractor(contractor);
+            setShowUsersModal(false);
+          }}
         />
       )}
 
@@ -5336,6 +5589,17 @@ const App = () => {
             localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
           }}
           onClose={() => setShowCompanyModal(false)}
+        />
+      )}
+
+      {/* Modal edycji danych firmy kontrahenta przez admina */}
+      {editingContractor && (
+        <CompanyDataModal
+          user={editingContractor}
+          onSave={async (updatedContractor) => { 
+            await updateUser(editingContractor.id, updatedContractor);
+          }}
+          onClose={() => setEditingContractor(null)}
         />
       )}
 
