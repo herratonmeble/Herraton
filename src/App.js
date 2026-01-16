@@ -391,7 +391,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 // MODAL SZCZEGÓŁÓW ZAMÓWIENIA - Z POWIĘKSZANIEM ZDJĘĆ
 // ============================================
 
-const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
+const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
@@ -565,7 +565,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete }) => {
           </div>
 
           <div className="detail-grid">
-            {producer && (
+            {producer && !isContractor && (
               <div className="detail-item">
                 <span className="detail-label">🏭 Producent</span>
                 <span className="detail-value">{producer.name}</span>
@@ -1460,6 +1460,15 @@ const UsersModal = ({ users, onSave, onClose, isAdmin }) => {
                       <div className="list-item-subtitle">@{u.username} • {role.name}</div>
                       {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
                       {u.phone && <div className="list-item-subtitle">📞 {u.phone}</div>}
+                      {/* Dodatkowe dane firmy kontrahenta */}
+                      {u.role === 'contractor' && (u.nip || u.companyAddress || u.companyEmail) && (
+                        <div className="contractor-details">
+                          {u.nip && <div className="list-item-subtitle">🔢 NIP: {u.nip}</div>}
+                          {u.companyAddress && <div className="list-item-subtitle">📍 {u.companyAddress}{u.companyCity ? `, ${u.companyPostCode || ''} ${u.companyCity}` : ''}</div>}
+                          {u.companyEmail && <div className="list-item-subtitle">✉️ {u.companyEmail}</div>}
+                          {u.bankAccount && <div className="list-item-subtitle">🏦 {u.bankName}: {u.bankAccount}</div>}
+                        </div>
+                      )}
                     </div>
                     <div className="list-item-actions">
                       {isAdmin && <button className="btn-small" onClick={() => setEditingId(u.id)}>✏️ Edytuj</button>}
@@ -2304,7 +2313,7 @@ Z poważaniem`;
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, exchangeRates }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -2378,7 +2387,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         </div>
 
         <div className="order-tags">
-          {producer && <span className="tag tag-producer">🏭 {producer.name}</span>}
+          {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
           {order.dataOdbioru && <span className="tag tag-date">📅 {formatDate(order.dataOdbioru)}</span>}
           {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
         </div>
@@ -2415,8 +2424,8 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
           <div className="order-actions">
             <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
-            {producer && <button onClick={e => { e.stopPropagation(); onEmailClick(order, producer); }} className="btn-icon btn-email">📧</button>}
-            <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>
+            {producer && !isContractor && <button onClick={e => { e.stopPropagation(); onEmailClick(order, producer); }} className="btn-icon btn-email">📧</button>}
+            {!isContractor && <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>}
           </div>
         </div>
       </div>
@@ -3928,6 +3937,181 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
 // PANEL STATYSTYK MIESIĘCZNYCH (tylko admin)
 // ============================================
 
+// ============================================
+// STATYSTYKI KONTRAHENTA - UPROSZCZONE
+// ============================================
+
+const ContractorStatisticsPanel = ({ orders, exchangeRates, onClose, user }) => {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  const MONTHS = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
+                  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+
+  // Konwersja do PLN
+  const convertToPLN = (amount, currency) => {
+    if (!amount || currency === 'PLN' || !exchangeRates) return amount || 0;
+    return (amount || 0) * (exchangeRates[currency] || 1);
+  };
+
+  // Tylko zamówienia kontrahenta
+  const myOrders = orders.filter(o => o.kontrahentId === user?.id);
+
+  // Oblicz obrót z tablicy zamówień (tylko brutto - bez marży!)
+  const calcRevenueFromOrders = (ordersList) => {
+    let obrotBrutto = 0;
+    let zaplacono = 0;
+    let doZaplaty = 0;
+    
+    ordersList.forEach(order => {
+      const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
+      const cenaBruttoPLN = convertToPLN(cenaBrutto, order.platnosci?.waluta);
+      obrotBrutto += cenaBruttoPLN;
+      
+      const zaplata = order.platnosci?.zaplacono || 0;
+      zaplacono += convertToPLN(zaplata, order.platnosci?.waluta);
+      
+      const pozostalo = order.platnosci?.doZaplaty || 0;
+      doZaplaty += convertToPLN(pozostalo, order.platnosci?.waluta);
+    });
+
+    return {
+      zamowienia: ordersList.length,
+      obrotBrutto: Math.round(obrotBrutto * 100) / 100,
+      zaplacono: Math.round(zaplacono * 100) / 100,
+      doZaplaty: Math.round(doZaplaty * 100) / 100
+    };
+  };
+
+  // Statystyki dla miesiąca
+  const getMonthStats = (month) => {
+    const monthOrders = myOrders.filter(o => {
+      const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
+      return date.getFullYear() === selectedYear && date.getMonth() === month;
+    });
+    return calcRevenueFromOrders(monthOrders);
+  };
+
+  // Statystyki roczne
+  const yearOrders = myOrders.filter(o => {
+    const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
+    return date.getFullYear() === selectedYear;
+  });
+  const yearStats = calcRevenueFromOrders(yearOrders);
+
+  // Dostępne lata
+  const years = [...new Set(myOrders.map(o => {
+    const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
+    return date.getFullYear();
+  }))].sort((a, b) => b - a);
+
+  if (years.length === 0) years.push(new Date().getFullYear());
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>📊 Moje statystyki</h2>
+            <p className="modal-subtitle">Podsumowanie Twoich zamówień</p>
+          </div>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body statistics-body">
+          {/* Filtr roku */}
+          <div className="stats-filters">
+            <div className="filter-group">
+              <label>📅 Rok:</label>
+              <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Podsumowanie roczne */}
+          <div className="stats-summary contractor-summary">
+            <div className="summary-card">
+              <div className="summary-icon">📦</div>
+              <div className="summary-value">{yearStats.zamowienia}</div>
+              <div className="summary-label">Zamówień w {selectedYear}</div>
+            </div>
+            <div className="summary-card highlight">
+              <div className="summary-icon">💰</div>
+              <div className="summary-value">{formatCurrency(yearStats.obrotBrutto, 'PLN')}</div>
+              <div className="summary-label">Obrót brutto</div>
+            </div>
+            <div className="summary-card success">
+              <div className="summary-icon">✅</div>
+              <div className="summary-value">{formatCurrency(yearStats.zaplacono, 'PLN')}</div>
+              <div className="summary-label">Zapłacono</div>
+            </div>
+            <div className="summary-card warning">
+              <div className="summary-icon">⏳</div>
+              <div className="summary-value">{formatCurrency(yearStats.doZaplaty, 'PLN')}</div>
+              <div className="summary-label">Do zapłaty</div>
+            </div>
+          </div>
+
+          {/* Tabela miesięczna */}
+          <div className="stats-table-container">
+            <h3>📅 Zestawienie miesięczne</h3>
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Miesiąc</th>
+                  <th>Zamówień</th>
+                  <th>Obrót brutto</th>
+                  <th>Zapłacono</th>
+                  <th>Do zapłaty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MONTHS.map((name, idx) => {
+                  const stats = getMonthStats(idx);
+                  if (stats.zamowienia === 0) return null;
+                  return (
+                    <tr key={idx}>
+                      <td><strong>{name}</strong></td>
+                      <td>{stats.zamowienia}</td>
+                      <td>{formatCurrency(stats.obrotBrutto, 'PLN')}</td>
+                      <td className="text-success">{formatCurrency(stats.zaplacono, 'PLN')}</td>
+                      <td className={stats.doZaplaty > 0 ? 'text-danger' : ''}>{formatCurrency(stats.doZaplaty, 'PLN')}</td>
+                    </tr>
+                  );
+                })}
+                {yearStats.zamowienia === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-center">Brak zamówień w {selectedYear}</td>
+                  </tr>
+                )}
+              </tbody>
+              {yearStats.zamowienia > 0 && (
+                <tfoot>
+                  <tr className="total-row">
+                    <td><strong>RAZEM {selectedYear}</strong></td>
+                    <td><strong>{yearStats.zamowienia}</strong></td>
+                    <td><strong>{formatCurrency(yearStats.obrotBrutto, 'PLN')}</strong></td>
+                    <td className="text-success"><strong>{formatCurrency(yearStats.zaplacono, 'PLN')}</strong></td>
+                    <td className={yearStats.doZaplaty > 0 ? 'text-danger' : ''}><strong>{formatCurrency(yearStats.doZaplaty, 'PLN')}</strong></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// STATYSTYKI - PEŁNE (dla admina)
+// ============================================
+
 const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [countryFilter, setCountryFilter] = useState('all');
@@ -4910,7 +5094,10 @@ const App = () => {
             )}
 
             {isContractor && (
-              <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
+              <>
+                <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Moje statystyki</button>
+                <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
+              </>
             )}
 
             <button className="btn-logout" onClick={onLogout}>Wyloguj</button>
@@ -5091,6 +5278,7 @@ const App = () => {
               producers={producers}
               drivers={drivers}
               isAdmin={isAdmin}
+              isContractor={isContractor}
               exchangeRates={exchangeRates}
             />
           ))}
@@ -5141,7 +5329,12 @@ const App = () => {
       {showCompanyModal && (
         <CompanyDataModal
           user={user}
-          onSave={async (updatedUser) => { await updateUser(user.id, updatedUser); }}
+          onSave={async (updatedUser) => { 
+            await updateUser(user.id, updatedUser);
+            // Aktualizuj lokalny state i localStorage
+            setUser(updatedUser);
+            localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+          }}
           onClose={() => setShowCompanyModal(false)}
         />
       )}
@@ -5169,6 +5362,7 @@ const App = () => {
           producers={producers}
           drivers={drivers}
           onDelete={handleDeleteOrder}
+          isContractor={isContractor}
         />
       )}
 
@@ -5184,7 +5378,16 @@ const App = () => {
         />
       )}
 
-      {showStatistics && (
+      {showStatistics && isContractor && (
+        <ContractorStatisticsPanel
+          orders={visibleOrders}
+          exchangeRates={exchangeRates}
+          onClose={() => setShowStatistics(false)}
+          user={user}
+        />
+      )}
+
+      {showStatistics && !isContractor && (
         <StatisticsPanel
           orders={orders}
           exchangeRates={exchangeRates}
