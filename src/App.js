@@ -5894,6 +5894,9 @@ const App = () => {
   const [showMessenger, setShowMessenger] = useState(false);
   const [selectedChat, setSelectedChat] = useState(null);
   const [newMessagePopup, setNewMessagePopup] = useState(null);
+  
+  // Status change notification state
+  const [statusChangeModal, setStatusChangeModal] = useState(null); // { orderId, oldStatus, newStatus, order }
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -6153,21 +6156,84 @@ const App = () => {
   const handleStatusChange = async (orderId, newStatus) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
-    const statusName = getStatus(newStatus).name;
+    
+    const oldStatusName = getStatus(order.status)?.name || order.status;
+    const newStatusName = getStatus(newStatus)?.name || newStatus;
+    
+    // Zapisz zmianę statusu
     await updateOrder(orderId, {
       ...order,
       status: newStatus,
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user?.name || 'system', akcja: `Status: ${statusName}` }]
+      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user?.name || 'system', akcja: `Status: ${newStatusName}` }]
     });
     
-    // Powiadomienie o zmianie statusu
+    // Powiadomienie systemowe
     await addNotif({
-      icon: getStatus(newStatus).icon,
+      icon: getStatus(newStatus)?.icon,
       title: `Status: ${order.nrWlasny}`,
-      message: `${user?.name || 'System'} zmienił status na: ${statusName}`,
+      message: `${user?.name || 'System'} zmienił status na: ${newStatusName}`,
       orderId: orderId,
       type: 'status_change'
     });
+    
+    // Jeśli klient ma email - zapytaj o powiadomienie
+    if (order.klient?.email) {
+      setStatusChangeModal({
+        orderId,
+        order,
+        oldStatus: oldStatusName,
+        newStatus: newStatusName,
+        newStatusCode: newStatus
+      });
+    }
+  };
+
+  // Funkcja wysyłania emaila o zmianie statusu
+  const sendStatusChangeEmail = (modalData) => {
+    const { order, oldStatus, newStatus, newStatusCode } = modalData;
+    const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
+    const doZaplaty = order.platnosci?.doZaplaty || ((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaplacono || 0));
+    
+    const subject = `Zmiana statusu zamówienia nr ${order.nrWlasny}`;
+    
+    // Dodatkowe informacje w zależności od statusu
+    let additionalInfo = '';
+    if (newStatusCode === 'gotowe') {
+      additionalInfo = `\n\n🎉 Twoje zamówienie jest gotowe do odbioru!\nPo odbiorze towaru otrzymasz potwierdzenie dostawy.`;
+    } else if (newStatusCode === 'w_transporcie') {
+      additionalInfo = `\n\n🚚 Twoje zamówienie jest w drodze!\nWkrótce skontaktuje się z Tobą nasz kierowca.`;
+    } else if (newStatusCode === 'dostarczone') {
+      additionalInfo = `\n\n✅ Zamówienie zostało dostarczone!\nDziękujemy za zakupy. Zapraszamy ponownie!`;
+    }
+    
+    const body = `Szanowny/a ${order.klient?.imie || 'Kliencie'},
+
+Informujemy o zmianie statusu Twojego zamówienia.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 ZMIANA STATUSU ZAMÓWIENIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 Numer zamówienia: ${order.nrWlasny}
+
+📊 Status zmieniony:
+   ❌ Poprzedni: ${oldStatus}
+   ✅ Aktualny: ${newStatus}
+${additionalInfo}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 INFORMACJE O PŁATNOŚCI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${doZaplaty > 0 ? `Do zapłaty pozostało: ${doZaplaty.toFixed(2)} ${walutaSymbol}` : '✅ Zamówienie w pełni opłacone!'}
+
+W razie pytań prosimy o kontakt.
+
+Pozdrawiamy,
+Zespół obsługi zamówień`;
+
+    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setStatusChangeModal(null);
   };
 
   const handleSaveUsers = async (newList) => {
@@ -6909,6 +6975,55 @@ const App = () => {
           <div className="message-popup-content">
             <div className="message-popup-sender">{newMessagePopup.senderName}</div>
             <div className="message-popup-text">{newMessagePopup.text}</div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PYTANIA O POWIADOMIENIE KLIENTA O ZMIANIE STATUSU */}
+      {statusChangeModal && (
+        <div className="modal-overlay" onClick={() => setStatusChangeModal(null)}>
+          <div className="modal-content modal-small status-change-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header status-change-header">
+              <h2>📧 Powiadomić klienta?</h2>
+              <button className="btn-close" onClick={() => setStatusChangeModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="status-change-info">
+                <p className="status-change-order">
+                  <strong>Zamówienie:</strong> {statusChangeModal.order?.nrWlasny}
+                </p>
+                <p className="status-change-client">
+                  <strong>Klient:</strong> {statusChangeModal.order?.klient?.imie}
+                </p>
+                <p className="status-change-email">
+                  <strong>Email:</strong> {statusChangeModal.order?.klient?.email}
+                </p>
+                
+                <div className="status-change-visual">
+                  <div className="status-old">
+                    <span className="status-label">Poprzedni status</span>
+                    <span className="status-value">{statusChangeModal.oldStatus}</span>
+                  </div>
+                  <div className="status-arrow">→</div>
+                  <div className="status-new">
+                    <span className="status-label">Nowy status</span>
+                    <span className="status-value">{statusChangeModal.newStatus}</span>
+                  </div>
+                </div>
+                
+                <p className="status-change-question">
+                  Czy chcesz wysłać email do klienta z informacją o zmianie statusu zamówienia?
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer status-change-footer">
+              <button className="btn-secondary" onClick={() => setStatusChangeModal(null)}>
+                ❌ Nie, dziękuję
+              </button>
+              <button className="btn-primary" onClick={() => sendStatusChangeEmail(statusChangeModal)}>
+                ✅ Tak, wyślij email
+              </button>
+            </div>
           </div>
         </div>
       )}
