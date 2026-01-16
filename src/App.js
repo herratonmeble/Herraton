@@ -818,7 +818,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   };
 
   // Konwersja waluty kosztów na walutę sprzedaży
-  const convertToSalesCurrency = (amount, fromCurrency) => {
+  const _convertToSalesCurrency = (amount, fromCurrency) => {
     const toCurrency = form.platnosci?.waluta || 'PLN';
     if (fromCurrency === toCurrency || !exchangeRates) return amount;
     
@@ -2539,7 +2539,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [notes, setNotes] = useState('');
   const [estPickup, setEstPickup] = useState('');
   const [estDelivery, setEstDelivery] = useState('');
-  const [photoTarget, setPhotoTarget] = useState(null);
+  const [_photoTarget, _setPhotoTarget] = useState(null);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
@@ -2573,7 +2573,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   };
 
   // Statusy dostępne dla kierowcy do cofania
-  const DRIVER_STATUSES = [
+  const _DRIVER_STATUSES = [
     { id: 'gotowe_do_odbioru', name: 'Gotowe do odbioru', icon: '📦' },
     { id: 'odebrane', name: 'Odebrane', icon: '🚚' },
     { id: 'w_transporcie', name: 'W transporcie', icon: '🚗' },
@@ -3793,7 +3793,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
   if (view === 'detail' && viewingLead) {
     const status = getLeadStatus(viewingLead.status);
     const source = getLeadSource(viewingLead.zrodlo);
-    const assignedUser = assignableUsers.find(u => u.id === viewingLead.przypisanyDo);
+    const _assignedUser = assignableUsers.find(u => u.id === viewingLead.przypisanyDo);
     const linkedOrder = getLinkedOrder(viewingLead);
 
     return (
@@ -4604,7 +4604,7 @@ const App = () => {
   const [showLeadsPanel, setShowLeadsPanel] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
-  const [selectedOrdersForEmail, setSelectedOrdersForEmail] = useState([]);
+  const [_selectedOrdersForEmail, setSelectedOrdersForEmail] = useState([]);
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
