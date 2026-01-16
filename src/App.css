@@ -4958,3 +4958,125 @@ input.margin-negative {
     flex: 1;
   }
 }
+
+/* ============================================
+   WYSYŁANIE POTWIERDZENIA EMAIL
+   ============================================ */
+.btn-send-confirmation {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-send-confirmation:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.modal-footer .footer-left {
+  flex: 1;
+}
+
+.modal-footer .footer-right {
+  display: flex;
+  gap: 10px;
+}
+
+/* Modal potwierdzenia */
+.confirmation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+}
+
+.confirmation-modal {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.confirmation-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: white;
+}
+
+.confirmation-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.confirmation-modal-body {
+  padding: 24px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.confirmation-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #E2E8F0;
+}
+
+/* Podgląd emaila */
+.email-preview {
+  background: #F8FAFC;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.email-to, .email-subject {
+  padding: 12px 16px;
+  border-bottom: 1px solid #E2E8F0;
+  font-size: 14px;
+}
+
+.email-to strong, .email-subject strong {
+  color: #64748B;
+  margin-right: 8px;
+}
+
+.email-body-preview {
+  padding: 16px;
+  background: white;
+}
+
+.email-body-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+/* Modal medium size */
+.modal-medium {
+  max-width: 650px;
+}
