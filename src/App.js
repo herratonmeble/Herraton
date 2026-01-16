@@ -395,6 +395,8 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+  const [showDeliveryEmailModal, setShowDeliveryEmailModal] = useState(false);
+  const [deliveryEmailLang, setDeliveryEmailLang] = useState('pl');
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -407,6 +409,156 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
       onDelete(order.id);
       onClose();
     }
+  };
+
+  // Tłumaczenia emaila dostawy
+  const DELIVERY_EMAIL_TRANSLATIONS = {
+    pl: {
+      subject: 'Potwierdzenie dostawy zamówienia nr',
+      greeting: 'Szanowny/a',
+      client: 'Kliencie',
+      intro: 'Potwierdzamy dostawę Twojego zamówienia.',
+      title: 'POTWIERDZENIE DOSTAWY',
+      orderNumber: 'Numer zamówienia',
+      deliveryDate: 'Data dostawy',
+      driver: 'Kierowca',
+      product: 'Produkt',
+      paymentTitle: 'POTWIERDZENIE PŁATNOŚCI',
+      paidToDriver: 'została zapłacona kierowcy dnia',
+      protocolInfo: 'W załączniku przesyłamy protokół odbioru towaru.',
+      photosInfo: 'Zdjęcia z dostawy dostępne są w systemie.',
+      thanks: 'Dziękujemy za zakupy!',
+      welcome: 'Zapraszamy ponownie.',
+      regards: 'Pozdrawiamy',
+      team: 'Zespół obsługi zamówień'
+    },
+    en: {
+      subject: 'Delivery confirmation for order no.',
+      greeting: 'Dear',
+      client: 'Customer',
+      intro: 'We confirm the delivery of your order.',
+      title: 'DELIVERY CONFIRMATION',
+      orderNumber: 'Order number',
+      deliveryDate: 'Delivery date',
+      driver: 'Driver',
+      product: 'Product',
+      paymentTitle: 'PAYMENT CONFIRMATION',
+      paidToDriver: 'was paid to the driver on',
+      protocolInfo: 'Please find attached the goods receipt protocol.',
+      photosInfo: 'Delivery photos are available in the system.',
+      thanks: 'Thank you for your purchase!',
+      welcome: 'We look forward to serving you again.',
+      regards: 'Best regards',
+      team: 'Order Service Team'
+    },
+    de: {
+      subject: 'Lieferbestätigung für Bestellung Nr.',
+      greeting: 'Sehr geehrte/r',
+      client: 'Kunde',
+      intro: 'Wir bestätigen die Lieferung Ihrer Bestellung.',
+      title: 'LIEFERBESTÄTIGUNG',
+      orderNumber: 'Bestellnummer',
+      deliveryDate: 'Lieferdatum',
+      driver: 'Fahrer',
+      product: 'Produkt',
+      paymentTitle: 'ZAHLUNGSBESTÄTIGUNG',
+      paidToDriver: 'wurde am folgenden Tag an den Fahrer bezahlt',
+      protocolInfo: 'Im Anhang finden Sie das Warenempfangsprotokoll.',
+      photosInfo: 'Lieferfotos sind im System verfügbar.',
+      thanks: 'Vielen Dank für Ihren Einkauf!',
+      welcome: 'Wir freuen uns auf Ihren nächsten Besuch.',
+      regards: 'Mit freundlichen Grüßen',
+      team: 'Bestellservice-Team'
+    },
+    es: {
+      subject: 'Confirmación de entrega del pedido nº',
+      greeting: 'Estimado/a',
+      client: 'Cliente',
+      intro: 'Confirmamos la entrega de su pedido.',
+      title: 'CONFIRMACIÓN DE ENTREGA',
+      orderNumber: 'Número de pedido',
+      deliveryDate: 'Fecha de entrega',
+      driver: 'Conductor',
+      product: 'Producto',
+      paymentTitle: 'CONFIRMACIÓN DE PAGO',
+      paidToDriver: 'fue pagado al conductor el día',
+      protocolInfo: 'Adjuntamos el protocolo de recepción de mercancías.',
+      photosInfo: 'Las fotos de la entrega están disponibles en el sistema.',
+      thanks: '¡Gracias por su compra!',
+      welcome: 'Esperamos volver a atenderle.',
+      regards: 'Saludos cordiales',
+      team: 'Equipo de servicio de pedidos'
+    },
+    nl: {
+      subject: 'Leveringsbevestiging voor bestelling nr.',
+      greeting: 'Geachte',
+      client: 'Klant',
+      intro: 'Wij bevestigen de levering van uw bestelling.',
+      title: 'LEVERINGSBEVESTIGING',
+      orderNumber: 'Bestelnummer',
+      deliveryDate: 'Leverdatum',
+      driver: 'Chauffeur',
+      product: 'Product',
+      paymentTitle: 'BETALINGSBEVESTIGING',
+      paidToDriver: 'is op de volgende datum aan de chauffeur betaald',
+      protocolInfo: 'In de bijlage vindt u het ontvangstprotocol.',
+      photosInfo: 'Leveringsfoto\'s zijn beschikbaar in het systeem.',
+      thanks: 'Bedankt voor uw aankoop!',
+      welcome: 'Wij zien u graag terug.',
+      regards: 'Met vriendelijke groet',
+      team: 'Bestelservice Team'
+    }
+  };
+
+  // Funkcja wysyłania potwierdzenia dostawy (dla admina/pracownika)
+  const sendDeliveryEmail = () => {
+    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLang] || DELIVERY_EMAIL_TRANSLATIONS.pl;
+    const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
+    const zaplacono = order.platnosci?.zaplacono || 0;
+    const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
+    const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
+    const driverName = driver?.name || order.potwierdzenieDostawy?.kierowca || '-';
+    
+    const subject = `${t.subject} ${order.nrWlasny}`;
+    
+    let paymentInfo = '';
+    if (zaplacono > 0) {
+      paymentInfo = `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 ${t.paymentTitle}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
+    }
+    
+    const body = `${t.greeting} ${order.klient?.imie || t.client},
+
+${t.intro}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ${t.title}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 ${t.orderNumber}: ${order.nrWlasny}
+📅 ${t.deliveryDate}: ${formatDate(dataPlatnosci)}
+🚚 ${t.driver}: ${driverName}
+
+📦 ${t.product}:
+${order.towar || '-'}
+${paymentInfo}
+
+📋 ${t.protocolInfo}
+${hasPhotos ? `📸 ${t.photosInfo}` : ''}
+
+${t.thanks}
+${t.welcome}
+
+${t.regards},
+${t.team}`;
+
+    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setShowDeliveryEmailModal(false);
   };
 
   // Funkcja generująca email z potwierdzeniem
@@ -933,6 +1085,11 @@ Zespół obsługi zamówień`;
               📧 Wyślij potwierdzenie
             </button>
           )}
+          {order.klient?.email && order.status === 'dostarczone' && (
+            <button className="btn-delivery-confirmation" onClick={() => setShowDeliveryEmailModal(true)}>
+              📦 Potwierdzenie dostawy
+            </button>
+          )}
           <button className="btn-danger" onClick={handleDelete}>🗑️ Usuń zamówienie</button>
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
         </div>
@@ -940,6 +1097,52 @@ Zespół obsługi zamówień`;
 
       {/* Modal podglądu zdjęcia */}
       {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
+
+      {/* Modal wysyłania potwierdzenia dostawy */}
+      {showDeliveryEmailModal && (
+        <div className="modal-overlay" onClick={() => setShowDeliveryEmailModal(false)} style={{zIndex: 2000}}>
+          <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
+            <div className="modal-header delivery-confirmation-header">
+              <h2>📦 Wyślij potwierdzenie dostawy</h2>
+              <button className="btn-close" onClick={() => setShowDeliveryEmailModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delivery-confirm-info">
+                <p><strong>Zamówienie:</strong> {order.nrWlasny}</p>
+                <p><strong>Klient:</strong> {order.klient?.imie}</p>
+                <p><strong>Email:</strong> {order.klient?.email}</p>
+                
+                <div className="form-group" style={{marginTop: '16px'}}>
+                  <label>Język wiadomości:</label>
+                  <select 
+                    value={deliveryEmailLang} 
+                    onChange={e => setDeliveryEmailLang(e.target.value)}
+                    className="protocol-language-select"
+                  >
+                    <option value="pl">🇵🇱 Polski</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="nl">🇳🇱 Nederlands</option>
+                  </select>
+                </div>
+
+                <div className="delivery-confirm-content">
+                  <p>✅ Potwierdzenie dostawy</p>
+                  <p>📋 Protokół odbioru towaru</p>
+                  {order.zdjeciaDostawy?.length > 0 && (
+                    <p>📸 {order.zdjeciaDostawy.length} zdjęć z dostawy</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowDeliveryEmailModal(false)}>Anuluj</button>
+              <button className="btn-primary" onClick={sendDeliveryEmail}>📤 Wyślij email</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal potwierdzenia email */}
       {showEmailConfirmation && (
@@ -2943,6 +3146,10 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [clientRemarks, setClientRemarks] = useState('');
   const [showPhotoManager, setShowPhotoManager] = useState(null);
   const [protocolLanguage, setProtocolLanguage] = useState('pl'); // Język protokołu
+  
+  // State dla wysyłania potwierdzenia dostawy
+  const [showDeliveryConfirmation, setShowDeliveryConfirmation] = useState(null);
+  const [deliveryEmailLanguage, setDeliveryEmailLanguage] = useState('pl');
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -3273,6 +3480,161 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Dostawa potwierdzona' }]
     });
     onAddNotification({ icon: '✔️', title: `Dostarczono: ${order.nrWlasny}`, message: `Kierowca ${user.name} potwierdził dostawę do ${order.klient?.imie}`, orderId: order.id });
+    
+    // Jeśli klient ma email - pokaż modal z pytaniem o wysłanie potwierdzenia
+    if (order.klient?.email) {
+      setShowDeliveryConfirmation(order);
+      setDeliveryEmailLanguage(protocolLanguage); // Użyj wybranego języka protokołu
+    }
+  };
+
+  // Tłumaczenia emaila dostawy
+  const DELIVERY_EMAIL_TRANSLATIONS = {
+    pl: {
+      subject: 'Potwierdzenie dostawy zamówienia nr',
+      greeting: 'Szanowny/a',
+      client: 'Kliencie',
+      intro: 'Potwierdzamy dostawę Twojego zamówienia.',
+      title: 'POTWIERDZENIE DOSTAWY',
+      orderNumber: 'Numer zamówienia',
+      deliveryDate: 'Data dostawy',
+      driver: 'Kierowca',
+      product: 'Produkt',
+      paymentTitle: 'POTWIERDZENIE PŁATNOŚCI',
+      paidToDriver: 'została zapłacona kierowcy dnia',
+      protocolInfo: 'W załączniku przesyłamy protokół odbioru towaru.',
+      photosInfo: 'Zdjęcia z dostawy dostępne są w systemie.',
+      thanks: 'Dziękujemy za zakupy!',
+      welcome: 'Zapraszamy ponownie.',
+      regards: 'Pozdrawiamy',
+      team: 'Zespół obsługi zamówień'
+    },
+    en: {
+      subject: 'Delivery confirmation for order no.',
+      greeting: 'Dear',
+      client: 'Customer',
+      intro: 'We confirm the delivery of your order.',
+      title: 'DELIVERY CONFIRMATION',
+      orderNumber: 'Order number',
+      deliveryDate: 'Delivery date',
+      driver: 'Driver',
+      product: 'Product',
+      paymentTitle: 'PAYMENT CONFIRMATION',
+      paidToDriver: 'was paid to the driver on',
+      protocolInfo: 'Please find attached the goods receipt protocol.',
+      photosInfo: 'Delivery photos are available in the system.',
+      thanks: 'Thank you for your purchase!',
+      welcome: 'We look forward to serving you again.',
+      regards: 'Best regards',
+      team: 'Order Service Team'
+    },
+    de: {
+      subject: 'Lieferbestätigung für Bestellung Nr.',
+      greeting: 'Sehr geehrte/r',
+      client: 'Kunde',
+      intro: 'Wir bestätigen die Lieferung Ihrer Bestellung.',
+      title: 'LIEFERBESTÄTIGUNG',
+      orderNumber: 'Bestellnummer',
+      deliveryDate: 'Lieferdatum',
+      driver: 'Fahrer',
+      product: 'Produkt',
+      paymentTitle: 'ZAHLUNGSBESTÄTIGUNG',
+      paidToDriver: 'wurde am folgenden Tag an den Fahrer bezahlt',
+      protocolInfo: 'Im Anhang finden Sie das Warenempfangsprotokoll.',
+      photosInfo: 'Lieferfotos sind im System verfügbar.',
+      thanks: 'Vielen Dank für Ihren Einkauf!',
+      welcome: 'Wir freuen uns auf Ihren nächsten Besuch.',
+      regards: 'Mit freundlichen Grüßen',
+      team: 'Bestellservice-Team'
+    },
+    es: {
+      subject: 'Confirmación de entrega del pedido nº',
+      greeting: 'Estimado/a',
+      client: 'Cliente',
+      intro: 'Confirmamos la entrega de su pedido.',
+      title: 'CONFIRMACIÓN DE ENTREGA',
+      orderNumber: 'Número de pedido',
+      deliveryDate: 'Fecha de entrega',
+      driver: 'Conductor',
+      product: 'Producto',
+      paymentTitle: 'CONFIRMACIÓN DE PAGO',
+      paidToDriver: 'fue pagado al conductor el día',
+      protocolInfo: 'Adjuntamos el protocolo de recepción de mercancías.',
+      photosInfo: 'Las fotos de la entrega están disponibles en el sistema.',
+      thanks: '¡Gracias por su compra!',
+      welcome: 'Esperamos volver a atenderle.',
+      regards: 'Saludos cordiales',
+      team: 'Equipo de servicio de pedidos'
+    },
+    nl: {
+      subject: 'Leveringsbevestiging voor bestelling nr.',
+      greeting: 'Geachte',
+      client: 'Klant',
+      intro: 'Wij bevestigen de levering van uw bestelling.',
+      title: 'LEVERINGSBEVESTIGING',
+      orderNumber: 'Bestelnummer',
+      deliveryDate: 'Leverdatum',
+      driver: 'Chauffeur',
+      product: 'Product',
+      paymentTitle: 'BETALINGSBEVESTIGING',
+      paidToDriver: 'is op de volgende datum aan de chauffeur betaald',
+      protocolInfo: 'In de bijlage vindt u het ontvangstprotocol.',
+      photosInfo: 'Leveringsfoto\'s zijn beschikbaar in het systeem.',
+      thanks: 'Bedankt voor uw aankoop!',
+      welcome: 'Wij zien u graag terug.',
+      regards: 'Met vriendelijke groet',
+      team: 'Bestelservice Team'
+    }
+  };
+
+  // Funkcja wysyłania potwierdzenia dostawy
+  const sendDeliveryConfirmationEmail = (order) => {
+    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
+    const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
+    const zaplacono = order.platnosci?.zaplacono || 0;
+    const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
+    const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
+    
+    const subject = `${t.subject} ${order.nrWlasny}`;
+    
+    let paymentInfo = '';
+    if (zaplacono > 0) {
+      paymentInfo = `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 ${t.paymentTitle}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
+    }
+    
+    const body = `${t.greeting} ${order.klient?.imie || t.client},
+
+${t.intro}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ${t.title}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 ${t.orderNumber}: ${order.nrWlasny}
+📅 ${t.deliveryDate}: ${formatDate(dataPlatnosci)}
+🚚 ${t.driver}: ${user.name}
+
+📦 ${t.product}:
+${order.towar || '-'}
+${paymentInfo}
+
+📋 ${t.protocolInfo}
+${hasPhotos ? `📸 ${t.photosInfo}` : ''}
+
+${t.thanks}
+${t.welcome}
+
+${t.regards},
+${t.team}`;
+
+    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setShowDeliveryConfirmation(null);
   };
 
   return (
@@ -3761,6 +4123,60 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
               <button className="btn-secondary" onClick={clearCanvas}>🗑️ Wyczyść podpis</button>
               <button className="btn-secondary" onClick={() => { setShowSignature(null); setClientRemarks(''); }}>Anuluj</button>
               <button className="btn-primary" onClick={saveSignature}>✅ Zatwierdź i zapisz</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal wysyłania potwierdzenia dostawy */}
+      {showDeliveryConfirmation && (
+        <div className="modal-overlay" onClick={() => setShowDeliveryConfirmation(null)}>
+          <div className="modal-content modal-small delivery-confirmation-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header delivery-confirmation-header">
+              <h2>📧 Wysłać potwierdzenie dostawy?</h2>
+              <button className="btn-close" onClick={() => setShowDeliveryConfirmation(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delivery-confirm-info">
+                <p><strong>Zamówienie:</strong> {showDeliveryConfirmation.nrWlasny}</p>
+                <p><strong>Klient:</strong> {showDeliveryConfirmation.klient?.imie}</p>
+                <p><strong>Email:</strong> {showDeliveryConfirmation.klient?.email}</p>
+                
+                <div className="form-group" style={{marginTop: '16px'}}>
+                  <label>Język wiadomości i protokołu:</label>
+                  <select 
+                    value={deliveryEmailLanguage} 
+                    onChange={e => setDeliveryEmailLanguage(e.target.value)}
+                    className="protocol-language-select"
+                  >
+                    <option value="pl">🇵🇱 Polski</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="nl">🇳🇱 Nederlands</option>
+                  </select>
+                </div>
+
+                <div className="delivery-confirm-content">
+                  <p>✅ Potwierdzenie dostawy</p>
+                  <p>📋 Protokół odbioru towaru</p>
+                  {showDeliveryConfirmation.zdjeciaDostawy?.length > 0 && (
+                    <p>📸 {showDeliveryConfirmation.zdjeciaDostawy.length} zdjęć z dostawy</p>
+                  )}
+                </div>
+                
+                <p className="delivery-confirm-question">
+                  Czy chcesz wysłać klientowi email z potwierdzeniem dostawy?
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowDeliveryConfirmation(null)}>
+                ❌ Nie
+              </button>
+              <button className="btn-primary" onClick={() => sendDeliveryConfirmationEmail(showDeliveryConfirmation)}>
+                ✅ Tak, wyślij
+              </button>
             </div>
           </div>
         </div>
@@ -6192,18 +6608,37 @@ const App = () => {
   const sendStatusChangeEmail = (modalData) => {
     const { order, oldStatus, newStatus, newStatusCode } = modalData;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
-    const doZaplaty = order.platnosci?.doZaplaty || ((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaplacono || 0));
+    const zaplacono = order.platnosci?.zaplacono || 0;
+    const dataPlatnosci = order.platnosci?.dataPlatnosciKierowcy || order.platnosci?.dataZaplaty || new Date().toISOString().split('T')[0];
     
     const subject = `Zmiana statusu zamówienia nr ${order.nrWlasny}`;
     
     // Dodatkowe informacje w zależności od statusu
     let additionalInfo = '';
+    let paymentInfo = '';
+    
     if (newStatusCode === 'gotowe') {
       additionalInfo = `\n\n🎉 Twoje zamówienie jest gotowe do odbioru!\nPo odbiorze towaru otrzymasz potwierdzenie dostawy.`;
     } else if (newStatusCode === 'w_transporcie') {
       additionalInfo = `\n\n🚚 Twoje zamówienie jest w drodze!\nWkrótce skontaktuje się z Tobą nasz kierowca.`;
     } else if (newStatusCode === 'dostarczone') {
       additionalInfo = `\n\n✅ Zamówienie zostało dostarczone!\nDziękujemy za zakupy. Zapraszamy ponownie!`;
+      // Dla statusu "dostarczone" pokazujemy info o zapłacie kierowcy
+      if (zaplacono > 0) {
+        paymentInfo = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 POTWIERDZENIE PŁATNOŚCI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kwota ${zaplacono.toFixed(2)} ${walutaSymbol} została zapłacona kierowcy dnia ${formatDate(dataPlatnosci)}.`;
+      }
+    } else {
+      // Dla innych statusów standardowa informacja
+      const doZaplaty = order.platnosci?.doZaplaty || ((order.platnosci?.cenaCalkowita || 0) - zaplacono);
+      if (doZaplaty > 0) {
+        paymentInfo = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 INFORMACJE O PŁATNOŚCI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Do zapłaty pozostało: ${doZaplaty.toFixed(2)} ${walutaSymbol}`;
+      }
     }
     
     const body = `Szanowny/a ${order.klient?.imie || 'Kliencie'},
@@ -6219,12 +6654,7 @@ Informujemy o zmianie statusu Twojego zamówienia.
 📊 Status zmieniony:
    ❌ Poprzedni: ${oldStatus}
    ✅ Aktualny: ${newStatus}
-${additionalInfo}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 INFORMACJE O PŁATNOŚCI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${doZaplaty > 0 ? `Do zapłaty pozostało: ${doZaplaty.toFixed(2)} ${walutaSymbol}` : '✅ Zamówienie w pełni opłacone!'}
+${additionalInfo}${paymentInfo}
 
 W razie pytań prosimy o kontakt.
 
