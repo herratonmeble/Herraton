@@ -394,6 +394,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 
 const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor }) => {
   const [previewImage, setPreviewImage] = useState(null);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -406,6 +407,64 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
       onDelete(order.id);
       onClose();
     }
+  };
+
+  // Funkcja generująca email z potwierdzeniem
+  const generateConfirmationEmail = () => {
+    const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
+    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+    const zaplacono = order.platnosci?.zaplacono || 0;
+    const doZaplaty = order.platnosci?.doZaplaty || (cenaCalkowita - zaplacono);
+    
+    const subject = `Potwierdzenie zamówienia nr ${order.nrWlasny}`;
+    
+    const body = `Szanowny/a ${order.klient?.imie || 'Kliencie'},
+
+Dziękujemy za złożenie zamówienia! Poniżej znajdziesz szczegóły:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 POTWIERDZENIE ZAMÓWIENIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 Numer zamówienia: ${order.nrWlasny}
+📅 Data zamówienia: ${formatDate(order.dataZlecenia)}
+
+📦 OPIS PRODUKTÓW:
+${order.towar || 'Brak opisu'}
+
+📍 ADRES DOSTAWY:
+${order.klient?.adres || 'Nie podano'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 PODSUMOWANIE PŁATNOŚCI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Wartość zamówienia: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+Wpłacono: ${zaplacono.toFixed(2)} ${walutaSymbol}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO ZAPŁATY: ${doZaplaty.toFixed(2)} ${walutaSymbol}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${doZaplaty > 0 ? `⚠️ Pozostała kwota do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}` : '✅ Zamówienie w pełni opłacone!'}
+
+W razie pytań prosimy o kontakt.
+
+Pozdrawiamy,
+Zespół obsługi zamówień`;
+
+    return { subject, body };
+  };
+
+  const handleSendConfirmation = () => {
+    if (!order.klient?.email) {
+      alert('Brak adresu email klienta!');
+      return;
+    }
+    
+    const { subject, body } = generateConfirmationEmail();
+    const mailtoLink = `mailto:${order.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setShowEmailConfirmation(false);
   };
 
   // Funkcja pobierania protokołu PDF
@@ -869,6 +928,11 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
         </div>
 
         <div className="modal-footer">
+          {order.klient?.email && (
+            <button className="btn-send-confirmation" onClick={() => setShowEmailConfirmation(true)}>
+              📧 Wyślij potwierdzenie
+            </button>
+          )}
           <button className="btn-danger" onClick={handleDelete}>🗑️ Usuń zamówienie</button>
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
         </div>
@@ -876,6 +940,37 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
 
       {/* Modal podglądu zdjęcia */}
       {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
+
+      {/* Modal potwierdzenia email */}
+      {showEmailConfirmation && (
+        <div className="modal-overlay" onClick={() => setShowEmailConfirmation(false)} style={{zIndex: 2000}}>
+          <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📧 Podgląd potwierdzenia zamówienia</h2>
+              <button className="btn-close" onClick={() => setShowEmailConfirmation(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="email-preview">
+                <div className="email-to">
+                  <strong>Do:</strong> {order.klient?.email}
+                </div>
+                <div className="email-subject">
+                  <strong>Temat:</strong> Potwierdzenie zamówienia nr {order.nrWlasny}
+                </div>
+                <div className="email-body-preview">
+                  <pre>{generateConfirmationEmail().body}</pre>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowEmailConfirmation(false)}>Anuluj</button>
+              <button className="btn-primary" onClick={handleSendConfirmation}>
+                📤 Wyślij email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal wyboru języka protokołu */}
       {showProtocolModal && protocolOrder && (
@@ -956,6 +1051,70 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [saving, setSaving] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Funkcja generująca treść emaila z potwierdzeniem
+  const generateConfirmationEmail = () => {
+    const walutaSymbol = CURRENCIES.find(c => c.code === form.platnosci?.waluta)?.symbol || 'zł';
+    const cenaCalkowita = form.platnosci?.cenaCalkowita || 0;
+    const zaplacono = form.platnosci?.zaplacono || 0;
+    const doZaplaty = form.platnosci?.doZaplaty || (cenaCalkowita - zaplacono);
+    
+    const subject = `Potwierdzenie zamówienia nr ${form.nrWlasny}`;
+    
+    const body = `Szanowny/a ${form.klient?.imie || 'Kliencie'},
+
+Dziękujemy za złożenie zamówienia! Poniżej znajdziesz szczegóły:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 POTWIERDZENIE ZAMÓWIENIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔢 Numer zamówienia: ${form.nrWlasny}
+📅 Data zamówienia: ${formatDate(form.dataZlecenia)}
+
+📦 OPIS PRODUKTÓW:
+${form.towar || 'Brak opisu'}
+
+📍 ADRES DOSTAWY:
+${form.klient?.adres || 'Nie podano'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 PODSUMOWANIE PŁATNOŚCI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Wartość zamówienia: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+Wpłacono: ${zaplacono.toFixed(2)} ${walutaSymbol}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO ZAPŁATY: ${doZaplaty.toFixed(2)} ${walutaSymbol}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${doZaplaty > 0 ? `⚠️ Pozostała kwota do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}` : '✅ Zamówienie w pełni opłacone!'}
+
+W razie pytań prosimy o kontakt.
+
+Pozdrawiamy,
+Zespół obsługi zamówień`;
+
+    return { subject, body };
+  };
+
+  // Funkcja wysyłania emaila
+  const handleSendConfirmation = () => {
+    if (!form.klient?.email) {
+      alert('Brak adresu email klienta!');
+      return;
+    }
+    
+    const { subject, body } = generateConfirmationEmail();
+    
+    // Otwórz klienta email z wypełnioną treścią
+    const mailtoLink = `mailto:${form.klient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    
+    setShowConfirmationModal(false);
+  };
 
   // Wyciągnij unikalne kontakty z zamówień do sugestii
   const getContactSuggestions = (searchText) => {
@@ -1479,11 +1638,56 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
         </div>
 
         <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>Anuluj</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? '⏳ Zapisuję...' : '💾 Zapisz zamówienie'}
-          </button>
+          <div className="footer-left">
+            {form.klient?.email && (
+              <button 
+                type="button"
+                className="btn-send-confirmation" 
+                onClick={() => setShowConfirmationModal(true)}
+                title="Wyślij potwierdzenie zamówienia na email klienta"
+              >
+                📧 Wyślij potwierdzenie
+              </button>
+            )}
+          </div>
+          <div className="footer-right">
+            <button className="btn-secondary" onClick={onClose}>Anuluj</button>
+            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? '⏳ Zapisuję...' : '💾 Zapisz zamówienie'}
+            </button>
+          </div>
         </div>
+
+        {/* Modal podglądu potwierdzenia */}
+        {showConfirmationModal && (
+          <div className="confirmation-modal-overlay" onClick={() => setShowConfirmationModal(false)}>
+            <div className="confirmation-modal" onClick={e => e.stopPropagation()}>
+              <div className="confirmation-modal-header">
+                <h3>📧 Podgląd potwierdzenia zamówienia</h3>
+                <button className="btn-close" onClick={() => setShowConfirmationModal(false)}>×</button>
+              </div>
+              <div className="confirmation-modal-body">
+                <div className="email-preview">
+                  <div className="email-to">
+                    <strong>Do:</strong> {form.klient?.email}
+                  </div>
+                  <div className="email-subject">
+                    <strong>Temat:</strong> Potwierdzenie zamówienia nr {form.nrWlasny}
+                  </div>
+                  <div className="email-body-preview">
+                    <pre>{generateConfirmationEmail().body}</pre>
+                  </div>
+                </div>
+              </div>
+              <div className="confirmation-modal-footer">
+                <button className="btn-secondary" onClick={() => setShowConfirmationModal(false)}>Anuluj</button>
+                <button className="btn-primary" onClick={handleSendConfirmation}>
+                  📤 Wyślij email
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
