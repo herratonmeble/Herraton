@@ -5179,3 +5179,82 @@ input.margin-negative {
   padding: 12px 20px;
   font-size: 14px;
 }
+
+/* ============================================
+   POTWIERDZENIE DOSTAWY
+   ============================================ */
+.delivery-confirmation-modal {
+  max-width: 450px;
+}
+
+.delivery-confirmation-header {
+  background: linear-gradient(135deg, #10B981, #059669) !important;
+}
+
+.delivery-confirm-info {
+  text-align: center;
+}
+
+.delivery-confirm-info p {
+  margin: 8px 0;
+  color: #475569;
+}
+
+.delivery-confirm-info strong {
+  color: #1E293B;
+}
+
+.delivery-confirm-content {
+  margin: 20px 0;
+  padding: 16px;
+  background: #F0FDF4;
+  border-radius: 12px;
+  border: 1px solid #BBF7D0;
+}
+
+.delivery-confirm-content p {
+  margin: 8px 0;
+  color: #166534;
+  font-weight: 500;
+}
+
+.delivery-confirm-question {
+  margin-top: 16px;
+  padding: 12px;
+  background: #FEF3C7;
+  border-radius: 8px;
+  color: #92400E;
+  font-size: 14px;
+}
+
+.btn-delivery-confirmation {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-delivery-confirmation:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.protocol-language-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.protocol-language-select:focus {
+  outline: none;
+  border-color: #10B981;
+}
