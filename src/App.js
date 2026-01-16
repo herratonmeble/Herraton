@@ -817,18 +817,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     return Math.round(amount * rate * 100) / 100;
   };
 
-  // Konwersja waluty kosztów na walutę sprzedaży
-  const _convertToSalesCurrency = (amount, fromCurrency) => {
-    const toCurrency = form.platnosci?.waluta || 'PLN';
-    if (fromCurrency === toCurrency || !exchangeRates) return amount;
-    
-    const rateFrom = exchangeRates[fromCurrency] || 1;
-    const rateTo = exchangeRates[toCurrency] || 1;
-    
-    const inPLN = amount * rateFrom;
-    return Math.round(inPLN / rateTo * 100) / 100;
-  };
-
   // Wyliczenie marży - ZAWSZE W PLN
   const calcMarza = () => {
     const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
@@ -2539,7 +2527,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [notes, setNotes] = useState('');
   const [estPickup, setEstPickup] = useState('');
   const [estDelivery, setEstDelivery] = useState('');
-  const [_photoTarget, _setPhotoTarget] = useState(null);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
@@ -2571,14 +2558,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       default: return [];
     }
   };
-
-  // Statusy dostępne dla kierowcy do cofania
-  const _DRIVER_STATUSES = [
-    { id: 'gotowe_do_odbioru', name: 'Gotowe do odbioru', icon: '📦' },
-    { id: 'odebrane', name: 'Odebrane', icon: '🚚' },
-    { id: 'w_transporcie', name: 'W transporcie', icon: '🚗' },
-    { id: 'dostarczone', name: 'Dostarczone', icon: '✔️' },
-  ];
 
   const changeStatus = async (order, newStatus) => {
     const statusName = getStatus(newStatus).name;
@@ -3793,7 +3772,6 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
   if (view === 'detail' && viewingLead) {
     const status = getLeadStatus(viewingLead.status);
     const source = getLeadSource(viewingLead.zrodlo);
-    const _assignedUser = assignableUsers.find(u => u.id === viewingLead.przypisanyDo);
     const linkedOrder = getLinkedOrder(viewingLead);
 
     return (
@@ -4604,7 +4582,6 @@ const App = () => {
   const [showLeadsPanel, setShowLeadsPanel] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
-  const [_selectedOrdersForEmail, setSelectedOrdersForEmail] = useState([]);
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
@@ -5139,7 +5116,6 @@ const App = () => {
               <button 
                 className="btn-bulk-email"
                 onClick={() => {
-                  setSelectedOrdersForEmail([]);
                   setShowBulkEmailModal(true);
                 }}
               >
