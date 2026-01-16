@@ -1052,7 +1052,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Funkcja generująca treść emaila z potwierdzeniem
   const generateConfirmationEmail = () => {
