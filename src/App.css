@@ -5080,3 +5080,102 @@ input.margin-negative {
 .modal-medium {
   max-width: 650px;
 }
+
+/* ============================================
+   MODAL ZMIANY STATUSU
+   ============================================ */
+.status-change-modal {
+  max-width: 450px;
+}
+
+.status-change-header {
+  background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+}
+
+.status-change-info {
+  text-align: center;
+}
+
+.status-change-order,
+.status-change-client,
+.status-change-email {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #475569;
+}
+
+.status-change-order strong,
+.status-change-client strong,
+.status-change-email strong {
+  color: #1E293B;
+  margin-right: 8px;
+}
+
+.status-change-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 24px 0;
+  padding: 20px;
+  background: #F8FAFC;
+  border-radius: 12px;
+}
+
+.status-old, .status-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 11px;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-old .status-value {
+  padding: 8px 16px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.status-new .status-value {
+  padding: 8px 16px;
+  background: #D1FAE5;
+  color: #059669;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.status-arrow {
+  font-size: 24px;
+  color: #94A3B8;
+}
+
+.status-change-question {
+  margin-top: 20px;
+  padding: 16px;
+  background: #FEF3C7;
+  border-radius: 8px;
+  color: #92400E;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.status-change-footer {
+  display: flex;
+  gap: 12px;
+}
+
+.status-change-footer button {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 14px;
+}
