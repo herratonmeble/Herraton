@@ -3889,3 +3889,46 @@ input.margin-negative {
   border-bottom: 2px solid #E2E8F0;
   padding-bottom: 8px;
 }
+
+/* ============================================
+   STATYSTYKI KONTRAHENTA
+   ============================================ */
+.contractor-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.contractor-summary .summary-card.highlight {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+}
+.contractor-summary .summary-card.success {
+  background: linear-gradient(135deg, #10B981, #059669);
+}
+.contractor-summary .summary-card.warning {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+/* Dane firmy kontrahenta w liście użytkowników */
+.contractor-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+  font-size: 12px;
+}
+.contractor-details .list-item-subtitle {
+  color: #64748B;
+  margin-top: 2px;
+}
+
+/* Responsive dla statystyk kontrahenta */
+@media (max-width: 768px) {
+  .contractor-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .contractor-summary {
+    grid-template-columns: 1fr;
+  }
+}
