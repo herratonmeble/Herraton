@@ -2514,10 +2514,13 @@ Z poważaniem`;
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates, currentUser }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
+
+  // Sprawdź czy użytkownik może usunąć zamówienie
+  const canDelete = isAdmin || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
   // Nie pokazuj migającego powiadomienia dla zamówień w transporcie, dostarczonych lub odebranych
   const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane'].includes(order.status);
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
@@ -2555,9 +2558,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    if (window.confirm(`Czy na pewno chcesz usunąć zamówienie ${order.nrWlasny}?`)) {
-      onDelete(order.id);
-    }
+    onDelete(order.id);
   };
 
   return (
@@ -2626,7 +2627,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <div className="order-actions">
             <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
             {producer && !isContractor && <button onClick={e => { e.stopPropagation(); onEmailClick(order, producer); }} className="btn-icon btn-email">📧</button>}
-            {!isContractor && <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>}
+            {canDelete && <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>}
           </div>
         </div>
       </div>
@@ -4863,6 +4864,117 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
 };
 
 // ============================================
+// PANEL KOSZA
+// ============================================
+
+const TrashPanel = ({ orders, onRestore, onPermanentDelete, onClose, isAdmin, currentUser }) => {
+  const [search, setSearch] = useState('');
+
+  const filteredOrders = orders.filter(o => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const hay = [o.nrWlasny, o.towar, o.klient?.imie, o.usunietyPrzez?.nazwa].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>🗑️ Kosz</h2>
+            <p className="modal-subtitle">Usunięte zamówienia ({orders.length})</p>
+          </div>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          {/* Wyszukiwarka */}
+          <div className="trash-search">
+            <input
+              type="text"
+              placeholder="🔍 Szukaj w koszu..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {filteredOrders.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">🗑️</div>
+              <p>{orders.length === 0 ? 'Kosz jest pusty' : 'Nie znaleziono zamówień'}</p>
+            </div>
+          ) : (
+            <div className="trash-list">
+              {filteredOrders.map(order => {
+                const country = getCountry(order.kraj);
+                const canRestore = isAdmin || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
+                
+                return (
+                  <div key={order.id} className="trash-item">
+                    <div className="trash-item-main">
+                      <div className="trash-item-header">
+                        <span className="trash-order-number">
+                          {country?.flag} {order.nrWlasny}
+                        </span>
+                        <span className="trash-deleted-info">
+                          🗑️ Usunięto: {formatDateTime(order.usunietyPrzez?.data)}
+                        </span>
+                      </div>
+                      <div className="trash-item-details">
+                        <p className="trash-item-product">{order.towar?.substring(0, 100) || 'Brak opisu'}...</p>
+                        <p className="trash-item-client">👤 {order.klient?.imie || 'Brak klienta'}</p>
+                      </div>
+                      <div className="trash-item-meta">
+                        <span className="trash-deleted-by">
+                          ❌ Usunął: <strong>{order.usunietyPrzez?.nazwa || 'Nieznany'}</strong>
+                        </span>
+                        <span className="trash-created-by">
+                          📝 Utworzył: {order.utworzonePrzez?.nazwa || 'Nieznany'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="trash-item-actions">
+                      {canRestore && (
+                        <button 
+                          className="btn-restore" 
+                          onClick={() => onRestore(order.id)}
+                          title="Przywróć zamówienie"
+                        >
+                          ♻️ Przywróć
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button 
+                          className="btn-permanent-delete" 
+                          onClick={() => onPermanentDelete(order.id)}
+                          title="Usuń trwale (nieodwracalne)"
+                        >
+                          💀 Usuń trwale
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <div className="trash-footer-info">
+            {isAdmin && orders.length > 0 && (
+              <span className="trash-warning">⚠️ Trwałe usunięcie jest nieodwracalne!</span>
+            )}
+          </div>
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // GŁÓWNA APLIKACJA
 // ============================================
 
@@ -4897,6 +5009,7 @@ const App = () => {
   const [showLeadsPanel, setShowLeadsPanel] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+  const [showTrashPanel, setShowTrashPanel] = useState(false); // Kosz
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
@@ -4980,10 +5093,21 @@ const App = () => {
 
   // Popup dla nowych powiadomień
   useEffect(() => {
-    const unresolved = notifications.filter(n => !n.resolved).length;
-    if (unresolved > prevNotifCount.current && notifications.length > 0) {
+    // Dla kontrahenta - filtruj tylko jego powiadomienia
+    const relevantNotifications = isContractor
+      ? notifications.filter(n => {
+          if (n.orderId) {
+            const order = orders.find(o => o.id === n.orderId);
+            return order && order.kontrahentId === user?.id;
+          }
+          return n.forContractor === user?.id;
+        })
+      : notifications;
+
+    const unresolved = relevantNotifications.filter(n => !n.resolved).length;
+    if (unresolved > prevNotifCount.current && relevantNotifications.length > 0) {
       // Pobierz najnowsze powiadomienie
-      const newest = notifications
+      const newest = relevantNotifications
         .filter(n => !n.resolved)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
       
@@ -4995,7 +5119,7 @@ const App = () => {
       }
     }
     prevNotifCount.current = unresolved;
-  }, [notifications]);
+  }, [notifications, isContractor, orders, user]);
 
   useEffect(() => {
     if (orders.length > 0 && isAdmin) {
@@ -5067,7 +5191,67 @@ const App = () => {
     setEditingOrder(null);
   };
 
+  // Przeniesienie do kosza zamiast usuwania
   const handleDeleteOrder = async (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Sprawdź uprawnienia - tylko admin lub twórca zamówienia może usunąć
+    const isCreator = order.utworzonePrzez?.id === user?.id || order.kontrahentId === user?.id;
+    if (!isAdmin && !isCreator) {
+      alert('Nie masz uprawnień do usunięcia tego zamówienia. Możesz usuwać tylko własne zamówienia.');
+      return;
+    }
+
+    if (!window.confirm(`Czy na pewno chcesz przenieść zamówienie ${order.nrWlasny} do kosza?`)) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    await updateOrder(orderId, {
+      ...order,
+      usuniety: true,
+      usunietyPrzez: { id: user.id, nazwa: user.name, data: now },
+      historia: [...(order.historia || []), { 
+        data: now, 
+        uzytkownik: user.name, 
+        akcja: 'Przeniesiono do kosza' 
+      }]
+    });
+  };
+
+  // Przywrócenie z kosza
+  const handleRestoreOrder = async (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const now = new Date().toISOString();
+    await updateOrder(orderId, {
+      ...order,
+      usuniety: false,
+      usunietyPrzez: null,
+      historia: [...(order.historia || []), { 
+        data: now, 
+        uzytkownik: user.name, 
+        akcja: 'Przywrócono z kosza' 
+      }]
+    });
+  };
+
+  // Trwałe usunięcie (tylko admin)
+  const handlePermanentDelete = async (orderId) => {
+    if (!isAdmin) {
+      alert('Tylko administrator może trwale usuwać zamówienia.');
+      return;
+    }
+
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    if (!window.confirm(`UWAGA! Czy na pewno chcesz TRWALE usunąć zamówienie ${order.nrWlasny}? Ta operacja jest nieodwracalna!`)) {
+      return;
+    }
+
     await deleteOrder(orderId);
   };
 
@@ -5225,9 +5409,17 @@ const App = () => {
     ? complaints.filter(c => c.utworzonePrzez?.id === user?.id)
     : complaints;
 
+  // Zamówienia aktywne (nie usunięte)
+  const activeOrders = orders.filter(o => !o.usuniety);
+  
+  // Zamówienia w koszu
+  const trashedOrders = isContractor
+    ? orders.filter(o => o.usuniety && o.kontrahentId === user?.id)
+    : orders.filter(o => o.usuniety);
+
   const visibleOrders = isContractor
-    ? orders.filter(o => o.kontrahentId === user?.id)
-    : orders;
+    ? activeOrders.filter(o => o.kontrahentId === user?.id)
+    : activeOrders;
 
   const orderCountries = [...new Set(visibleOrders.map(o => o.kraj).filter(Boolean))];
   const creators = [...new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean))];
@@ -5323,12 +5515,20 @@ const App = () => {
                 <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Statystyki</button>
                 <button className="btn-secondary" onClick={() => setShowUsersModal(true)}>👥 Użytkownicy</button>
                 <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
+                <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
+                  🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
+                </button>
                 <button className="btn-secondary" onClick={() => setShowSettingsModal(true)}>⚙️ Ustawienia</button>
               </>
             )}
 
             {user?.role === 'worker' && (
-              <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
+              <>
+                <button className="btn-secondary" onClick={() => setShowProducersModal(true)}>🏭 Producenci</button>
+                <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
+                  🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
+                </button>
+              </>
             )}
 
             {isContractor && (
@@ -5529,6 +5729,7 @@ const App = () => {
               isAdmin={isAdmin}
               isContractor={isContractor}
               exchangeRates={exchangeRates}
+              currentUser={user}
             />
           ))}
         </div>
@@ -5671,6 +5872,17 @@ const App = () => {
           users={users}
           orders={orders}
           onViewOrder={(order) => { setShowLeadsPanel(false); setViewingOrder(order); }}
+        />
+      )}
+
+      {showTrashPanel && (
+        <TrashPanel
+          orders={trashedOrders}
+          onRestore={handleRestoreOrder}
+          onPermanentDelete={handlePermanentDelete}
+          onClose={() => setShowTrashPanel(false)}
+          isAdmin={isAdmin}
+          currentUser={user}
         />
       )}
 
