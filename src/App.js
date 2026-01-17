@@ -3334,12 +3334,20 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   
   // State dla modala zmiany statusu (odebrane, w_transporcie)
   const [showStatusChangeEmail, setShowStatusChangeEmail] = useState(null); // { order, oldStatus, newStatus }
+  
+  // Filtrowanie po statusie w zakładce "Do odbioru"
+  const [pickupStatusFilter, setPickupStatusFilter] = useState('all'); // all, potwierdzone, w_produkcji, gotowe_do_odbioru
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
   const pickedUp = myOrders.filter(o => o.status === 'odebrane');
   const inTransit = myOrders.filter(o => o.status === 'w_transporcie');
   const delivered = myOrders.filter(o => o.status === 'dostarczone');
+  
+  // Filtrowane zamówienia do odbioru
+  const filteredToPickup = pickupStatusFilter === 'all' 
+    ? toPickup 
+    : toPickup.filter(o => o.status === pickupStatusFilter);
 
   const tabs = [
     { id: 'pickup', label: 'Do odbioru', count: toPickup.length, icon: '📦' },
@@ -3350,7 +3358,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   const getTabOrders = () => {
     switch (activeTab) {
-      case 'pickup': return toPickup;
+      case 'pickup': return filteredToPickup;
       case 'picked': return pickedUp;
       case 'transit': return inTransit;
       case 'delivered': return delivered;
@@ -3932,6 +3940,13 @@ ${st.team}
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
     const hasSignature = order.podpisKlienta;
     
+    // Informacje o rabacie
+    const rabat = order.rabatPrzyDostawie;
+    const hasDiscount = rabat && rabat.kwota > 0;
+    
+    // Uwagi klienta (mogą być w różnych miejscach)
+    const clientRemarks = order.uwagiKlienta || order.uwagiOdKlienta || order.uwagi || '';
+    
     // Tłumaczenia protokołu
     const PROTOCOL_TRANS = {
       pl: {
@@ -3947,7 +3962,11 @@ ${st.team}
         clientRemarks: 'Uwagi klienta',
         noRemarks: 'Brak uwag - produkt zaakceptowany bez zastrzeżeń',
         signature: 'Podpis klienta: ZŁOŻONY ELEKTRONICZNIE',
-        noSignature: 'Podpis klienta: OCZEKUJE NA PODPIS'
+        noSignature: 'Podpis klienta: OCZEKUJE NA PODPIS',
+        discountTitle: 'UDZIELONY RABAT',
+        discountAmount: 'Kwota rabatu',
+        discountReason: 'Powód rabatu',
+        discountBy: 'Rabat udzielony przez'
       },
       en: {
         protocolTitle: 'GOODS RECEIPT PROTOCOL',
@@ -3962,7 +3981,11 @@ ${st.team}
         clientRemarks: 'Client remarks',
         noRemarks: 'No remarks - product accepted without reservations',
         signature: 'Client signature: SIGNED ELECTRONICALLY',
-        noSignature: 'Client signature: AWAITING SIGNATURE'
+        noSignature: 'Client signature: AWAITING SIGNATURE',
+        discountTitle: 'DISCOUNT APPLIED',
+        discountAmount: 'Discount amount',
+        discountReason: 'Discount reason',
+        discountBy: 'Discount given by'
       },
       de: {
         protocolTitle: 'WARENEMPFANGSPROTOKOLL',
@@ -3977,7 +4000,11 @@ ${st.team}
         clientRemarks: 'Kundenanmerkungen',
         noRemarks: 'Keine Anmerkungen - Produkt ohne Vorbehalt akzeptiert',
         signature: 'Kundenunterschrift: ELEKTRONISCH UNTERSCHRIEBEN',
-        noSignature: 'Kundenunterschrift: WARTET AUF UNTERSCHRIFT'
+        noSignature: 'Kundenunterschrift: WARTET AUF UNTERSCHRIFT',
+        discountTitle: 'GEWÄHRTER RABATT',
+        discountAmount: 'Rabattbetrag',
+        discountReason: 'Rabattgrund',
+        discountBy: 'Rabatt gewährt von'
       },
       es: {
         protocolTitle: 'PROTOCOLO DE RECEPCIÓN DE MERCANCÍAS',
@@ -3992,7 +4019,11 @@ ${st.team}
         clientRemarks: 'Observaciones del cliente',
         noRemarks: 'Sin observaciones - producto aceptado sin reservas',
         signature: 'Firma del cliente: FIRMADO ELECTRÓNICAMENTE',
-        noSignature: 'Firma del cliente: ESPERANDO FIRMA'
+        noSignature: 'Firma del cliente: ESPERANDO FIRMA',
+        discountTitle: 'DESCUENTO APLICADO',
+        discountAmount: 'Importe del descuento',
+        discountReason: 'Motivo del descuento',
+        discountBy: 'Descuento otorgado por'
       },
       nl: {
         protocolTitle: 'ONTVANGSTPROTOCOL',
@@ -4007,7 +4038,11 @@ ${st.team}
         clientRemarks: 'Opmerkingen klant',
         noRemarks: 'Geen opmerkingen - product zonder voorbehoud geaccepteerd',
         signature: 'Handtekening klant: ELEKTRONISCH ONDERTEKEND',
-        noSignature: 'Handtekening klant: WACHT OP HANDTEKENING'
+        noSignature: 'Handtekening klant: WACHT OP HANDTEKENING',
+        discountTitle: 'TOEGEKENDE KORTING',
+        discountAmount: 'Kortingsbedrag',
+        discountReason: 'Reden korting',
+        discountBy: 'Korting gegeven door'
       }
     };
     
@@ -4015,6 +4050,7 @@ ${st.team}
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
+    // Info o płatności
     let paymentInfo = '';
     if (zaplacono > 0) {
       paymentInfo = `
@@ -4023,6 +4059,19 @@ ${st.team}
 💰 ${t.paymentTitle}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
+    }
+    
+    // Info o rabacie
+    let discountInfo = '';
+    if (hasDiscount) {
+      discountInfo = `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 ${pt.discountTitle}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${pt.discountAmount}: ${rabat.kwota.toFixed(2)} ${walutaSymbol}
+${pt.discountReason}: ${rabat.powod || '-'}
+${pt.discountBy}: ${rabat.kierowca || user.name}`;
     }
     
     // Protokół odbioru jako tekst
@@ -4041,6 +4090,7 @@ ${pt.product}:
 ${order.towar || '-'}
 
 ${pt.value}: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+${hasDiscount ? `${pt.discountAmount}: -${rabat.kwota.toFixed(2)} ${walutaSymbol}` : ''}
 ───────────────────────────────────────────────────────────
 
 ${pt.recipient}: ${order.klient?.imie || '-'}
@@ -4049,7 +4099,7 @@ ${pt.address}: ${order.klient?.adres || '-'}
 ───────────────────────────────────────────────────────────
 ${pt.declaration}
 
-${pt.clientRemarks}: ${order.uwagiKlienta || pt.noRemarks}
+${pt.clientRemarks}: ${clientRemarks || pt.noRemarks}
 
 ${hasSignature ? pt.signature : pt.noSignature}
 ═══════════════════════════════════════════════════════════`;
@@ -4068,7 +4118,7 @@ ${t.intro}
 
 📦 ${t.product}:
 ${order.towar || '-'}
-${paymentInfo}
+${paymentInfo}${discountInfo}
 ${protocolText}
 ${hasPhotos ? `\n📸 ${t.photosInfo} (${order.zdjeciaDostawy.length} zdjęć)` : ''}
 
@@ -4133,6 +4183,39 @@ ${t.team}
             </button>
           ))}
         </div>
+
+        {/* Filtr statusów dla zakładki "Do odbioru" */}
+        {activeTab === 'pickup' && (
+          <div className="driver-status-filter">
+            <span className="filter-label">Filtruj:</span>
+            <div className="filter-buttons">
+              <button 
+                className={`filter-btn ${pickupStatusFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setPickupStatusFilter('all')}
+              >
+                Wszystkie ({toPickup.length})
+              </button>
+              <button 
+                className={`filter-btn ${pickupStatusFilter === 'gotowe_do_odbioru' ? 'active' : ''}`}
+                onClick={() => setPickupStatusFilter('gotowe_do_odbioru')}
+              >
+                ✅ Gotowe ({toPickup.filter(o => o.status === 'gotowe_do_odbioru').length})
+              </button>
+              <button 
+                className={`filter-btn ${pickupStatusFilter === 'w_produkcji' ? 'active' : ''}`}
+                onClick={() => setPickupStatusFilter('w_produkcji')}
+              >
+                🔨 W produkcji ({toPickup.filter(o => o.status === 'w_produkcji').length})
+              </button>
+              <button 
+                className={`filter-btn ${pickupStatusFilter === 'potwierdzone' ? 'active' : ''}`}
+                onClick={() => setPickupStatusFilter('potwierdzone')}
+              >
+                📋 Potwierdzone ({toPickup.filter(o => o.status === 'potwierdzone').length})
+              </button>
+            </div>
+          </div>
+        )}
 
         {getTabOrders().length === 0 ? (
           <div className="empty-state">
@@ -7510,6 +7593,13 @@ Zespół obsługi zamówień
                     <button onClick={() => { setShowSettingsModal(true); setShowSettingsMenu(false); }}>
                       🔧 Konfiguracja
                     </button>
+                    <div className="settings-menu-divider"></div>
+                    <button onClick={() => { exportToExcel(filteredOrders); setShowSettingsMenu(false); }}>
+                      📥 Export Excel
+                    </button>
+                    <button onClick={() => { autoSyncToGoogleSheets(filteredOrders); setShowSettingsMenu(false); }}>
+                      🔄 Sync Google Sheets
+                    </button>
                   </div>
                 )}
               </div>
@@ -7574,23 +7664,12 @@ Zespół obsługi zamówień
             <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
               ➕ Nowe zamówienie
             </button>
-
-            {isAdmin && (
-              <>
-                <button className="btn-secondary" onClick={() => exportToExcel(filteredOrders)}>
-                  📥 Export Excel
-                </button>
-                <button className="btn-secondary" onClick={() => autoSyncToGoogleSheets(filteredOrders)}>
-                  🔄 Sync Sheets
-                </button>
-              </>
-            )}
           </div>
 
           <div className="top-right">
             <input
               className="search-input"
-              placeholder="Szukaj (nr, klient, adres, tel...)"
+              placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
