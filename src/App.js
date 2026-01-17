@@ -3678,61 +3678,6 @@ ${st.team}
     });
   };
 
-  // Funkcja otwierania aparatu - POPRAWIONA dla Android
-  const openCamera = (inputId) => {
-    const input = document.getElementById(inputId);
-    if (!input) {
-      console.error('Nie znaleziono inputa:', inputId);
-      alert('Błąd: nie można otworzyć aparatu');
-      return;
-    }
-    
-    // Na Androidzie input.click() musi być wywołane SYNCHRONICZNIE w odpowiedzi na akcję użytkownika
-    // Dlatego nie używamy async/await przed click()
-    try {
-      input.click();
-    } catch (e) {
-      console.error('Błąd click():', e);
-      // Alternatywna metoda - dispatching event
-      const event = new MouseEvent('click', {
-        view: window,
-        bubbles: true,
-        cancelable: true
-      });
-      input.dispatchEvent(event);
-    }
-  };
-
-  // Alternatywna funkcja - otwiera wybór źródła (aparat lub galeria)
-  const openCameraWithFallback = (cameraInputId, galleryInputId) => {
-    // Sprawdź czy urządzenie mobilne
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    
-    if (isAndroid) {
-      // Na Androidzie spróbuj najpierw capture, jeśli nie zadziała - pokaż wybór
-      const cameraInput = document.getElementById(cameraInputId);
-      if (cameraInput) {
-        // Ustaw listener na przypadek gdy nic się nie stanie
-        const timeoutId = setTimeout(() => {
-          // Jeśli po 500ms nie było żadnego zdarzenia, pokaż alert z instrukcją
-          console.log('Camera input timeout - may need permissions');
-        }, 500);
-        
-        // Usuń timeout jeśli input się aktywuje
-        cameraInput.addEventListener('click', () => clearTimeout(timeoutId), { once: true });
-        
-        cameraInput.click();
-      }
-    } else {
-      // Na iOS i innych - standardowe podejście
-      const input = document.getElementById(cameraInputId);
-      if (input) {
-        input.click();
-      }
-    }
-  };
-
   // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
   const handlePhotoCapture = async (order, type, e) => {
     const file = e.target.files?.[0];
