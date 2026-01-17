@@ -4015,8 +4015,8 @@ ${st.team}
     const rabat = order.rabatPrzyDostawie;
     const hasDiscount = rabat && rabat.kwota > 0;
     
-    // Uwagi klienta (mogą być w różnych miejscach)
-    const clientRemarks = order.uwagiKlienta || order.uwagiOdKlienta || order.uwagi || '';
+    // Uwagi klienta - sprawdzamy WSZYSTKIE możliwe pola (w tym umowaOdbioru!)
+    const clientRemarks = order.umowaOdbioru?.uwagiKlienta || order.uwagiKlienta || order.uwagiOdKlienta || order.uwagi || order.uwagiPrzyDostawie || '';
     
     // Tłumaczenia protokołu
     const PROTOCOL_TRANS = {
@@ -4121,13 +4121,18 @@ ${st.team}
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
-    // Obliczenia płatności
+    // Obliczenia płatności - POPRAWIONE
     const zaliczka = order.platnosci?.zaliczka || 0;
-    const kwotaDoZaplaty = cenaCalkowita - zaliczka;
+    // Używamy doZaplaty (pozostało do zapłaty) zamiast zaplacono
+    const doZaplaty = order.platnosci?.doZaplaty || (cenaCalkowita - zaliczka);
     const rabatKwota = hasDiscount ? rabat.kwota : 0;
-    const kwotaPoRabacie = kwotaDoZaplaty - rabatKwota;
-    const zaplacenoKierowcy = order.platnosci?.zaplacenoKierowcy || zaplacono || kwotaPoRabacie;
-    const dataZaplatyKierowcy = order.platnosci?.dataPlatnosciKierowcy || dataPlatnosci;
+    const kwotaPoRabacie = Math.max(0, doZaplaty - rabatKwota);
+    // Kwota zapłacona kierowcy = doZaplaty - rabat
+    const zaplacenoKierowcy = kwotaPoRabacie;
+    const dataZaplatyKierowcy = order.platnosci?.dataPlatnosciKierowcy || order.potwierdzenieDostawy?.data || dataPlatnosci;
+    
+    // Uwagi klienta - sprawdzamy WSZYSTKIE możliwe pola
+    const uwagiDoWyslania = clientRemarks || order.uwagiPrzyDostawie || order.deliveryRemarks || '';
     
     // Pełne podsumowanie płatności
     let paymentSummary = `
@@ -4138,7 +4143,7 @@ ${st.team}
 
 📊 Całość: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
 💳 Zaliczka: ${zaliczka.toFixed(2)} ${walutaSymbol}
-📋 Kwota do zapłaty: ${kwotaDoZaplaty.toFixed(2)} ${walutaSymbol}`;
+📋 Pozostało do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}`;
 
     // Dodaj info o rabacie jeśli był
     if (hasDiscount) {
@@ -4182,7 +4187,7 @@ ${pt.address}: ${order.klient?.adres || '-'}
 ───────────────────────────────────────────────────────────
 ${pt.declaration}
 
-${pt.clientRemarks}: ${clientRemarks || pt.noRemarks}
+${pt.clientRemarks}: ${uwagiDoWyslania || pt.noRemarks}
 
 ${hasSignature ? pt.signature : pt.noSignature}
 ═══════════════════════════════════════════════════════════`;
@@ -4508,8 +4513,10 @@ ${t.team}
                           />
                         </div>
                         <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
-                        {order.platnosci?.doZaplaty > 0 && (
-                          <button className="btn-driver discount" onClick={() => setShowDiscount(order.id)}>💸 Udziel rabatu</button>
+                        {(order.platnosci?.doZaplaty > 0 || order.rabatPrzyDostawie) && (
+                          <button className="btn-driver discount" onClick={() => { setDiscountAmount(order.rabatPrzyDostawie?.kwota?.toString() || ''); setDiscountReason(order.rabatPrzyDostawie?.powod || ''); setShowDiscount(order.id); }}>
+                            💸 {order.rabatPrzyDostawie ? 'Edytuj rabat' : 'Udziel rabatu'}
+                          </button>
                         )}
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
                         <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
@@ -4573,23 +4580,46 @@ ${t.team}
         </div>
       )}
 
-      {/* Modal rabatu */}
+      {/* Modal rabatu - z możliwością edycji */}
       {showDiscount && (
         <div className="modal-overlay" onClick={() => setShowDiscount(null)}>
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>💸 Udziel rabatu</h2>
+              <h2>💸 {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie ? 'Edytuj rabat' : 'Udziel rabatu'}</h2>
               <button className="btn-close" onClick={() => setShowDiscount(null)}>×</button>
             </div>
             <div className="modal-body">
               {(() => {
                 const order = orders.find(o => o.id === showDiscount);
+                const existingDiscount = order?.rabatPrzyDostawie;
+                
+                // Jeśli jest istniejący rabat i pola są puste, ustaw je
+                if (existingDiscount && !discountAmount && !discountReason) {
+                  setTimeout(() => {
+                    setDiscountAmount(existingDiscount.kwota?.toString() || '');
+                    setDiscountReason(existingDiscount.powod || '');
+                  }, 0);
+                }
+                
                 return order && (
                   <>
                     <div className="discount-order-info">
                       <p><strong>Zamówienie:</strong> {order.nrWlasny}</p>
-                      <p><strong>Do zapłaty:</strong> {formatCurrency(order.platnosci?.doZaplaty, order.platnosci?.waluta)}</p>
+                      <p><strong>Cena całkowita:</strong> {formatCurrency(order.platnosci?.cenaCalkowita, order.platnosci?.waluta)}</p>
+                      <p><strong>Zaliczka:</strong> {formatCurrency(order.platnosci?.zaliczka || 0, order.platnosci?.waluta)}</p>
+                      <p><strong>Do zapłaty (przed rabatem):</strong> {formatCurrency((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0), order.platnosci?.waluta)}</p>
                     </div>
+                    
+                    {existingDiscount && (
+                      <div className="existing-discount-info">
+                        <h4>📝 Aktualny rabat:</h4>
+                        <p>Kwota: {formatCurrency(existingDiscount.kwota, order.platnosci?.waluta)}</p>
+                        <p>Powód: {existingDiscount.powod}</p>
+                        <p>Udzielony przez: {existingDiscount.kierowca}</p>
+                        <p>Data: {formatDateTime(existingDiscount.data)}</p>
+                      </div>
+                    )}
+                    
                     <div className="form-group">
                       <label>Kwota rabatu ({order.platnosci?.waluta || 'PLN'})</label>
                       <input 
@@ -4610,15 +4640,33 @@ ${t.team}
                       />
                     </div>
                     <div className="discount-summary">
-                      <p>Nowa kwota do zapłaty: <strong>{formatCurrency(Math.max(0, (order.platnosci?.doZaplaty || 0) - (parseFloat(discountAmount) || 0)), order.platnosci?.waluta)}</strong></p>
+                      <p>Nowa kwota do zapłaty: <strong>{formatCurrency(Math.max(0, ((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0)) - (parseFloat(discountAmount) || 0)), order.platnosci?.waluta)}</strong></p>
                     </div>
                   </>
                 );
               })()}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowDiscount(null)}>Anuluj</button>
-              <button className="btn-primary" onClick={saveDiscount}>💸 Zatwierdź rabat</button>
+              <button className="btn-secondary" onClick={() => { setShowDiscount(null); setDiscountAmount(''); setDiscountReason(''); }}>Anuluj</button>
+              {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie && (
+                <button className="btn-delete" onClick={async () => {
+                  const order = orders.find(o => o.id === showDiscount);
+                  if (order && window.confirm('Czy na pewno chcesz usunąć rabat?')) {
+                    // Przywróć oryginalną kwotę do zapłaty
+                    const originalDoZaplaty = (order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0);
+                    await onUpdateOrder(order.id, {
+                      ...order,
+                      rabatPrzyDostawie: null,
+                      platnosci: { ...order.platnosci, doZaplaty: originalDoZaplaty },
+                      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Usunięto rabat` }]
+                    });
+                    setShowDiscount(null);
+                    setDiscountAmount('');
+                    setDiscountReason('');
+                  }
+                }}>🗑️ Usuń rabat</button>
+              )}
+              <button className="btn-primary" onClick={saveDiscount}>💸 {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie ? 'Zapisz zmiany' : 'Zatwierdź rabat'}</button>
             </div>
           </div>
         </div>
