@@ -7,6 +7,7 @@ import {
   subscribeToComplaints, addComplaint, updateComplaint, deleteComplaint,
   subscribeToLeads, addLead, updateLead, deleteLead,
   subscribeToMessages, addMessage, updateMessage,
+  subscribeToPriceLists, addPriceList, updatePriceList, deletePriceList,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -1401,7 +1402,7 @@ Zespół obsługi zamówień`;
 // MODAL EDYCJI ZAMÓWIENIA - POPRAWIONY (zamyka się po zapisie)
 // ============================================
 
-const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin, exchangeRates }) => {
+const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin, exchangeRates, priceLists }) => {
   const [form, setForm] = useState(order || {
     nrWlasny: '',
     kraj: 'PL',
@@ -1430,6 +1431,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showProductSearchInOrder, setShowProductSearchInOrder] = useState(false);
 
   // Funkcja generująca treść emaila z potwierdzeniem
   const generateConfirmationEmail = () => {
@@ -1733,7 +1735,19 @@ Zespół obsługi zamówień`;
 
           <div className="form-group full">
             <label>TOWAR</label>
-            <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
+            <div className="towar-input-row">
+              <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
+              {priceLists && priceLists.length > 0 && !isContractor && (
+                <button 
+                  type="button" 
+                  className="btn-search-product"
+                  onClick={() => setShowProductSearchInOrder(true)}
+                  title="Wyszukaj produkt z cennika"
+                >
+                  🔍 Szukaj w cennikach
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="form-section">
@@ -2099,6 +2113,39 @@ Zespół obsługi zamówień`;
             </div>
           </div>
         )}
+
+        {/* Wyszukiwarka produktów z cennika */}
+        {showProductSearchInOrder && priceLists && (
+          <ProductSearchModal
+            priceLists={priceLists}
+            producers={producers}
+            onSelect={(product) => {
+              // Dodaj produkt do opisu towaru
+              const newTowar = form.towar 
+                ? `${form.towar}\n${product.nazwa} (${product.producerName}) - ${product.grupa}: ${product.cena} zł`
+                : `${product.nazwa} (${product.producerName}) - ${product.grupa}: ${product.cena} zł`;
+              
+              // Ustaw producenta jeśli nie jest wybrany
+              const updates = { towar: newTowar };
+              if (!form.zaladunek && product.producerId) {
+                updates.zaladunek = product.producerId;
+              }
+              
+              // Ustaw cenę zakupu jeśli pusta
+              if (!form.koszty?.zakupNetto && product.cena) {
+                updates.koszty = {
+                  ...form.koszty,
+                  zakupNetto: product.cena,
+                  zakupBrutto: Math.round(product.cena * 1.23 * 100) / 100
+                };
+              }
+              
+              setForm({ ...form, ...updates });
+              setShowProductSearchInOrder(false);
+            }}
+            onClose={() => setShowProductSearchInOrder(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -2399,6 +2446,588 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// MENEDŻER CENNIKÓW - IMPORT XLSX
+// ============================================
+
+const PriceListManager = ({ producers, priceLists, onSave, onDelete, onClose }) => {
+  const [activeTab, setActiveTab] = useState('list'); // list, import
+  const [selectedProducer, setSelectedProducer] = useState('');
+  const [priceListName, setPriceListName] = useState('');
+  const [importedProducts, setImportedProducts] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPriceList, setSelectedPriceList] = useState(null);
+  const [filterProducer, setFilterProducer] = useState('all');
+  const fileInputRef = useRef(null);
+
+  // Parsowanie pliku XLSX
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    
+    try {
+      // Dynamiczny import biblioteki xlsx
+      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // Pierwsza linia to nagłówki
+          const headers = jsonData[0] || [];
+          const products = [];
+          
+          // Znajdź indeksy kolumn
+          const nazwaIndex = headers.findIndex(h => 
+            h && (h.toString().toLowerCase().includes('nazwa') || h.toString().toLowerCase().includes('produkt') || h.toString().toLowerCase().includes('name'))
+          );
+          
+          // Szukamy kolumn z grupami/cenami
+          const grupaIndices = [];
+          headers.forEach((h, i) => {
+            if (h && (
+              h.toString().toLowerCase().includes('grupa') || 
+              h.toString().toLowerCase().includes('cena') ||
+              h.toString().toLowerCase().includes('price') ||
+              h.toString().match(/^g\d+$/i) ||
+              h.toString().match(/^grupa\s*\d+$/i)
+            )) {
+              grupaIndices.push({ index: i, name: h.toString() });
+            }
+          });
+          
+          // Jeśli nie znaleziono grup, użyj wszystkich kolumn po nazwie jako grupy
+          if (grupaIndices.length === 0 && nazwaIndex >= 0) {
+            headers.forEach((h, i) => {
+              if (i > nazwaIndex && h) {
+                grupaIndices.push({ index: i, name: h.toString() });
+              }
+            });
+          }
+
+          // Parsuj produkty (od wiersza 2)
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || !row[nazwaIndex >= 0 ? nazwaIndex : 0]) continue;
+            
+            const product = {
+              nazwa: row[nazwaIndex >= 0 ? nazwaIndex : 0]?.toString() || '',
+              grupy: {}
+            };
+            
+            grupaIndices.forEach(g => {
+              const value = row[g.index];
+              if (value !== undefined && value !== null && value !== '') {
+                // Parsuj cenę - usuń znaki waluty, spacje itp.
+                let price = value;
+                if (typeof value === 'string') {
+                  price = parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+                }
+                product.grupy[g.name] = price;
+              }
+            });
+            
+            if (product.nazwa) {
+              products.push(product);
+            }
+          }
+          
+          setImportedProducts(products);
+          
+          // Automatycznie ustaw nazwę cennika z nazwy pliku
+          if (!priceListName) {
+            setPriceListName(file.name.replace(/\.[^/.]+$/, ''));
+          }
+          
+          alert(`✅ Zaimportowano ${products.length} produktów z ${grupaIndices.length} grup cenowych!`);
+        } catch (parseError) {
+          console.error('Błąd parsowania:', parseError);
+          alert('❌ Błąd parsowania pliku. Upewnij się, że plik ma poprawny format.');
+        }
+        setImporting(false);
+      };
+      
+      reader.onerror = () => {
+        alert('❌ Błąd odczytu pliku');
+        setImporting(false);
+      };
+      
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('Błąd importu:', error);
+      alert('❌ Błąd importu: ' + error.message);
+      setImporting(false);
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
+  // Zapisz cennik
+  const handleSavePriceList = async () => {
+    if (!selectedProducer) {
+      alert('❌ Wybierz producenta!');
+      return;
+    }
+    if (!priceListName) {
+      alert('❌ Podaj nazwę cennika!');
+      return;
+    }
+    if (importedProducts.length === 0) {
+      alert('❌ Brak produktów do zapisania!');
+      return;
+    }
+
+    try {
+      await onSave({
+        producerId: selectedProducer,
+        producerName: Object.values(producers).find(p => p.id === selectedProducer)?.name || '',
+        nazwa: priceListName,
+        produkty: importedProducts,
+        dataUtworzenia: new Date().toISOString(),
+        iloscProduktow: importedProducts.length
+      });
+      
+      alert(`✅ Cennik "${priceListName}" został zapisany z ${importedProducts.length} produktami!`);
+      
+      // Reset
+      setImportedProducts([]);
+      setPriceListName('');
+      setSelectedProducer('');
+      setActiveTab('list');
+    } catch (error) {
+      alert('❌ Błąd zapisu: ' + error.message);
+    }
+  };
+
+  // Usuń cennik
+  const handleDeletePriceList = async (priceList) => {
+    if (window.confirm(`Czy na pewno chcesz usunąć cennik "${priceList.nazwa}"?`)) {
+      await onDelete(priceList.id);
+    }
+  };
+
+  // Filtrowane cenniki
+  const filteredPriceLists = priceLists.filter(pl => {
+    if (filterProducer !== 'all' && pl.producerId !== filterProducer) return false;
+    return true;
+  });
+
+  // Wyszukiwanie w wybranym cenniku
+  const searchedProducts = selectedPriceList?.produkty?.filter(p =>
+    p.nazwa.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large pricelist-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📋 Zarządzanie cennikami</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="pricelist-tabs">
+          <button 
+            className={`tab-btn ${activeTab === 'list' ? 'active' : ''}`}
+            onClick={() => setActiveTab('list')}
+          >
+            📚 Lista cenników
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
+            onClick={() => setActiveTab('import')}
+          >
+            📥 Importuj cennik
+          </button>
+        </div>
+
+        <div className="modal-body">
+          {/* LISTA CENNIKÓW */}
+          {activeTab === 'list' && (
+            <div className="pricelist-list-tab">
+              <div className="pricelist-filters">
+                <select 
+                  value={filterProducer} 
+                  onChange={e => setFilterProducer(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">Wszyscy producenci</option>
+                  {Object.values(producers).map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {filteredPriceLists.length === 0 ? (
+                <div className="empty-state">
+                  <p>📭 Brak cenników</p>
+                  <p>Kliknij "Importuj cennik" aby dodać pierwszy cennik.</p>
+                </div>
+              ) : (
+                <div className="pricelist-grid">
+                  {filteredPriceLists.map(pl => (
+                    <div 
+                      key={pl.id} 
+                      className={`pricelist-card ${selectedPriceList?.id === pl.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedPriceList(selectedPriceList?.id === pl.id ? null : pl)}
+                    >
+                      <div className="pricelist-card-header">
+                        <h3>{pl.nazwa}</h3>
+                        <button 
+                          className="btn-delete-small"
+                          onClick={(e) => { e.stopPropagation(); handleDeletePriceList(pl); }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                      <div className="pricelist-card-body">
+                        <p><strong>🏭 Producent:</strong> {pl.producerName}</p>
+                        <p><strong>📦 Produktów:</strong> {pl.iloscProduktow || pl.produkty?.length || 0}</p>
+                        <p><strong>📅 Dodano:</strong> {new Date(pl.dataUtworzenia).toLocaleDateString('pl-PL')}</p>
+                        {pl.produkty?.[0]?.grupy && (
+                          <p><strong>💰 Grupy cenowe:</strong> {Object.keys(pl.produkty[0].grupy).join(', ')}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Podgląd wybranego cennika */}
+              {selectedPriceList && (
+                <div className="pricelist-preview">
+                  <h3>📖 Podgląd: {selectedPriceList.nazwa}</h3>
+                  <input
+                    type="text"
+                    placeholder="🔍 Szukaj produktu..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="search-input"
+                  />
+                  <div className="products-table-container">
+                    <table className="products-table">
+                      <thead>
+                        <tr>
+                          <th>Nazwa produktu</th>
+                          {selectedPriceList.produkty?.[0]?.grupy && 
+                            Object.keys(selectedPriceList.produkty[0].grupy).map(g => (
+                              <th key={g}>{g}</th>
+                            ))
+                          }
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {searchedProducts.slice(0, 100).map((p, i) => (
+                          <tr key={i}>
+                            <td>{p.nazwa}</td>
+                            {p.grupy && Object.values(p.grupy).map((price, j) => (
+                              <td key={j} className="price-cell">{typeof price === 'number' ? price.toFixed(2) : price}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {searchedProducts.length > 100 && (
+                      <p className="table-info">Wyświetlono 100 z {searchedProducts.length} produktów. Użyj wyszukiwarki.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* IMPORT CENNIKA */}
+          {activeTab === 'import' && (
+            <div className="pricelist-import-tab">
+              <div className="import-instructions">
+                <h3>📋 Instrukcja importu cennika z pliku XLSX</h3>
+                <p>Plik Excel powinien mieć następującą strukturę:</p>
+                <div className="example-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Nazwa Towaru</th>
+                        <th>Grupa 1</th>
+                        <th>Grupa 2</th>
+                        <th>Grupa 3</th>
+                        <th>Grupa 4</th>
+                        <th>Grupa 5</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Sofa MALMO 3-os</td>
+                        <td>2500</td>
+                        <td>2800</td>
+                        <td>3100</td>
+                        <td>3400</td>
+                        <td>3700</td>
+                      </tr>
+                      <tr>
+                        <td>Fotel BERGEN</td>
+                        <td>1200</td>
+                        <td>1400</td>
+                        <td>1600</td>
+                        <td>1800</td>
+                        <td>2000</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <ul>
+                  <li>Pierwsza kolumna: <strong>Nazwa produktu</strong></li>
+                  <li>Kolejne kolumny: <strong>Grupy cenowe</strong> (różne tkaniny/wykończenia)</li>
+                  <li>Nazwy kolumn zostaną automatycznie rozpoznane</li>
+                </ul>
+              </div>
+
+              <div className="import-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>🏭 Producent *</label>
+                    <select 
+                      value={selectedProducer} 
+                      onChange={e => setSelectedProducer(e.target.value)}
+                    >
+                      <option value="">-- Wybierz producenta --</option>
+                      {Object.values(producers).map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>📝 Nazwa cennika *</label>
+                    <input
+                      type="text"
+                      value={priceListName}
+                      onChange={e => setPriceListName(e.target.value)}
+                      placeholder="np. Cennik 2024, Katalog wiosna..."
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>📂 Plik XLSX</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button 
+                    className="btn-upload"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                  >
+                    {importing ? '⏳ Importowanie...' : '📥 Wybierz plik XLSX'}
+                  </button>
+                </div>
+
+                {importedProducts.length > 0 && (
+                  <div className="import-preview">
+                    <h4>✅ Zaimportowano {importedProducts.length} produktów</h4>
+                    <div className="preview-table-container">
+                      <table className="products-table">
+                        <thead>
+                          <tr>
+                            <th>Nazwa produktu</th>
+                            {importedProducts[0]?.grupy && 
+                              Object.keys(importedProducts[0].grupy).map(g => (
+                                <th key={g}>{g}</th>
+                              ))
+                            }
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importedProducts.slice(0, 10).map((p, i) => (
+                            <tr key={i}>
+                              <td>{p.nazwa}</td>
+                              {p.grupy && Object.values(p.grupy).map((price, j) => (
+                                <td key={j} className="price-cell">{typeof price === 'number' ? price.toFixed(2) : price}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {importedProducts.length > 10 && (
+                        <p className="table-info">...i {importedProducts.length - 10} więcej</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+          {activeTab === 'import' && importedProducts.length > 0 && (
+            <button className="btn-primary" onClick={handleSavePriceList}>
+              💾 Zapisz cennik ({importedProducts.length} produktów)
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// WYSZUKIWARKA PRODUKTÓW Z CENNIKA
+// ============================================
+
+const ProductSearchModal = ({ priceLists, producers, onSelect, onClose }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProducer, setSelectedProducer] = useState('all');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [results, setResults] = useState([]);
+
+  // Dostępne grupy cenowe
+  const availableGroups = React.useMemo(() => {
+    const groups = new Set();
+    priceLists.forEach(pl => {
+      pl.produkty?.forEach(p => {
+        Object.keys(p.grupy || {}).forEach(g => groups.add(g));
+      });
+    });
+    return Array.from(groups);
+  }, [priceLists]);
+
+  // Wyszukiwanie
+  useEffect(() => {
+    if (searchTerm.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    const found = [];
+
+    priceLists.forEach(pl => {
+      if (selectedProducer !== 'all' && pl.producerId !== selectedProducer) return;
+      
+      pl.produkty?.forEach(p => {
+        if (p.nazwa.toLowerCase().includes(searchLower)) {
+          found.push({
+            ...p,
+            producerId: pl.producerId,
+            producerName: pl.producerName,
+            priceListName: pl.nazwa
+          });
+        }
+      });
+    });
+
+    setResults(found.slice(0, 50));
+  }, [searchTerm, selectedProducer, priceLists]);
+
+  // Wybierz produkt
+  const handleSelect = (product) => {
+    const price = selectedGroup && product.grupy?.[selectedGroup] 
+      ? product.grupy[selectedGroup] 
+      : Object.values(product.grupy || {})[0] || 0;
+    
+    onSelect({
+      nazwa: product.nazwa,
+      producerId: product.producerId,
+      producerName: product.producerName,
+      grupa: selectedGroup || Object.keys(product.grupy || {})[0] || '',
+      cena: price,
+      grupy: product.grupy
+    });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-medium product-search-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>🔍 Wyszukaj produkt z cennika</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="modal-body">
+          <div className="search-filters">
+            <div className="form-group">
+              <input
+                type="text"
+                placeholder="🔍 Wpisz nazwę produktu (min. 2 znaki)..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                autoFocus
+                className="search-input-large"
+              />
+            </div>
+            <div className="filter-row">
+              <select 
+                value={selectedProducer} 
+                onChange={e => setSelectedProducer(e.target.value)}
+              >
+                <option value="all">Wszyscy producenci</option>
+                {Object.values(producers).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <select 
+                value={selectedGroup} 
+                onChange={e => setSelectedGroup(e.target.value)}
+              >
+                <option value="">-- Grupa cenowa --</option>
+                {availableGroups.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="search-results">
+            {results.length === 0 && searchTerm.length >= 2 && (
+              <p className="no-results">Nie znaleziono produktów</p>
+            )}
+            {results.length === 0 && searchTerm.length < 2 && (
+              <p className="hint">Wpisz minimum 2 znaki aby wyszukać...</p>
+            )}
+            {results.map((p, i) => (
+              <div key={i} className="product-result" onClick={() => handleSelect(p)}>
+                <div className="product-result-main">
+                  <span className="product-name">{p.nazwa}</span>
+                  <span className="product-producer">{p.producerName}</span>
+                </div>
+                <div className="product-prices">
+                  {Object.entries(p.grupy || {}).map(([group, price]) => (
+                    <span 
+                      key={group} 
+                      className={`price-tag ${selectedGroup === group ? 'selected' : ''}`}
+                    >
+                      {group}: {typeof price === 'number' ? price.toFixed(2) : price} zł
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {results.length === 50 && (
+              <p className="hint">Wyświetlono 50 wyników. Zawęź wyszukiwanie.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
         </div>
       </div>
     </div>
@@ -7408,6 +8037,7 @@ const App = () => {
   const [producers, setProducers] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [complaints, setComplaints] = useState([]);
+  const [priceLists, setPriceLists] = useState([]);
   const [exchangeRates, setExchangeRates] = useState(null);
 
   const [filter, setFilter] = useState('all');
@@ -7434,6 +8064,8 @@ const App = () => {
   const [showTrashPanel, setShowTrashPanel] = useState(false); // Kosz
   const [showContactsPanel, setShowContactsPanel] = useState(false); // Kontakty
   const [showSettingsMenu, setShowSettingsMenu] = useState(false); // Menu rozwijane
+  const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
+  const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
@@ -7518,6 +8150,7 @@ const App = () => {
     const unsubComplaints = subscribeToComplaints(setComplaints);
     const unsubLeads = subscribeToLeads(setLeads);
     const unsubMessages = subscribeToMessages ? subscribeToMessages(setMessages) : () => {};
+    const unsubPriceLists = subscribeToPriceLists ? subscribeToPriceLists(setPriceLists) : () => {};
 
     const savedUser = localStorage.getItem('herratonUser');
     if (savedUser) {
@@ -7535,6 +8168,7 @@ const App = () => {
       unsubComplaints();
       unsubLeads();
       unsubMessages();
+      unsubPriceLists();
       clearInterval(ratesInterval);
     };
   }, []);
@@ -8116,6 +8750,9 @@ Zespół obsługi zamówień
                     <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
                       🏭 Producenci
                     </button>
+                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
+                      📋 Cenniki produktów
+                    </button>
                     <button onClick={() => { setShowSettingsModal(true); setShowSettingsMenu(false); }}>
                       🔧 Konfiguracja
                     </button>
@@ -8147,6 +8784,9 @@ Zespół obsługi zamówień
                     </button>
                     <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
                       🏭 Producenci
+                    </button>
+                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
+                      📋 Cenniki produktów
                     </button>
                   </div>
                 )}
@@ -8366,6 +9006,7 @@ Zespół obsługi zamówień
           isContractor={isContractor}
           isAdmin={isAdmin}
           exchangeRates={exchangeRates}
+          priceLists={priceLists}
         />
       )}
 
@@ -8391,6 +9032,37 @@ Zespół obsługi zamówień
       )}
 
       {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+
+      {/* Menedżer cenników */}
+      {showPriceListManager && (
+        <PriceListManager
+          producers={producers}
+          priceLists={priceLists}
+          onSave={async (priceList) => {
+            await addPriceList(priceList);
+          }}
+          onDelete={async (id) => {
+            await deletePriceList(id);
+          }}
+          onClose={() => setShowPriceListManager(false)}
+        />
+      )}
+
+      {/* Wyszukiwarka produktów z cennika */}
+      {showProductSearch && (
+        <ProductSearchModal
+          priceLists={priceLists}
+          producers={producers}
+          onSelect={(product) => {
+            // Callback do użycia w formularzu zamówienia
+            if (showProductSearch.onSelect) {
+              showProductSearch.onSelect(product);
+            }
+            setShowProductSearch(false);
+          }}
+          onClose={() => setShowProductSearch(false)}
+        />
+      )}
 
       {showCompanyModal && (
         <CompanyDataModal
