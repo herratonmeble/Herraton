@@ -5258,3 +5258,509 @@ input.margin-negative {
   outline: none;
   border-color: #10B981;
 }
+
+/* ============================================
+   DRIVER STATUS FILTER
+   ============================================ */
+.driver-status-filter {
+  background: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.driver-status-filter .filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.driver-status-filter .filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.driver-status-filter .filter-btn {
+  padding: 8px 14px;
+  background: #F1F5F9;
+  color: #64748B;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.driver-status-filter .filter-btn:hover {
+  background: #E2E8F0;
+}
+
+.driver-status-filter .filter-btn.active {
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: white;
+}
+
+/* Settings Menu Divider */
+.settings-menu-divider {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 8px 0;
+}
+
+/* ============================================
+   IMPROVED MOBILE RESPONSIVENESS
+   ============================================ */
+
+/* Główny header - mobile */
+@media (max-width: 768px) {
+  .header {
+    padding: 10px 12px;
+  }
+  
+  .header-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .header-brand {
+    gap: 8px;
+  }
+  
+  .header-logo {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    border-radius: 8px;
+  }
+  
+  .header-title {
+    font-size: 16px;
+  }
+  
+  .header-subtitle {
+    font-size: 10px;
+  }
+  
+  .header-nav {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .btn-header,
+  .btn-logout,
+  .settings-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+  
+  .user-info {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  .notification-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  
+  /* Settings dropdown mobile */
+  .settings-dropdown {
+    position: relative;
+  }
+  
+  .settings-menu {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: 60px !important;
+    width: auto !important;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .settings-menu button {
+    padding: 14px 16px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Top bar i wyszukiwarka - mobile */
+@media (max-width: 768px) {
+  .top-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .top-left,
+  .top-right {
+    width: 100%;
+  }
+  
+  .top-left {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .top-left button {
+    flex: 1;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 12px 14px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Filtry statusów - mobile */
+@media (max-width: 768px) {
+  .filters {
+    padding: 12px;
+  }
+  
+  .filter-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  
+  .status-filter-btn {
+    padding: 8px 4px !important;
+    font-size: 10px !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  
+  .status-filter-btn .sf-icon {
+    font-size: 16px !important;
+  }
+  
+  .status-filter-btn .sf-count {
+    font-size: 14px !important;
+  }
+  
+  .status-filter-btn .sf-label {
+    font-size: 9px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  
+  .extra-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .extra-filters select {
+    width: 100%;
+  }
+}
+
+/* Karty zamówień - mobile */
+@media (max-width: 768px) {
+  .orders-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .order-card {
+    padding: 12px;
+  }
+  
+  .order-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .order-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  
+  .order-actions button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Panel kierowcy - mobile */
+@media (max-width: 768px) {
+  .driver-panel .main {
+    padding: 12px;
+  }
+  
+  .driver-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  .driver-stats .stat-card {
+    padding: 12px !important;
+  }
+  
+  .driver-stats .stat-value {
+    font-size: 24px !important;
+  }
+  
+  .driver-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 0 !important;
+  }
+  
+  .driver-tab {
+    padding: 10px 8px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  
+  .driver-tab .tab-count {
+    font-size: 18px !important;
+  }
+  
+  .driver-tab .tab-label {
+    font-size: 10px !important;
+    white-space: nowrap;
+  }
+  
+  .driver-status-filter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .driver-status-filter .filter-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  .driver-status-filter .filter-btn {
+    padding: 10px 8px;
+    font-size: 11px;
+    text-align: center;
+  }
+  
+  .driver-order-card {
+    padding: 12px;
+  }
+  
+  .driver-order-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .driver-order-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .driver-order-actions button {
+    width: 100%;
+    padding: 12px !important;
+    font-size: 13px !important;
+  }
+  
+  .btn-driver {
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Modale - mobile */
+@media (max-width: 768px) {
+  .modal-content {
+    margin: 10px;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 14px 16px;
+  }
+  
+  .modal-header h2 {
+    font-size: 16px;
+  }
+  
+  .modal-body {
+    padding: 16px;
+  }
+  
+  .modal-footer {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .modal-footer button {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px !important;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .form-group.span-2 {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Tabele i listy - mobile */
+@media (max-width: 768px) {
+  .complaints-table,
+  .leads-table,
+  .users-table {
+    font-size: 12px;
+  }
+  
+  .complaints-table th,
+  .complaints-table td,
+  .leads-table th,
+  .leads-table td {
+    padding: 8px 6px !important;
+  }
+  
+  .complaints-table th:nth-child(n+4),
+  .complaints-table td:nth-child(n+4) {
+    display: none;
+  }
+}
+
+/* Messenger - mobile */
+@media (max-width: 768px) {
+  .messenger-panel {
+    width: 100% !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: 60px !important;
+    border-radius: 0 !important;
+  }
+  
+  .chat-list {
+    max-height: 200px;
+  }
+  
+  .messages-container {
+    max-height: calc(100vh - 350px);
+  }
+}
+
+/* Podpis cyfrowy - mobile */
+@media (max-width: 768px) {
+  .signature-canvas {
+    height: 150px !important;
+  }
+  
+  .signature-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .signature-actions button {
+    width: 100%;
+  }
+}
+
+/* Statystyki - mobile */
+@media (max-width: 768px) {
+  .statistics-modal .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .chart-container {
+    height: 200px !important;
+  }
+}
+
+/* Fix dla zachodzących na siebie tekstów */
+@media (max-width: 480px) {
+  .status-badge,
+  .priority-badge {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  
+  .order-number {
+    font-size: 14px !important;
+  }
+  
+  .order-client {
+    font-size: 12px !important;
+  }
+  
+  .country-flag {
+    font-size: 16px !important;
+  }
+  
+  /* Bardzo małe ekrany - zakładki kierowcy */
+  .driver-tabs {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .driver-tab .tab-label {
+    font-size: 9px !important;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .modal-content {
+    max-height: 95vh;
+  }
+  
+  .driver-tabs {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* Smooth scrolling na mobile */
+@media (max-width: 768px) {
+  .main,
+  .modal-body,
+  .driver-orders {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Touch targets - minimum 44px */
+@media (max-width: 768px) {
+  button,
+  .clickable,
+  select,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+  }
+  
+  .btn-icon,
+  .btn-delete {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
