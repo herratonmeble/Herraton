@@ -4014,6 +4014,185 @@ ${st.team}
     }
   };
 
+  // Generuj HTML dokumentu potwierdzenia dostawy
+  const generateDeliveryConfirmationHTML = (order) => {
+    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
+    const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
+    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+    const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
+    const rabat = order.rabatPrzyDostawie;
+    const hasDiscount = rabat && rabat.kwota > 0;
+    const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+    const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
+    const rabatKwota = hasDiscount ? rabat.kwota : 0;
+    const faktyczniePobrano = Math.max(0, originalDoZaplaty - rabatKwota);
+    const clientRemarks = order.umowaOdbioru?.uwagiKlienta || order.uwagiKlienta || '';
+    
+    const signatureUrl = order.podpisKlienta 
+      ? (typeof order.podpisKlienta === 'string' ? order.podpisKlienta : order.podpisKlienta.url)
+      : null;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Potwierdzenie dostawy - ${order.nrWlasny}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; background: #f5f5f5; }
+          .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+          .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #6366F1; }
+          .header h1 { color: #1E1B4B; font-size: 28px; margin-bottom: 8px; }
+          .header .order-number { color: #6366F1; font-size: 18px; font-weight: 600; }
+          .header .date { color: #6B7280; font-size: 14px; margin-top: 8px; }
+          .section { margin-bottom: 25px; }
+          .section-title { background: #F3F4F6; padding: 10px 15px; border-radius: 8px; font-weight: 600; color: #374151; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+          .section-content { padding: 0 15px; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E5E7EB; }
+          .info-row:last-child { border-bottom: none; }
+          .info-label { color: #6B7280; }
+          .info-value { font-weight: 500; color: #1F2937; }
+          .payment-box { background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius: 12px; padding: 20px; margin-top: 10px; }
+          .payment-row { display: flex; justify-content: space-between; padding: 10px 0; }
+          .payment-row.total { border-top: 2px solid #6366F1; margin-top: 10px; padding-top: 15px; font-size: 18px; font-weight: 700; color: #1E1B4B; }
+          .payment-row.discount { color: #059669; }
+          .payment-row.collected { background: #D1FAE5; padding: 12px; border-radius: 8px; margin-top: 10px; }
+          .remarks-box { background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; border-radius: 0 8px 8px 0; }
+          .signature-box { text-align: center; margin-top: 20px; padding: 20px; border: 2px dashed #D1D5DB; border-radius: 12px; }
+          .signature-box img { max-width: 300px; max-height: 150px; }
+          .signature-label { color: #6B7280; font-size: 12px; margin-top: 10px; }
+          .footer { margin-top: 30px; text-align: center; padding-top: 20px; border-top: 1px solid #E5E7EB; color: #6B7280; font-size: 12px; }
+          .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+          .badge-success { background: #D1FAE5; color: #065F46; }
+          .badge-warning { background: #FEF3C7; color: #92400E; }
+          @media print { 
+            body { padding: 0; background: white; } 
+            .container { box-shadow: none; padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ POTWIERDZENIE DOSTAWY</h1>
+            <div class="order-number">Zamówienie: ${order.nrWlasny}</div>
+            <div class="date">Data dostawy: ${formatDate(dataPlatnosci)} | Kierowca: ${user.name}</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">👤 Dane odbiorcy</div>
+            <div class="section-content">
+              <div class="info-row">
+                <span class="info-label">Imię i nazwisko:</span>
+                <span class="info-value">${order.klient?.imie || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Adres dostawy:</span>
+                <span class="info-value">${order.klient?.adres || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Telefon:</span>
+                <span class="info-value">${order.klient?.telefon || '—'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">📦 Zamówiony towar</div>
+            <div class="section-content">
+              <p style="white-space: pre-wrap; line-height: 1.6;">${order.towar || 'Brak opisu'}</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">💰 Podsumowanie płatności</div>
+            <div class="payment-box">
+              <div class="payment-row">
+                <span>Wartość zamówienia:</span>
+                <span><strong>${cenaCalkowita.toFixed(2)} ${walutaSymbol}</strong></span>
+              </div>
+              ${zaplacono > 0 ? `
+              <div class="payment-row">
+                <span>Wpłacona zaliczka:</span>
+                <span><span class="badge badge-success">✓ ${zaplacono.toFixed(2)} ${walutaSymbol}</span></span>
+              </div>
+              ` : ''}
+              <div class="payment-row">
+                <span>Pozostało do zapłaty:</span>
+                <span>${originalDoZaplaty.toFixed(2)} ${walutaSymbol}</span>
+              </div>
+              ${hasDiscount ? `
+              <div class="payment-row discount">
+                <span>🎁 Udzielono rabatu (${rabat.powod || 'brak powodu'}):</span>
+                <span><strong>-${rabatKwota.toFixed(2)} ${walutaSymbol}</strong></span>
+              </div>
+              ` : ''}
+              <div class="payment-row total collected">
+                <span>✅ Pobrano od klienta:</span>
+                <span>${faktyczniePobrano.toFixed(2)} ${walutaSymbol}</span>
+              </div>
+            </div>
+          </div>
+
+          ${clientRemarks ? `
+          <div class="section">
+            <div class="section-title">📝 Uwagi klienta</div>
+            <div class="remarks-box">
+              ${clientRemarks}
+            </div>
+          </div>
+          ` : ''}
+
+          ${signatureUrl ? `
+          <div class="section">
+            <div class="section-title">✍️ Podpis klienta</div>
+            <div class="signature-box">
+              <img src="${signatureUrl}" alt="Podpis klienta" />
+              <div class="signature-label">Podpisano elektronicznie: ${formatDateTime(order.podpisKlienta?.timestamp || dataPlatnosci)}</div>
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="footer">
+            <p>Dokument wygenerowany automatycznie przez system Herraton</p>
+            <p>${new Date().toLocaleString('pl-PL')}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  // Drukuj potwierdzenie dostawy
+  const printDeliveryConfirmation = (order) => {
+    const html = generateDeliveryConfirmationHTML(order);
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+    setShowDeliveryConfirmation(null);
+  };
+
+  // Pobierz potwierdzenie jako HTML (można otworzyć i zapisać jako PDF)
+  const downloadDeliveryConfirmation = (order) => {
+    const html = generateDeliveryConfirmationHTML(order);
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Potwierdzenie_dostawy_${order.nrWlasny}_${formatDate(new Date())}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    alert('📥 Plik został pobrany!\\n\\nAby zapisać jako PDF:\\n1. Otwórz pobrany plik w przeglądarce\\n2. Naciśnij Ctrl+P (lub Cmd+P na Mac)\\n3. Wybierz "Zapisz jako PDF"');
+    setShowDeliveryConfirmation(null);
+  };
+
   // Funkcja wysyłania potwierdzenia dostawy
   const sendDeliveryConfirmationEmail = (order) => {
     const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
@@ -4966,19 +5145,19 @@ ${t.team}
       {/* Modal wysyłania potwierdzenia dostawy */}
       {showDeliveryConfirmation && (
         <div className="modal-overlay" onClick={() => setShowDeliveryConfirmation(null)}>
-          <div className="modal-content modal-small delivery-confirmation-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-content modal-medium delivery-confirmation-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header delivery-confirmation-header">
-              <h2>📧 Wysłać potwierdzenie dostawy?</h2>
+              <h2>📋 Potwierdzenie dostawy</h2>
               <button className="btn-close" onClick={() => setShowDeliveryConfirmation(null)}>×</button>
             </div>
             <div className="modal-body">
               <div className="delivery-confirm-info">
                 <p><strong>Zamówienie:</strong> {showDeliveryConfirmation.nrWlasny}</p>
                 <p><strong>Klient:</strong> {showDeliveryConfirmation.klient?.imie}</p>
-                <p><strong>Email:</strong> {showDeliveryConfirmation.klient?.email}</p>
+                <p><strong>Email:</strong> {showDeliveryConfirmation.klient?.email || 'Brak'}</p>
                 
                 <div className="form-group" style={{marginTop: '16px'}}>
-                  <label>Język wiadomości i protokołu:</label>
+                  <label>Język dokumentu:</label>
                   <select 
                     value={deliveryEmailLanguage} 
                     onChange={e => setDeliveryEmailLanguage(e.target.value)}
@@ -4995,23 +5174,35 @@ ${t.team}
                 <div className="delivery-confirm-content">
                   <p>✅ Potwierdzenie dostawy</p>
                   <p>📋 Protokół odbioru towaru</p>
+                  <p>💰 Podsumowanie płatności</p>
                   {showDeliveryConfirmation.zdjeciaDostawy?.length > 0 && (
                     <p>📸 {showDeliveryConfirmation.zdjeciaDostawy.length} zdjęć z dostawy</p>
+                  )}
+                  {showDeliveryConfirmation.podpisKlienta && (
+                    <p>✍️ Podpis klienta</p>
                   )}
                 </div>
                 
                 <p className="delivery-confirm-question">
-                  Czy chcesz wysłać klientowi email z potwierdzeniem dostawy?
+                  Co chcesz zrobić z potwierdzeniem?
                 </p>
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer delivery-actions-footer">
               <button className="btn-secondary" onClick={() => setShowDeliveryConfirmation(null)}>
-                ❌ Nie
+                ❌ Anuluj
               </button>
-              <button className="btn-primary" onClick={() => sendDeliveryConfirmationEmail(showDeliveryConfirmation)}>
-                ✅ Tak, wyślij
+              <button className="btn-print" onClick={() => printDeliveryConfirmation(showDeliveryConfirmation)}>
+                🖨️ Drukuj
               </button>
+              <button className="btn-download" onClick={() => downloadDeliveryConfirmation(showDeliveryConfirmation)}>
+                📥 Pobierz PDF
+              </button>
+              {showDeliveryConfirmation.klient?.email && (
+                <button className="btn-primary" onClick={() => sendDeliveryConfirmationEmail(showDeliveryConfirmation)}>
+                  📧 Wyślij email
+                </button>
+              )}
             </div>
           </div>
         </div>
