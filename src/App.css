@@ -6186,3 +6186,68 @@ input.margin-negative {
 .summary-card.discount .summary-icon {
   background: #F59E0B;
 }
+
+/* ============================================
+   PRZYCISKI DRUKUJ/POBIERZ W POTWIERDZENIU
+   ============================================ */
+.delivery-actions-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-print {
+  background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-print:hover {
+  background: linear-gradient(135deg, #4B5563 0%, #374151 100%);
+  transform: translateY(-1px);
+}
+
+.btn-download {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-download:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+}
+
+.delivery-confirmation-modal .modal-footer {
+  padding: 16px 24px;
+  background: #F9FAFB;
+  border-radius: 0 0 12px 12px;
+}
+
+@media (max-width: 600px) {
+  .delivery-actions-footer {
+    flex-direction: column;
+  }
+  
+  .delivery-actions-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+}
