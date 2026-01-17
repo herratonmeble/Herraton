@@ -6126,3 +6126,33 @@ input.margin-negative {
 .payment-advance-info strong {
   color: #1E3A8A;
 }
+
+/* ============================================
+   RABAT W MARŻY - STYLE
+   ============================================ */
+.discount-item {
+  background: #FEF3C7 !important;
+  border-left: 3px solid #F59E0B;
+}
+
+.discount-value {
+  color: #B45309 !important;
+}
+
+.discount-info {
+  display: block;
+  font-size: 10px;
+  color: #92400E;
+  margin-top: 2px;
+}
+
+.discount-note {
+  font-size: 10px;
+  color: #F59E0B;
+  margin-left: 4px;
+}
+
+.margin-badge .discount-note {
+  display: block;
+  font-size: 9px;
+}
