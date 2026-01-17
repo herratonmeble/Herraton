@@ -12,8 +12,9 @@ import {
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
 import './App.css';
 
-// Funkcja wysyłania emaila przez MailerSend (via Vercel API) (via Vercel API)
-const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htmlContent = null) => {
+// Funkcja wysyłania emaila przez MailerSend (via Vercel API)
+// attachments: [{ filename: 'plik.pdf', content: 'base64...', type: 'application/pdf' }]
+const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htmlContent = null, attachments = []) => {
   try {
     const response = await fetch('/api/send-email', {
       method: 'POST',
@@ -25,7 +26,8 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
         toName: toName || 'Klient',
         subject,
         textContent,
-        htmlContent: htmlContent || textContent.replace(/\n/g, '<br>')
+        htmlContent: htmlContent || textContent.replace(/\n/g, '<br>'),
+        attachments
       })
     });
 
@@ -44,9 +46,78 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
   }
 };
 
+// Funkcja generowania PDF protokołu jako base64
+const generateProtocolPDF = (order, protocolData) => {
+  // Generujemy prosty HTML który można przekonwertować
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; }
+    h1 { text-align: center; color: #1E1B4B; border-bottom: 2px solid #6366F1; padding-bottom: 10px; }
+    .section { margin: 20px 0; padding: 15px; background: #F8FAFC; border-radius: 8px; }
+    .label { font-weight: bold; color: #64748B; }
+    .value { color: #1E1B4B; margin-left: 10px; }
+    .signature { margin-top: 30px; text-align: center; }
+    .signature img { max-width: 200px; border: 1px solid #E2E8F0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 8px; border-bottom: 1px solid #E2E8F0; }
+  </style>
+</head>
+<body>
+  <h1>📋 PROTOKÓŁ ODBIORU TOWARU</h1>
+  
+  <div class="section">
+    <table>
+      <tr><td class="label">Nr zamówienia:</td><td class="value">${order.nrWlasny}</td></tr>
+      <tr><td class="label">Data dostawy:</td><td class="value">${protocolData.deliveryDate}</td></tr>
+      <tr><td class="label">Kierowca:</td><td class="value">${protocolData.driverName}</td></tr>
+    </table>
+  </div>
+  
+  <div class="section">
+    <p class="label">Produkt:</p>
+    <p class="value">${order.towar || '-'}</p>
+    <p><span class="label">Wartość:</span> <span class="value">${protocolData.totalValue}</span></p>
+    ${protocolData.discount ? `<p><span class="label">Rabat:</span> <span class="value">-${protocolData.discount}</span></p>` : ''}
+  </div>
+  
+  <div class="section">
+    <p class="label">Odbiorca:</p>
+    <p class="value">${order.klient?.imie || '-'}</p>
+    <p class="label">Adres:</p>
+    <p class="value">${order.klient?.adres || '-'}</p>
+  </div>
+  
+  <div class="section">
+    <p class="label">Uwagi klienta:</p>
+    <p class="value">${protocolData.clientRemarks || 'Brak uwag - produkt zaakceptowany bez zastrzeżeń'}</p>
+  </div>
+  
+  ${order.podpisKlienta ? `
+  <div class="signature">
+    <p class="label">Podpis klienta:</p>
+    <img src="${order.podpisKlienta}" alt="Podpis"/>
+    <p style="color: #059669;">✅ Podpisano elektronicznie</p>
+  </div>
+  ` : '<p style="color: #F59E0B;">⚠️ Oczekuje na podpis</p>'}
+  
+  <p style="margin-top: 40px; font-size: 12px; color: #94A3B8; text-align: center;">
+    Potwierdzam odbiór powyższego towaru. Towar został sprawdzony w obecności kierowcy.
+  </p>
+</body>
+</html>`;
+  
+  // Zwracamy HTML - w przyszłości można to konwertować do PDF
+  return html;
+};
+
 // ============================================
 // KONFIGURACJA
 // ============================================
+
 
 const COUNTRIES = [
   { code: 'PL', name: 'Polska', flag: '🇵🇱' },
@@ -4050,28 +4121,40 @@ ${st.team}
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
-    // Info o płatności
-    let paymentInfo = '';
-    if (zaplacono > 0) {
-      paymentInfo = `
+    // Obliczenia płatności
+    const zaliczka = order.platnosci?.zaliczka || 0;
+    const kwotaDoZaplaty = cenaCalkowita - zaliczka;
+    const rabatKwota = hasDiscount ? rabat.kwota : 0;
+    const kwotaPoRabacie = kwotaDoZaplaty - rabatKwota;
+    const zaplacenoKierowcy = order.platnosci?.zaplacenoKierowcy || zaplacono || kwotaPoRabacie;
+    const dataZaplatyKierowcy = order.platnosci?.dataPlatnosciKierowcy || dataPlatnosci;
+    
+    // Pełne podsumowanie płatności
+    let paymentSummary = `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 ${t.paymentTitle}
+💰 PODSUMOWANIE PŁATNOŚCI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${zaplacono.toFixed(2)} ${walutaSymbol} ${t.paidToDriver} ${formatDate(dataPlatnosci)}.`;
+
+📊 Całość: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
+💳 Zaliczka: ${zaliczka.toFixed(2)} ${walutaSymbol}
+📋 Kwota do zapłaty: ${kwotaDoZaplaty.toFixed(2)} ${walutaSymbol}`;
+
+    // Dodaj info o rabacie jeśli był
+    if (hasDiscount) {
+      paymentSummary += `
+
+🎁 Rabat: ${rabatKwota.toFixed(2)} ${walutaSymbol}
+   ├─ Udzielony przez: ${rabat.kierowca || user.name}
+   ├─ Data: ${formatDate(rabat.data || dataPlatnosci)}
+   └─ Powód: ${rabat.powod || 'Nie podano'}`;
     }
     
-    // Info o rabacie
-    let discountInfo = '';
-    if (hasDiscount) {
-      discountInfo = `
+    // Kwota zapłacona kierowcy
+    if (zaplacenoKierowcy > 0) {
+      paymentSummary += `
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎁 ${pt.discountTitle}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${pt.discountAmount}: ${rabat.kwota.toFixed(2)} ${walutaSymbol}
-${pt.discountReason}: ${rabat.powod || '-'}
-${pt.discountBy}: ${rabat.kierowca || user.name}`;
+✅ Kwota ${zaplacenoKierowcy.toFixed(2)} ${walutaSymbol} została zapłacona kierowcy ${user.name} dnia ${formatDate(dataZaplatyKierowcy)}${hasDiscount ? ' (po udzieleniu rabatu)' : ''}.`;
     }
     
     // Protokół odbioru jako tekst
@@ -4118,9 +4201,9 @@ ${t.intro}
 
 📦 ${t.product}:
 ${order.towar || '-'}
-${paymentInfo}${discountInfo}
+${paymentSummary}
 ${protocolText}
-${hasPhotos ? `\n📸 ${t.photosInfo} (${order.zdjeciaDostawy.length} zdjęć)` : ''}
+${hasPhotos ? `\n📸 Zdjęcia dostawy: ${order.zdjeciaDostawy.length} zdjęć w załączniku` : ''}
 
 ${t.thanks}
 ${t.welcome}
@@ -4131,15 +4214,51 @@ ${t.team}
 ---
 📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
 
-    // Wyślij przez MailerSend
+    // Przygotuj załączniki
+    const attachments = [];
+    
+    // Dodaj zdjęcia jako załączniki (max 3 pierwsze, żeby nie przekroczyć limitu)
+    if (hasPhotos && order.zdjeciaDostawy) {
+      const maxPhotos = Math.min(order.zdjeciaDostawy.length, 3);
+      for (let i = 0; i < maxPhotos; i++) {
+        const photo = order.zdjeciaDostawy[i];
+        if (photo && photo.startsWith('data:image')) {
+          // Wyciągnij base64 z data URL
+          const base64Data = photo.split(',')[1];
+          const mimeMatch = photo.match(/data:(image\/\w+);/);
+          const extension = mimeMatch ? mimeMatch[1].split('/')[1] : 'jpg';
+          
+          attachments.push({
+            filename: `dostawa_${order.nrWlasny}_zdjecie_${i + 1}.${extension}`,
+            content: base64Data
+          });
+        }
+      }
+    }
+    
+    // Dodaj podpis jako załącznik jeśli jest
+    if (hasSignature && order.podpisKlienta) {
+      const signatureBase64 = order.podpisKlienta.split(',')[1];
+      if (signatureBase64) {
+        attachments.push({
+          filename: `podpis_${order.nrWlasny}.png`,
+          content: signatureBase64
+        });
+      }
+    }
+
+    // Wyślij przez MailerSend z załącznikami
     sendEmailViaMailerSend(
       order.klient.email,
       order.klient.imie,
       subject,
-      body
+      body,
+      null,
+      attachments
     ).then(result => {
       if (result.success) {
-        alert('✅ Email z potwierdzeniem dostawy został wysłany!');
+        const attachInfo = attachments.length > 0 ? ` (z ${attachments.length} załącznikami)` : '';
+        alert(`✅ Email z potwierdzeniem dostawy został wysłany!${attachInfo}`);
       } else {
         alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
       }
@@ -7664,9 +7783,6 @@ Zespół obsługi zamówień
             <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
               ➕ Nowe zamówienie
             </button>
-          </div>
-
-          <div className="top-right">
             <input
               className="search-input"
               placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
