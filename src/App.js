@@ -1637,9 +1637,22 @@ Zespół obsługi zamówień`;
     const zakupNettoPLN = convertToPLN(zakupNetto, kosztWaluta);
     const transportNettoPLN = convertToPLN(transportNetto, transportWaluta);
     
-    // Marża w PLN
-    const marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
-    const marzaProcentowa = cenaNettoPLN > 0 ? Math.round(marzaPLN / cenaNettoPLN * 100) : 0;
+    // Marża w PLN (przed rabatem)
+    let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
+    
+    // Odejmij rabat jeśli był udzielony przez kierowcę
+    const rabat = form.rabatPrzyDostawie?.kwota || 0;
+    if (rabat > 0) {
+      const rabatNetto = rabat / vatMultiplier;
+      const rabatPLN = convertToPLN(rabatNetto, form.platnosci?.waluta);
+      marzaPLN -= rabatPLN;
+    }
+    
+    // Oblicz procent marży (od ceny po rabacie)
+    const skutecznaCenaNettoPLN = rabat > 0 
+      ? cenaNettoPLN - convertToPLN(rabat / vatMultiplier, form.platnosci?.waluta)
+      : cenaNettoPLN;
+    const marzaProcentowa = skutecznaCenaNettoPLN > 0 ? Math.round(marzaPLN / skutecznaCenaNettoPLN * 100) : 0;
     
     return {
       cenaBrutto,
@@ -1653,7 +1666,8 @@ Zespół obsługi zamówień`;
       transportNettoPLN: Math.round(transportNettoPLN * 100) / 100,
       transportWaluta: transportWaluta,
       marzaPLN: Math.round(marzaPLN * 100) / 100,
-      marzaProcentowa
+      marzaProcentowa,
+      rabatPLN: rabat > 0 ? Math.round(convertToPLN(rabat / vatMultiplier, form.platnosci?.waluta) * 100) / 100 : 0
     };
   };
 
@@ -1988,9 +2002,19 @@ Zespół obsługi zamówień`;
                       )}
                     </span>
                   </div>
+                  {/* Pokaż rabat jeśli był udzielony */}
+                  {form.rabatPrzyDostawie?.kwota > 0 && (
+                    <div className="margin-item subtract discount-item">
+                      <span className="margin-label">− Rabat kierowcy (netto)</span>
+                      <span className="margin-value discount-value">
+                        {formatCurrency(calcMarza().rabatPLN, 'PLN')}
+                        <small className="discount-info"> ({form.rabatPrzyDostawie.powod})</small>
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className={`margin-total ${calcMarza().marzaPLN >= 0 ? 'positive' : 'negative'}`}>
-                  <span className="margin-label">= MARŻA NETTO (PLN)</span>
+                  <span className="margin-label">= MARŻA NETTO (PLN){form.rabatPrzyDostawie?.kwota > 0 ? ' (po rabacie)' : ''}</span>
                   <span className="margin-value">
                     {formatCurrency(calcMarza().marzaPLN, 'PLN')}
                     <span className="margin-percent">({calcMarza().marzaProcentowa}%)</span>
@@ -3210,6 +3234,11 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 
   // Prawidłowe wyliczenie marży - ZAWSZE W PLN
   const calcMarzaPLN = () => {
+    // Jeśli jest zapisana marża po rabacie - użyj jej
+    if (order.rabatPrzyDostawie && order.koszty?.marzaPLN !== undefined) {
+      return order.koszty.marzaPLN;
+    }
+    
     const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
     const vatRate = order.koszty?.vatRate || 23;
     const vatMultiplier = 1 + vatRate / 100;
@@ -3227,8 +3256,16 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
     const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
     
-    // Marża w PLN
-    return Math.round((cenaNettoPLN - zakupNettoPLN - transportNettoPLN) * 100) / 100;
+    // Marża w PLN (bez rabatu)
+    let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
+    
+    // Odejmij rabat jeśli był udzielony
+    if (order.rabatPrzyDostawie?.kwota > 0) {
+      const rabatPLN = convertToPLN(order.rabatPrzyDostawie.kwota / vatMultiplier, order.platnosci?.waluta);
+      marzaPLN -= rabatPLN;
+    }
+    
+    return Math.round(marzaPLN * 100) / 100;
   };
 
   const handleDelete = (e) => {
@@ -3283,6 +3320,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           {isAdmin && order.koszty && (order.koszty.zakupNetto > 0 || order.koszty.zakupBrutto > 0) && (
             <span className={calcMarzaPLN() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
               📊 Marża: <strong>{formatCurrency(calcMarzaPLN(), 'PLN')}</strong>
+              {order.rabatPrzyDostawie?.kwota > 0 && <small className="discount-note"> (po rabacie)</small>}
             </span>
           )}
         </div>
