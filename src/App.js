@@ -12,50 +12,34 @@ import {
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
 import './App.css';
 
-// ============================================
-// KONFIGURACJA MAILERSEND
-// ============================================
-
-const MAILERSEND_CONFIG = {
-  apiToken: 'mlsn.ce3bf924d0ed92f4921bd786dde0c1b8e36fcd7beb983a9e2f91fd3cd5c56cd0',
-  senderEmail: 'noreply@test-z0vklo6jm07l7qrx.mlsender.net',
-  senderName: 'Herraton - Zamówienia'
-};
-
-// Funkcja wysyłania emaila przez MailerSend
+// Funkcja wysyłania emaila przez MailerSend (via Vercel API) (via Vercel API)
 const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htmlContent = null) => {
   try {
-    const response = await fetch('https://api.mailersend.com/v1/email', {
+    const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MAILERSEND_CONFIG.apiToken}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: {
-          email: MAILERSEND_CONFIG.senderEmail,
-          name: MAILERSEND_CONFIG.senderName
-        },
-        to: [{
-          email: toEmail,
-          name: toName || 'Klient'
-        }],
-        subject: subject,
-        text: textContent,
-        html: htmlContent || textContent.replace(/\n/g, '<br>')
+        toEmail,
+        toName: toName || 'Klient',
+        subject,
+        textContent,
+        htmlContent: htmlContent || textContent.replace(/\n/g, '<br>')
       })
     });
 
-    if (response.ok || response.status === 202) {
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
       console.log('Email wysłany pomyślnie!');
       return { success: true };
     } else {
-      const error = await response.json();
-      console.error('Błąd wysyłania emaila:', error);
-      return { success: false, error };
+      console.error('Błąd wysyłania emaila:', data.error);
+      return { success: false, error: data.error };
     }
   } catch (error) {
-    console.error('Błąd połączenia z MailerSend:', error);
+    console.error('Błąd połączenia:', error);
     return { success: false, error };
   }
 };
