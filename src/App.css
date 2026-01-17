@@ -6251,3 +6251,393 @@ input.margin-negative {
     justify-content: center;
   }
 }
+
+/* ============================================
+   CENNIKI - STYLE
+   ============================================ */
+.pricelist-modal {
+  max-width: 1000px;
+}
+
+.pricelist-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  border-bottom: 1px solid #E5E7EB;
+  margin-bottom: 16px;
+}
+
+.pricelist-tabs .tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+
+.pricelist-tabs .tab-btn:hover {
+  color: #4F46E5;
+}
+
+.pricelist-tabs .tab-btn.active {
+  color: #4F46E5;
+  border-bottom-color: #4F46E5;
+}
+
+/* Lista cenników */
+.pricelist-filters {
+  margin-bottom: 16px;
+}
+
+.pricelist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.pricelist-card {
+  background: #F9FAFB;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pricelist-card:hover {
+  border-color: #6366F1;
+  background: #F5F3FF;
+}
+
+.pricelist-card.selected {
+  border-color: #4F46E5;
+  background: #EEF2FF;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.pricelist-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.pricelist-card-header h3 {
+  font-size: 16px;
+  color: #1E1B4B;
+  margin: 0;
+}
+
+.pricelist-card-body p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #4B5563;
+}
+
+/* Podgląd cennika */
+.pricelist-preview {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.pricelist-preview h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.products-table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.products-table th {
+  background: #F3F4F6;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  border-bottom: 2px solid #E5E7EB;
+}
+
+.products-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.products-table tr:hover {
+  background: #F9FAFB;
+}
+
+.price-cell {
+  text-align: right;
+  font-family: monospace;
+  color: #059669;
+  font-weight: 500;
+}
+
+.table-info {
+  text-align: center;
+  padding: 12px;
+  color: #6B7280;
+  font-size: 12px;
+}
+
+/* Import cennika */
+.import-instructions {
+  background: #EEF2FF;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.import-instructions h3 {
+  margin: 0 0 12px 0;
+  color: #1E1B4B;
+}
+
+.import-instructions ul {
+  margin: 12px 0 0 20px;
+  color: #4B5563;
+}
+
+.import-instructions li {
+  margin: 6px 0;
+}
+
+.example-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.example-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.example-table th {
+  background: #6366F1;
+  color: white;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.example-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.import-form {
+  background: #F9FAFB;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.btn-upload {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: 2px dashed #4338CA;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+}
+
+.btn-upload:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.import-preview {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.import-preview h4 {
+  color: #059669;
+  margin-bottom: 12px;
+}
+
+.preview-table-container {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Wyszukiwarka produktów */
+.product-search-modal .modal-body {
+  min-height: 400px;
+}
+
+.search-filters {
+  margin-bottom: 16px;
+}
+
+.search-input-large {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 2px solid #E5E7EB;
+  border-radius: 10px;
+}
+
+.search-input-large:focus {
+  border-color: #6366F1;
+  outline: none;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.filter-row select {
+  flex: 1;
+  padding: 10px;
+}
+
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.product-result {
+  padding: 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.product-result:hover {
+  border-color: #6366F1;
+  background: #F5F3FF;
+}
+
+.product-result-main {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.product-name {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.product-producer {
+  color: #6B7280;
+  font-size: 13px;
+}
+
+.product-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.price-tag {
+  background: #F3F4F6;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #4B5563;
+}
+
+.price-tag.selected {
+  background: #D1FAE5;
+  color: #065F46;
+  font-weight: 600;
+}
+
+.no-results, .hint {
+  text-align: center;
+  padding: 40px;
+  color: #6B7280;
+}
+
+/* Przycisk wyszukiwania w formularzu */
+.towar-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.towar-input-row textarea {
+  width: 100%;
+}
+
+.btn-search-product {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  align-self: flex-start;
+  transition: all 0.2s;
+}
+
+.btn-search-product:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  transform: translateY(-1px);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6B7280;
+}
+
+.empty-state p:first-child {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .pricelist-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filter-row {
+    flex-direction: column;
+  }
+}
