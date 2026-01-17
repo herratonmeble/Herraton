@@ -4159,7 +4159,7 @@ ${t.team}
       const maxPhotos = Math.min(order.zdjeciaDostawy.length, 3);
       for (let i = 0; i < maxPhotos; i++) {
         const photo = order.zdjeciaDostawy[i];
-        if (photo && photo.startsWith('data:image')) {
+        if (photo && typeof photo === 'string' && photo.startsWith('data:image')) {
           // Wyciągnij base64 z data URL
           const base64Data = photo.split(',')[1];
           const mimeMatch = photo.match(/data:(image\/\w+);/);
@@ -4175,12 +4175,19 @@ ${t.team}
     
     // Dodaj podpis jako załącznik jeśli jest
     if (hasSignature && order.podpisKlienta) {
-      const signatureBase64 = order.podpisKlienta.split(',')[1];
-      if (signatureBase64) {
-        attachments.push({
-          filename: `podpis_${order.nrWlasny}.png`,
-          content: signatureBase64
-        });
+      // Podpis może być stringiem (data URL) lub obiektem { url: '...' }
+      const signatureUrl = typeof order.podpisKlienta === 'string' 
+        ? order.podpisKlienta 
+        : order.podpisKlienta.url;
+      
+      if (signatureUrl && typeof signatureUrl === 'string' && signatureUrl.includes(',')) {
+        const signatureBase64 = signatureUrl.split(',')[1];
+        if (signatureBase64) {
+          attachments.push({
+            filename: `podpis_${order.nrWlasny}.png`,
+            content: signatureBase64
+          });
+        }
       }
     }
 
