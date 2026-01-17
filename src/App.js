@@ -3678,32 +3678,55 @@ ${st.team}
     });
   };
 
-  // Funkcja prosząca o dostęp do aparatu (Android wymaga tego explicite)
-  const requestCameraAndOpenInput = async (inputId) => {
+  // Funkcja otwierania aparatu - POPRAWIONA dla Android
+  const openCamera = (inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) {
+      console.error('Nie znaleziono inputa:', inputId);
+      alert('Błąd: nie można otworzyć aparatu');
+      return;
+    }
+    
+    // Na Androidzie input.click() musi być wywołane SYNCHRONICZNIE w odpowiedzi na akcję użytkownika
+    // Dlatego nie używamy async/await przed click()
     try {
-      // Na Androidzie musimy najpierw poprosić o uprawnienia
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          // Poproś o dostęp do kamery - to wywoła systemowy dialog uprawnień
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          // Natychmiast zatrzymaj stream - potrzebowaliśmy go tylko do wywołania dialogu uprawnień
-          stream.getTracks().forEach(track => track.stop());
-        } catch (permError) {
-          console.log('Uprawnienia do kamery:', permError.name);
-          // Jeśli użytkownik odmówił lub jest inny błąd, i tak spróbuj otworzyć input
-          // Na iOS i niektórych Androidach input file działa bez getUserMedia
-        }
+      input.click();
+    } catch (e) {
+      console.error('Błąd click():', e);
+      // Alternatywna metoda - dispatching event
+      const event = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true
+      });
+      input.dispatchEvent(event);
+    }
+  };
+
+  // Alternatywna funkcja - otwiera wybór źródła (aparat lub galeria)
+  const openCameraWithFallback = (cameraInputId, galleryInputId) => {
+    // Sprawdź czy urządzenie mobilne
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    
+    if (isAndroid) {
+      // Na Androidzie spróbuj najpierw capture, jeśli nie zadziała - pokaż wybór
+      const cameraInput = document.getElementById(cameraInputId);
+      if (cameraInput) {
+        // Ustaw listener na przypadek gdy nic się nie stanie
+        const timeoutId = setTimeout(() => {
+          // Jeśli po 500ms nie było żadnego zdarzenia, pokaż alert z instrukcją
+          console.log('Camera input timeout - may need permissions');
+        }, 500);
+        
+        // Usuń timeout jeśli input się aktywuje
+        cameraInput.addEventListener('click', () => clearTimeout(timeoutId), { once: true });
+        
+        cameraInput.click();
       }
-      
-      // Teraz otwórz input file
-      const input = document.getElementById(inputId);
-      if (input) {
-        input.click();
-      }
-    } catch (error) {
-      console.error('Błąd aparatu:', error);
-      // Fallback - po prostu otwórz input
-      const input = document.getElementById(inputId);
+    } else {
+      // Na iOS i innych - standardowe podejście
+      const input = document.getElementById(cameraInputId);
       if (input) {
         input.click();
       }
@@ -4505,31 +4528,53 @@ ${t.team}
                     {activeTab === 'pickup' && (
                       <>
                         <div className="photo-buttons">
-                          <button 
-                            className="btn-driver photo camera" 
-                            onClick={() => requestCameraAndOpenInput(`pickup-camera-${order.id}`)}
+                          <label 
+                            htmlFor={`pickup-camera-${order.id}`}
+                            className="btn-driver photo camera"
+                            style={{ cursor: 'pointer' }}
                           >
                             📸 Aparat
-                          </button>
+                          </label>
                           <input 
                             id={`pickup-camera-${order.id}`} 
                             type="file" 
                             accept="image/*" 
                             capture="environment"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
                           />
-                          <button 
-                            className="btn-driver photo gallery" 
-                            onClick={() => document.getElementById(`pickup-gallery-${order.id}`).click()}
+                          <label 
+                            htmlFor={`pickup-gallery-${order.id}`}
+                            className="btn-driver photo gallery"
+                            style={{ cursor: 'pointer' }}
                           >
                             🖼️ Galeria
-                          </button>
+                          </label>
                           <input 
                             id={`pickup-gallery-${order.id}`} 
                             type="file" 
                             accept="image/*"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
                           />
                         </div>
@@ -4550,31 +4595,53 @@ ${t.team}
                     {activeTab === 'transit' && (
                       <>
                         <div className="photo-buttons">
-                          <button 
-                            className="btn-driver photo camera" 
-                            onClick={() => requestCameraAndOpenInput(`delivery-camera-${order.id}`)}
+                          <label 
+                            htmlFor={`delivery-camera-${order.id}`}
+                            className="btn-driver photo camera"
+                            style={{ cursor: 'pointer' }}
                           >
                             📸 Aparat
-                          </button>
+                          </label>
                           <input 
                             id={`delivery-camera-${order.id}`} 
                             type="file" 
                             accept="image/*" 
                             capture="environment"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
-                          <button 
-                            className="btn-driver photo gallery" 
-                            onClick={() => document.getElementById(`delivery-gallery-${order.id}`).click()}
+                          <label 
+                            htmlFor={`delivery-gallery-${order.id}`}
+                            className="btn-driver photo gallery"
+                            style={{ cursor: 'pointer' }}
                           >
                             🖼️ Galeria
-                          </button>
+                          </label>
                           <input 
                             id={`delivery-gallery-${order.id}`} 
                             type="file" 
                             accept="image/*"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
                         </div>
