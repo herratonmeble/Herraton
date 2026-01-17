@@ -3548,8 +3548,17 @@ ${st.team}
       kierowca: user.name
     };
 
-    // Aktualizuj płatności
-    const newDoZaplaty = Math.max(0, (order.platnosci?.doZaplaty || 0) - amount);
+    // POPRAWIONE: Oblicz oryginalną kwotę do zapłaty (bez rabatu)
+    // Oryginalna kwota = cena całkowita - zaliczka - wpłacone wcześniej
+    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+    const zaliczka = order.platnosci?.zaliczka || 0;
+    const zaplacono = order.platnosci?.zaplacono || zaliczka;
+    
+    // Oryginalna kwota do zapłaty (przed jakimkolwiek rabatem)
+    const originalDoZaplaty = cenaCalkowita - zaplacono;
+    
+    // Nowa kwota do zapłaty = oryginalna - nowy rabat
+    const newDoZaplaty = Math.max(0, originalDoZaplaty - amount);
 
     await onUpdateOrder(order.id, {
       ...order,
@@ -3557,6 +3566,8 @@ ${st.team}
       platnosci: {
         ...order.platnosci,
         doZaplaty: newDoZaplaty,
+        // Zapisz oryginalną kwotę do zapłaty (przed rabatem) żeby móc ją przywrócić
+        originalDoZaplaty: originalDoZaplaty,
         rabat: amount
       },
       historia: [...(order.historia || []), { 
@@ -4555,13 +4566,20 @@ ${t.team}
                   }, 0);
                 }
                 
+                // Oblicz oryginalną kwotę do zapłaty
+                const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+                const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+                const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
+                
                 return order && (
                   <>
                     <div className="discount-order-info">
                       <p><strong>Zamówienie:</strong> {order.nrWlasny}</p>
-                      <p><strong>Cena całkowita:</strong> {formatCurrency(order.platnosci?.cenaCalkowita, order.platnosci?.waluta)}</p>
-                      <p><strong>Zaliczka:</strong> {formatCurrency(order.platnosci?.zaliczka || 0, order.platnosci?.waluta)}</p>
-                      <p><strong>Do zapłaty (przed rabatem):</strong> {formatCurrency((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0), order.platnosci?.waluta)}</p>
+                      <p><strong>Cena całkowita:</strong> {formatCurrency(cenaCalkowita, order.platnosci?.waluta)}</p>
+                      {zaplacono > 0 && (
+                        <p><strong>Już zapłacono (zaliczka):</strong> {formatCurrency(zaplacono, order.platnosci?.waluta)} ✓</p>
+                      )}
+                      <p><strong>Do zapłaty (przed rabatem):</strong> {formatCurrency(originalDoZaplaty, order.platnosci?.waluta)}</p>
                     </div>
                     
                     {existingDiscount && (
@@ -4594,7 +4612,17 @@ ${t.team}
                       />
                     </div>
                     <div className="discount-summary">
-                      <p>Nowa kwota do zapłaty: <strong>{formatCurrency(Math.max(0, ((order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0)) - (parseFloat(discountAmount) || 0)), order.platnosci?.waluta)}</strong></p>
+                      {(() => {
+                        // Oblicz oryginalną kwotę do zapłaty (używając zaplacono lub zaliczki)
+                        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+                        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+                        const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
+                        const nowyRabat = parseFloat(discountAmount) || 0;
+                        const nowaKwota = Math.max(0, originalDoZaplaty - nowyRabat);
+                        return (
+                          <p>Nowa kwota do zapłaty: <strong>{formatCurrency(nowaKwota, order.platnosci?.waluta)}</strong></p>
+                        );
+                      })()}
                     </div>
                   </>
                 );
@@ -4606,12 +4634,23 @@ ${t.team}
                 <button className="btn-delete" onClick={async () => {
                   const order = orders.find(o => o.id === showDiscount);
                   if (order && window.confirm('Czy na pewno chcesz usunąć rabat?')) {
-                    // Przywróć oryginalną kwotę do zapłaty
-                    const originalDoZaplaty = (order.platnosci?.cenaCalkowita || 0) - (order.platnosci?.zaliczka || 0);
+                    // POPRAWIONE: Przywróć oryginalną kwotę do zapłaty
+                    // Użyj zapisanej originalDoZaplaty lub oblicz ją
+                    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+                    const zaliczka = order.platnosci?.zaliczka || 0;
+                    const zaplacono = order.platnosci?.zaplacono || zaliczka;
+                    
+                    // Oryginalna kwota do zapłaty = zapisana lub obliczona (cena - to co już zapłacono)
+                    const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
+                    
                     await onUpdateOrder(order.id, {
                       ...order,
                       rabatPrzyDostawie: null,
-                      platnosci: { ...order.platnosci, doZaplaty: originalDoZaplaty },
+                      platnosci: { 
+                        ...order.platnosci, 
+                        doZaplaty: originalDoZaplaty,
+                        rabat: 0 
+                      },
                       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Usunięto rabat` }]
                     });
                     setShowDiscount(null);
