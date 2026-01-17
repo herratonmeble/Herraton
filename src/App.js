@@ -3678,38 +3678,6 @@ ${st.team}
     });
   };
 
-  // Funkcja prosząca o dostęp do aparatu (Android wymaga tego explicite)
-  const requestCameraAndOpenInput = async (inputId) => {
-    try {
-      // Na Androidzie musimy najpierw poprosić o uprawnienia
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          // Poproś o dostęp do kamery - to wywoła systemowy dialog uprawnień
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          // Natychmiast zatrzymaj stream - potrzebowaliśmy go tylko do wywołania dialogu uprawnień
-          stream.getTracks().forEach(track => track.stop());
-        } catch (permError) {
-          console.log('Uprawnienia do kamery:', permError.name);
-          // Jeśli użytkownik odmówił lub jest inny błąd, i tak spróbuj otworzyć input
-          // Na iOS i niektórych Androidach input file działa bez getUserMedia
-        }
-      }
-      
-      // Teraz otwórz input file
-      const input = document.getElementById(inputId);
-      if (input) {
-        input.click();
-      }
-    } catch (error) {
-      console.error('Błąd aparatu:', error);
-      // Fallback - po prostu otwórz input
-      const input = document.getElementById(inputId);
-      if (input) {
-        input.click();
-      }
-    }
-  };
-
   // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
   const handlePhotoCapture = async (order, type, e) => {
     const file = e.target.files?.[0];
@@ -4165,22 +4133,24 @@ ${st.team}
     
     const subject = `${t.subject} ${order.nrWlasny}`;
     
-    // Obliczenia płatności - POPRAWIONE
-    const zaliczka = order.platnosci?.zaliczka || 0;
-    // Używamy doZaplaty (pozostało do zapłaty) zamiast zaplacono
-    const doZaplaty = order.platnosci?.doZaplaty || (cenaCalkowita - zaliczka);
-    const rabatKwota = hasDiscount ? rabat.kwota : 0;
-    const kwotaPoRabacie = Math.max(0, doZaplaty - rabatKwota);
-    // Kwota zapłacona kierowcy = doZaplaty - rabat
-    const zaplacenoKierowcy = kwotaPoRabacie;
-    const dataZaplatyKierowcy = order.platnosci?.dataPlatnosciKierowcy || order.potwierdzenieDostawy?.data || dataPlatnosci;
-    
     // Uwagi klienta - sprawdzamy WSZYSTKIE możliwe pola
     const uwagiDoWyslania = clientRemarks || order.uwagiPrzyDostawie || order.deliveryRemarks || '';
     
-    // Pełne podsumowanie płatności - z wyraźną informacją o zaliczce
-    const zaplaconoPrzedDostwa = order.platnosci?.zaplacono || zaliczka;
+    // Obliczenia płatności - POPRAWIONE
+    const zaplaconoPrzedDostawa = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
     
+    // Oryginalna kwota do zapłaty (PRZED rabatem) = cena - zaliczka
+    const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplaconoPrzedDostawa);
+    
+    // Kwota rabatu
+    const rabatKwota = hasDiscount ? rabat.kwota : 0;
+    
+    // Faktycznie pobrana kwota (PO rabacie)
+    const faktyczniePobrano = Math.max(0, originalDoZaplaty - rabatKwota);
+    
+    const dataZaplatyKierowcy = order.platnosci?.dataPlatnosciKierowcy || order.potwierdzenieDostawy?.data || dataPlatnosci;
+    
+    // Pełne podsumowanie płatności
     let paymentSummary = `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -4190,29 +4160,35 @@ ${st.team}
 📊 Wartość zamówienia: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}`;
 
     // Pokaż zaliczkę jeśli była wpłacona
-    if (zaplaconoPrzedDostwa > 0) {
+    if (zaplaconoPrzedDostawa > 0) {
       paymentSummary += `
-💳 Wpłacona zaliczka: ${zaplaconoPrzedDostwa.toFixed(2)} ${walutaSymbol} ✓`;
+💳 Wpłacona zaliczka: ${zaplaconoPrzedDostawa.toFixed(2)} ${walutaSymbol} ✓`;
     }
     
+    // Oryginalna kwota do zapłaty (przed rabatem)
     paymentSummary += `
-📋 Pozostało do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}`;
+📋 Pozostało do zapłaty: ${originalDoZaplaty.toFixed(2)} ${walutaSymbol}`;
 
     // Dodaj info o rabacie jeśli był
-    if (hasDiscount) {
+    if (hasDiscount && rabatKwota > 0) {
       paymentSummary += `
 
-🎁 Rabat: ${rabatKwota.toFixed(2)} ${walutaSymbol}
+🎁 Udzielono rabatu: -${rabatKwota.toFixed(2)} ${walutaSymbol}
    ├─ Udzielony przez: ${rabat.kierowca || user.name}
    ├─ Data: ${formatDate(rabat.data || dataPlatnosci)}
    └─ Powód: ${rabat.powod || 'Nie podano'}`;
     }
     
-    // Kwota zapłacona kierowcy
-    if (zaplacenoKierowcy > 0) {
+    // Kwota faktycznie pobrana od klienta
+    if (faktyczniePobrano > 0) {
       paymentSummary += `
 
-✅ Kwota ${zaplacenoKierowcy.toFixed(2)} ${walutaSymbol} została zapłacona kierowcy ${user.name} dnia ${formatDate(dataZaplatyKierowcy)}${hasDiscount ? ' (po udzieleniu rabatu)' : ''}.`;
+✅ Pobrano od klienta: ${faktyczniePobrano.toFixed(2)} ${walutaSymbol}
+   └─ Zapłacono kierowcy ${user.name} dnia ${formatDate(dataZaplatyKierowcy)}`;
+    } else if (originalDoZaplaty === 0) {
+      paymentSummary += `
+
+✅ Zamówienie w pełni opłacone zaliczką`;
     }
     
     // Protokół odbioru jako tekst
@@ -4505,31 +4481,53 @@ ${t.team}
                     {activeTab === 'pickup' && (
                       <>
                         <div className="photo-buttons">
-                          <button 
-                            className="btn-driver photo camera" 
-                            onClick={() => requestCameraAndOpenInput(`pickup-camera-${order.id}`)}
+                          <label 
+                            htmlFor={`pickup-camera-${order.id}`}
+                            className="btn-driver photo camera"
+                            style={{ cursor: 'pointer' }}
                           >
                             📸 Aparat
-                          </button>
+                          </label>
                           <input 
                             id={`pickup-camera-${order.id}`} 
                             type="file" 
                             accept="image/*" 
                             capture="environment"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
                           />
-                          <button 
-                            className="btn-driver photo gallery" 
-                            onClick={() => document.getElementById(`pickup-gallery-${order.id}`).click()}
+                          <label 
+                            htmlFor={`pickup-gallery-${order.id}`}
+                            className="btn-driver photo gallery"
+                            style={{ cursor: 'pointer' }}
                           >
                             🖼️ Galeria
-                          </button>
+                          </label>
                           <input 
                             id={`pickup-gallery-${order.id}`} 
                             type="file" 
                             accept="image/*"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'pickup', e)} 
                           />
                         </div>
@@ -4550,31 +4548,53 @@ ${t.team}
                     {activeTab === 'transit' && (
                       <>
                         <div className="photo-buttons">
-                          <button 
-                            className="btn-driver photo camera" 
-                            onClick={() => requestCameraAndOpenInput(`delivery-camera-${order.id}`)}
+                          <label 
+                            htmlFor={`delivery-camera-${order.id}`}
+                            className="btn-driver photo camera"
+                            style={{ cursor: 'pointer' }}
                           >
                             📸 Aparat
-                          </button>
+                          </label>
                           <input 
                             id={`delivery-camera-${order.id}`} 
                             type="file" 
                             accept="image/*" 
                             capture="environment"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
-                          <button 
-                            className="btn-driver photo gallery" 
-                            onClick={() => document.getElementById(`delivery-gallery-${order.id}`).click()}
+                          <label 
+                            htmlFor={`delivery-gallery-${order.id}`}
+                            className="btn-driver photo gallery"
+                            style={{ cursor: 'pointer' }}
                           >
                             🖼️ Galeria
-                          </button>
+                          </label>
                           <input 
                             id={`delivery-gallery-${order.id}`} 
                             type="file" 
                             accept="image/*"
-                            style={{ display: 'none', position: 'absolute', left: '-9999px' }} 
+                            style={{ 
+                              position: 'absolute', 
+                              width: '1px', 
+                              height: '1px', 
+                              padding: 0, 
+                              margin: '-1px', 
+                              overflow: 'hidden', 
+                              clip: 'rect(0,0,0,0)', 
+                              whiteSpace: 'nowrap', 
+                              border: 0 
+                            }} 
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
                         </div>
