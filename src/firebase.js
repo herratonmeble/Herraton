@@ -39,6 +39,7 @@ const notificationsCollection = collection(db, 'notifications');
 const complaintsCollection = collection(db, 'complaints');
 const leadsCollection = collection(db, 'leads');
 const priceListsCollection = collection(db, 'priceLists');
+const messagesCollection = collection(db, 'messages');
 
 // ============================================
 // ZAMÓWIENIA
@@ -356,6 +357,44 @@ export const deletePriceList = async (id) => {
     await deleteDoc(doc(db, 'priceLists', id));
   } catch (error) {
     console.error('Error deleting priceList:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// WIADOMOŚCI (CHAT)
+// ============================================
+
+export const subscribeToMessages = (callback) => {
+  const q = query(messagesCollection, orderBy('timestamp', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(messages);
+  }, (error) => {
+    console.error('Error subscribing to messages:', error);
+    callback([]);
+  });
+};
+
+export const addMessage = async (message) => {
+  try {
+    const data = {
+      ...message,
+      timestamp: message.timestamp || new Date().toISOString()
+    };
+    const docRef = await addDoc(messagesCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding message:', error);
+    throw error;
+  }
+};
+
+export const updateMessage = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'messages', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating message:', error);
     throw error;
   }
 };
