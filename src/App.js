@@ -3549,7 +3549,6 @@ ${st.team}
     };
 
     // POPRAWIONE: Oblicz oryginalną kwotę do zapłaty (bez rabatu)
-    // Oryginalna kwota = cena całkowita - zaliczka - wpłacone wcześniej
     const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const zaliczka = order.platnosci?.zaliczka || 0;
     const zaplacono = order.platnosci?.zaplacono || zaliczka;
@@ -3560,20 +3559,47 @@ ${st.team}
     // Nowa kwota do zapłaty = oryginalna - nowy rabat
     const newDoZaplaty = Math.max(0, originalDoZaplaty - amount);
 
+    // PRZELICZANIE MARŻY - rabat pomniejsza marżę
+    // Konwertuj rabat do PLN jeśli zamówienie jest w innej walucie
+    const waluta = order.platnosci?.waluta || 'PLN';
+    const kursyWalut = { PLN: 1, EUR: 4.35, GBP: 5.10, USD: 4.05 };
+    const rabatPLN = amount * (kursyWalut[waluta] || 1);
+    
+    // Pobierz oryginalną marżę (przed rabatem) lub aktualną
+    const originalMarzaPLN = order.koszty?.originalMarzaPLN ?? order.koszty?.marzaPLN ?? 0;
+    const originalMarzaProcentowa = order.koszty?.originalMarzaProcentowa ?? order.koszty?.marzaProcentowa ?? 0;
+    
+    // Nowa marża = oryginalna marża - rabat (w PLN)
+    const newMarzaPLN = originalMarzaPLN - rabatPLN;
+    
+    // Oblicz nowy procent marży
+    const cenaNettoPLN = order.koszty?.cenaNettoPLN || (cenaCalkowita / 1.23 * (kursyWalut[waluta] || 1));
+    const newCenaNettoPLN = cenaNettoPLN - (rabatPLN / 1.23); // rabat też pomniejsza cenę netto
+    const newMarzaProcentowa = newCenaNettoPLN > 0 ? Math.round(newMarzaPLN / newCenaNettoPLN * 100) : 0;
+
     await onUpdateOrder(order.id, {
       ...order,
       rabatPrzyDostawie: rabat,
       platnosci: {
         ...order.platnosci,
         doZaplaty: newDoZaplaty,
-        // Zapisz oryginalną kwotę do zapłaty (przed rabatem) żeby móc ją przywrócić
         originalDoZaplaty: originalDoZaplaty,
         rabat: amount
+      },
+      koszty: {
+        ...order.koszty,
+        // Zapisz oryginalne wartości marży (przed rabatem) żeby móc je przywrócić
+        originalMarzaPLN: originalMarzaPLN,
+        originalMarzaProcentowa: originalMarzaProcentowa,
+        // Zaktualizuj marżę po rabacie
+        marzaPLN: Math.round(newMarzaPLN * 100) / 100,
+        marzaProcentowa: newMarzaProcentowa,
+        rabatPLN: Math.round(rabatPLN * 100) / 100
       },
       historia: [...(order.historia || []), { 
         data: new Date().toISOString(), 
         uzytkownik: user.name, 
-        akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
+        akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'} (marża: ${formatCurrency(newMarzaPLN, 'PLN')})` 
       }]
     });
 
@@ -4635,13 +4661,16 @@ ${t.team}
                   const order = orders.find(o => o.id === showDiscount);
                   if (order && window.confirm('Czy na pewno chcesz usunąć rabat?')) {
                     // POPRAWIONE: Przywróć oryginalną kwotę do zapłaty
-                    // Użyj zapisanej originalDoZaplaty lub oblicz ją
                     const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
                     const zaliczka = order.platnosci?.zaliczka || 0;
                     const zaplacono = order.platnosci?.zaplacono || zaliczka;
                     
-                    // Oryginalna kwota do zapłaty = zapisana lub obliczona (cena - to co już zapłacono)
+                    // Oryginalna kwota do zapłaty = zapisana lub obliczona
                     const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
+                    
+                    // Przywróć oryginalną marżę
+                    const originalMarzaPLN = order.koszty?.originalMarzaPLN ?? order.koszty?.marzaPLN ?? 0;
+                    const originalMarzaProcentowa = order.koszty?.originalMarzaProcentowa ?? order.koszty?.marzaProcentowa ?? 0;
                     
                     await onUpdateOrder(order.id, {
                       ...order,
@@ -4651,7 +4680,14 @@ ${t.team}
                         doZaplaty: originalDoZaplaty,
                         rabat: 0 
                       },
-                      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Usunięto rabat` }]
+                      koszty: {
+                        ...order.koszty,
+                        // Przywróć oryginalną marżę
+                        marzaPLN: originalMarzaPLN,
+                        marzaProcentowa: originalMarzaProcentowa,
+                        rabatPLN: 0
+                      },
+                      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Usunięto rabat (marża przywrócona: ${originalMarzaPLN.toFixed(2)} PLN)` }]
                     });
                     setShowDiscount(null);
                     setDiscountAmount('');
