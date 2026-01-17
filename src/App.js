@@ -4066,15 +4066,24 @@ ${st.team}
     // Uwagi klienta - sprawdzamy WSZYSTKIE możliwe pola
     const uwagiDoWyslania = clientRemarks || order.uwagiPrzyDostawie || order.deliveryRemarks || '';
     
-    // Pełne podsumowanie płatności
+    // Pełne podsumowanie płatności - z wyraźną informacją o zaliczce
+    const zaplaconoPrzedDostwa = order.platnosci?.zaplacono || zaliczka;
+    
     let paymentSummary = `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 PODSUMOWANIE PŁATNOŚCI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 Całość: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
-💳 Zaliczka: ${zaliczka.toFixed(2)} ${walutaSymbol}
+📊 Wartość zamówienia: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}`;
+
+    // Pokaż zaliczkę jeśli była wpłacona
+    if (zaplaconoPrzedDostwa > 0) {
+      paymentSummary += `
+💳 Wpłacona zaliczka: ${zaplaconoPrzedDostwa.toFixed(2)} ${walutaSymbol} ✓`;
+    }
+    
+    paymentSummary += `
 📋 Pozostało do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}`;
 
     // Dodaj info o rabacie jeśli był
@@ -4334,6 +4343,12 @@ ${t.team}
                         <div className="payment-label">💰 Do pobrania od klienta</div>
                         <div className="payment-amount">{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</div>
                       </div>
+                      {/* Pokaż zaliczkę jeśli była wpłacona */}
+                      {(order.platnosci?.zaliczka > 0 || order.platnosci?.zaplacono > 0) && (
+                        <div className="payment-advance-info">
+                          💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci.zaplacono || order.platnosci.zaliczka, order.platnosci.waluta)}</strong>
+                        </div>
+                      )}
                       <div className="payment-details">
                         {order.platnosci.metodaPrzyDostawie && (
                           <div className="payment-method-badge">
