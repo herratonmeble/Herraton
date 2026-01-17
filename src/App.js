@@ -46,73 +46,6 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
   }
 };
 
-// Funkcja generowania PDF protokołu jako base64
-const generateProtocolPDF = (order, protocolData) => {
-  // Generujemy prosty HTML który można przekonwertować
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: Arial, sans-serif; padding: 40px; }
-    h1 { text-align: center; color: #1E1B4B; border-bottom: 2px solid #6366F1; padding-bottom: 10px; }
-    .section { margin: 20px 0; padding: 15px; background: #F8FAFC; border-radius: 8px; }
-    .label { font-weight: bold; color: #64748B; }
-    .value { color: #1E1B4B; margin-left: 10px; }
-    .signature { margin-top: 30px; text-align: center; }
-    .signature img { max-width: 200px; border: 1px solid #E2E8F0; }
-    table { width: 100%; border-collapse: collapse; }
-    td { padding: 8px; border-bottom: 1px solid #E2E8F0; }
-  </style>
-</head>
-<body>
-  <h1>📋 PROTOKÓŁ ODBIORU TOWARU</h1>
-  
-  <div class="section">
-    <table>
-      <tr><td class="label">Nr zamówienia:</td><td class="value">${order.nrWlasny}</td></tr>
-      <tr><td class="label">Data dostawy:</td><td class="value">${protocolData.deliveryDate}</td></tr>
-      <tr><td class="label">Kierowca:</td><td class="value">${protocolData.driverName}</td></tr>
-    </table>
-  </div>
-  
-  <div class="section">
-    <p class="label">Produkt:</p>
-    <p class="value">${order.towar || '-'}</p>
-    <p><span class="label">Wartość:</span> <span class="value">${protocolData.totalValue}</span></p>
-    ${protocolData.discount ? `<p><span class="label">Rabat:</span> <span class="value">-${protocolData.discount}</span></p>` : ''}
-  </div>
-  
-  <div class="section">
-    <p class="label">Odbiorca:</p>
-    <p class="value">${order.klient?.imie || '-'}</p>
-    <p class="label">Adres:</p>
-    <p class="value">${order.klient?.adres || '-'}</p>
-  </div>
-  
-  <div class="section">
-    <p class="label">Uwagi klienta:</p>
-    <p class="value">${protocolData.clientRemarks || 'Brak uwag - produkt zaakceptowany bez zastrzeżeń'}</p>
-  </div>
-  
-  ${order.podpisKlienta ? `
-  <div class="signature">
-    <p class="label">Podpis klienta:</p>
-    <img src="${order.podpisKlienta}" alt="Podpis"/>
-    <p style="color: #059669;">✅ Podpisano elektronicznie</p>
-  </div>
-  ` : '<p style="color: #F59E0B;">⚠️ Oczekuje na podpis</p>'}
-  
-  <p style="margin-top: 40px; font-size: 12px; color: #94A3B8; text-align: center;">
-    Potwierdzam odbiór powyższego towaru. Towar został sprawdzony w obecności kierowcy.
-  </p>
-</body>
-</html>`;
-  
-  // Zwracamy HTML - w przyszłości można to konwertować do PDF
-  return html;
-};
 
 // ============================================
 // KONFIGURACJA
@@ -4005,7 +3938,6 @@ ${st.team}
   const sendDeliveryConfirmationEmail = (order) => {
     const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
-    const zaplacono = order.platnosci?.zaplacono || 0;
     const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
