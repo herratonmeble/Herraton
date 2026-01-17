@@ -6111,3 +6111,18 @@ input.margin-negative {
   font-size: 12px;
   color: #78350F;
 }
+
+/* Info o zaliczce dla kierowcy */
+.payment-advance-info {
+  background: #DBEAFE;
+  color: #1E40AF;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 8px 0;
+  border-left: 3px solid #3B82F6;
+}
+
+.payment-advance-info strong {
+  color: #1E3A8A;
+}
