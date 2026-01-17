@@ -38,7 +38,7 @@ const producersCollection = collection(db, 'producers');
 const notificationsCollection = collection(db, 'notifications');
 const complaintsCollection = collection(db, 'complaints');
 const leadsCollection = collection(db, 'leads');
-const messagesCollection = collection(db, 'messages');
+const priceListsCollection = collection(db, 'priceLists');
 
 // ============================================
 // ZAMÓWIENIA
@@ -315,35 +315,47 @@ export const deleteLead = async (id) => {
 };
 
 // ============================================
-// WIADOMOŚCI (MESSENGER)
+// CENNIKI PRODUKTÓW
 // ============================================
 
-export const subscribeToMessages = (callback) => {
-  const q = query(messagesCollection, orderBy('timestamp', 'asc'));
-  return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(messages);
+export const subscribeToPriceLists = (callback) => {
+  return onSnapshot(priceListsCollection, (snapshot) => {
+    const priceLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(priceLists);
   }, (error) => {
-    console.error('Error subscribing to messages:', error);
+    console.error('Error subscribing to priceLists:', error);
     callback([]);
   });
 };
 
-export const addMessage = async (message) => {
+export const addPriceList = async (priceList) => {
   try {
-    const docRef = await addDoc(messagesCollection, message);
+    const data = {
+      ...priceList,
+      dataUtworzenia: priceList.dataUtworzenia || new Date().toISOString()
+    };
+    const docRef = await addDoc(priceListsCollection, data);
     return docRef.id;
   } catch (error) {
-    console.error('Error adding message:', error);
+    console.error('Error adding priceList:', error);
     throw error;
   }
 };
 
-export const updateMessage = async (id, data) => {
+export const updatePriceList = async (id, data) => {
   try {
-    await setDoc(doc(db, 'messages', id), data, { merge: true });
+    await setDoc(doc(db, 'priceLists', id), data, { merge: true });
   } catch (error) {
-    console.error('Error updating message:', error);
+    console.error('Error updating priceList:', error);
+    throw error;
+  }
+};
+
+export const deletePriceList = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'priceLists', id));
+  } catch (error) {
+    console.error('Error deleting priceList:', error);
     throw error;
   }
 };
