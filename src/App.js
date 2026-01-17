@@ -3234,11 +3234,6 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 
   // Prawidłowe wyliczenie marży - ZAWSZE W PLN
   const calcMarzaPLN = () => {
-    // Jeśli jest zapisana marża po rabacie - użyj jej
-    if (order.rabatPrzyDostawie && order.koszty?.marzaPLN !== undefined) {
-      return order.koszty.marzaPLN;
-    }
-    
     const cenaBrutto = order.platnosci?.cenaCalkowita || 0;
     const vatRate = order.koszty?.vatRate || 23;
     const vatMultiplier = 1 + vatRate / 100;
@@ -3256,12 +3251,13 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
     const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
     
-    // Marża w PLN (bez rabatu)
+    // Marża w PLN = Cena netto - Zakup netto - Transport netto
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
     
-    // Odejmij rabat jeśli był udzielony
+    // Odejmij rabat jeśli był udzielony przez kierowcę
     if (order.rabatPrzyDostawie?.kwota > 0) {
-      const rabatPLN = convertToPLN(order.rabatPrzyDostawie.kwota / vatMultiplier, order.platnosci?.waluta);
+      const rabatNetto = order.rabatPrzyDostawie.kwota / vatMultiplier;
+      const rabatPLN = convertToPLN(rabatNetto, order.platnosci?.waluta);
       marzaPLN -= rabatPLN;
     }
     
@@ -3671,6 +3667,38 @@ ${st.team}
         akcja: `Usunięto zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` 
       }]
     });
+  };
+
+  // Funkcja prosząca o dostęp do aparatu (Android wymaga tego explicite)
+  const requestCameraAndOpenInput = async (inputId) => {
+    try {
+      // Na Androidzie musimy najpierw poprosić o uprawnienia
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          // Poproś o dostęp do kamery - to wywoła systemowy dialog uprawnień
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          // Natychmiast zatrzymaj stream - potrzebowaliśmy go tylko do wywołania dialogu uprawnień
+          stream.getTracks().forEach(track => track.stop());
+        } catch (permError) {
+          console.log('Uprawnienia do kamery:', permError.name);
+          // Jeśli użytkownik odmówił lub jest inny błąd, i tak spróbuj otworzyć input
+          // Na iOS i niektórych Androidach input file działa bez getUserMedia
+        }
+      }
+      
+      // Teraz otwórz input file
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.click();
+      }
+    } catch (error) {
+      console.error('Błąd aparatu:', error);
+      // Fallback - po prostu otwórz input
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.click();
+      }
+    }
   };
 
   // POPRAWIONE - kompresja zdjęcia i lepsza obsługa iOS/Android
@@ -4470,7 +4498,7 @@ ${t.team}
                         <div className="photo-buttons">
                           <button 
                             className="btn-driver photo camera" 
-                            onClick={() => document.getElementById(`pickup-camera-${order.id}`).click()}
+                            onClick={() => requestCameraAndOpenInput(`pickup-camera-${order.id}`)}
                           >
                             📸 Aparat
                           </button>
@@ -4515,7 +4543,7 @@ ${t.team}
                         <div className="photo-buttons">
                           <button 
                             className="btn-driver photo camera" 
-                            onClick={() => document.getElementById(`delivery-camera-${order.id}`).click()}
+                            onClick={() => requestCameraAndOpenInput(`delivery-camera-${order.id}`)}
                           >
                             📸 Aparat
                           </button>
