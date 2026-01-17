@@ -3307,7 +3307,16 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             <span>Cena: <strong>{formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</strong></span>
           )}
           {order.platnosci?.doZaplaty > 0 && (
-            <span className="unpaid">Do zapłaty: <strong>{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</strong></span>
+            <span className="unpaid">
+              Do zapłaty: <strong>{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</strong>
+              {order.rabatPrzyDostawie?.kwota > 0 && (
+                <small className="payment-discount-info">
+                  <br/>
+                  <span className="original-amount">Było: {formatCurrency(order.platnosci.originalDoZaplaty || (order.platnosci.doZaplaty + order.rabatPrzyDostawie.kwota), order.platnosci.waluta)}</span>
+                  <span className="discount-applied"> → Rabat: -{formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci.waluta)}</span>
+                </small>
+              )}
+            </span>
           )}
           {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
             <span className="paid-badge">✓ Opłacone</span>
@@ -5912,10 +5921,25 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [countryFilter, setCountryFilter] = useState('all');
   const [creatorFilter, setCreatorFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all'); // NOWY FILTR STATUSU
   const [activeTab, setActiveTab] = useState('monthly'); // monthly, countries, creators
   
   const MONTHS = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
                   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+
+  // Dostępne statusy do filtrowania
+  const STATUS_OPTIONS = [
+    { id: 'all', name: 'Wszystkie statusy' },
+    { id: 'dostarczone', name: '✔️ Dostarczone' },
+    { id: 'w_transporcie', name: '🚚 W transporcie' },
+    { id: 'odebrane', name: '📦 Odebrane' },
+    { id: 'gotowe_do_odbioru', name: '✅ Gotowe do odbioru' },
+    { id: 'w_produkcji', name: '🔨 W produkcji' },
+    { id: 'potwierdzone', name: '📋 Potwierdzone' },
+    { id: 'nowe', name: '🆕 Nowe' },
+    { id: 'wstrzymane', name: '⏸️ Wstrzymane' },
+    { id: 'anulowane', name: '❌ Anulowane' }
+  ];
 
   // Konwersja do PLN
   const convertToPLN = (amount, currency) => {
@@ -5929,6 +5953,7 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
       const date = new Date(o.dataZlecenia || o.utworzonePrzez?.data);
       if (date.getFullYear() !== selectedYear) return false;
       if (countryFilter !== 'all' && o.kraj !== countryFilter) return false;
+      if (statusFilter !== 'all' && o.status !== statusFilter) return false; // FILTR STATUSU
       if (creatorFilter !== 'all') {
         const creatorId = o.utworzonePrzez?.oddzial || o.kontrahentId;
         if (creatorId !== creatorFilter) return false;
@@ -5937,12 +5962,13 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
     });
   };
 
-  // Oblicz statystyki z tablicy zamówień
+  // Oblicz statystyki z tablicy zamówień - Z UWZGLĘDNIENIEM RABATÓW
   const calcStatsFromOrders = (ordersList) => {
     let obrotBrutto = 0;
     let obrotNetto = 0;
     let kosztTowaru = 0;
     let kosztTransportu = 0;
+    let sumaRabatow = 0; // SUMA RABATÓW
     
     ordersList.forEach(order => {
       const vatRate = order.koszty?.vatRate || 23;
@@ -5958,9 +5984,18 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
       
       const transportNetto = order.koszty?.transportNetto || 0;
       kosztTransportu += convertToPLN(transportNetto, order.koszty?.transportWaluta);
+      
+      // Dodaj rabat jeśli był udzielony
+      if (order.rabatPrzyDostawie?.kwota > 0) {
+        const rabatBrutto = order.rabatPrzyDostawie.kwota;
+        const rabatNetto = rabatBrutto / vatMultiplier;
+        const rabatPLN = convertToPLN(rabatNetto, order.platnosci?.waluta);
+        sumaRabatow += rabatPLN;
+      }
     });
 
-    const marza = obrotNetto - kosztTowaru - kosztTransportu;
+    // Marża = Obrót netto - Koszty towaru - Koszty transportu - Rabaty
+    const marza = obrotNetto - kosztTowaru - kosztTransportu - sumaRabatow;
     const marzaProc = obrotNetto > 0 ? (marza / obrotNetto * 100) : 0;
 
     return {
@@ -5969,6 +6004,7 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
       obrotNetto: Math.round(obrotNetto * 100) / 100,
       kosztTowaru: Math.round(kosztTowaru * 100) / 100,
       kosztTransportu: Math.round(kosztTransportu * 100) / 100,
+      sumaRabatow: Math.round(sumaRabatow * 100) / 100, // NOWE POLE
       marza: Math.round(marza * 100) / 100,
       marzaProc: Math.round(marzaProc * 10) / 10
     };
@@ -6097,6 +6133,14 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
               ))}
             </select>
           </div>
+          <div className="filter-group">
+            <label>📊 Status:</label>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              {STATUS_OPTIONS.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* ZAKŁADKI */}
@@ -6152,10 +6196,19 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
                 <span className="summary-value">{formatCurrency(yearSummary.kosztTransportu, 'PLN')}</span>
               </div>
             </div>
+            {yearSummary.sumaRabatow > 0 && (
+              <div className="summary-card expense discount">
+                <div className="summary-icon">🎁</div>
+                <div className="summary-content">
+                  <span className="summary-label">Rabaty kierowców</span>
+                  <span className="summary-value">{formatCurrency(yearSummary.sumaRabatow, 'PLN')}</span>
+                </div>
+              </div>
+            )}
             <div className={`summary-card profit ${yearSummary.marza >= 0 ? 'positive' : 'negative'}`}>
               <div className="summary-icon">💰</div>
               <div className="summary-content">
-                <span className="summary-label">ZYSK / MARŻA</span>
+                <span className="summary-label">ZYSK / MARŻA {yearSummary.sumaRabatow > 0 ? '(po rabatach)' : ''}</span>
                 <span className="summary-value">
                   {formatCurrency(yearSummary.marza, 'PLN')}
                   <span className="summary-percent">({yearSummary.marzaProc.toFixed(1)}%)</span>
