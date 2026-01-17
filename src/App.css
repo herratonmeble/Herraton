@@ -6156,3 +6156,33 @@ input.margin-negative {
   display: block;
   font-size: 9px;
 }
+
+/* ============================================
+   RABAT - INFORMACJE O PŁATNOŚCI
+   ============================================ */
+.payment-discount-info {
+  font-size: 11px;
+  display: block;
+  margin-top: 4px;
+}
+
+.original-amount {
+  color: #6B7280;
+  text-decoration: line-through;
+}
+
+.discount-applied {
+  color: #059669;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+/* Karta rabatów w statystykach */
+.summary-card.discount {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-left: 4px solid #F59E0B;
+}
+
+.summary-card.discount .summary-icon {
+  background: #F59E0B;
+}
