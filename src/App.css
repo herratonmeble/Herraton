@@ -6981,3 +6981,226 @@ input.margin-negative {
     min-width: 250px;
   }
 }
+
+/* ============================================
+   ROZBUDOWANE WYJAZDY KIEROWCÓW
+   ============================================ */
+
+/* Formularz z datami odbioru */
+.trip-form-section {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.section-label {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.date-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.date-range-row .form-group {
+  flex: 1;
+}
+
+.date-separator {
+  padding-bottom: 10px;
+  color: #6B7280;
+  font-weight: 600;
+}
+
+/* Wyświetlanie najbliższego wyjazdu */
+.trip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.trip-dates {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.trip-date-main {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+/* Rozbudowana lista wyjazdów */
+.trip-item-extended {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.trip-item-extended.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+}
+
+.trip-item-extended.past {
+  opacity: 0.5;
+  background: #F9FAFB;
+}
+
+.trip-item-info-extended {
+  flex: 1;
+}
+
+.trip-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.trip-info-row.highlight {
+  background: rgba(99, 102, 241, 0.1);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.trip-info-label {
+  font-size: 12px;
+  color: #6B7280;
+  min-width: 70px;
+}
+
+.trip-info-value {
+  font-weight: 500;
+  color: #1F2937;
+}
+
+.trip-info-value.note {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+}
+
+/* Slider z rozbudowanymi kartami */
+.driver-trip-card-extended {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 14px;
+  min-width: 320px;
+  scroll-snap-align: start;
+  transition: all 0.2s;
+}
+
+.driver-trip-card-extended:hover {
+  background: rgba(255,255,255,0.15);
+  transform: translateY(-2px);
+}
+
+.driver-trip-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trip-schedule-item {
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.trip-schedule-item.today {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.3) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.trip-schedule-item.tomorrow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.3) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.trip-schedule-pickup,
+.trip-schedule-departure,
+.trip-schedule-dest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.trip-schedule-pickup:last-child,
+.trip-schedule-departure:last-child,
+.trip-schedule-dest:last-child {
+  margin-bottom: 0;
+}
+
+.schedule-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+}
+
+.schedule-value {
+  font-size: 12px;
+  color: white;
+}
+
+.schedule-value.highlight {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* Info o towarze w sekcji klienta - panel kierowcy */
+.client-product-info {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #E5E7EB;
+}
+
+.product-info-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366F1;
+  margin-bottom: 6px;
+}
+
+.product-info-content {
+  font-size: 13px;
+  color: #374151;
+  background: #F9FAFB;
+  padding: 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+@media (max-width: 600px) {
+  .date-range-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .date-separator {
+    text-align: center;
+    padding: 0;
+    margin: -4px 0;
+  }
+  
+  .driver-trip-card-extended {
+    min-width: 280px;
+  }
+}
