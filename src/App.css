@@ -6685,3 +6685,299 @@ input.margin-negative {
     text-align: center;
   }
 }
+
+/* ============================================
+   PLANOWANE WYJAZDY KIEROWCÓW
+   ============================================ */
+
+/* Sekcja wyjazdów w panelu kierowcy */
+.driver-trips-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  border: 1px solid #C7D2FE;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.trips-info {
+  flex: 1;
+}
+
+.next-trip-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trip-icon {
+  font-size: 24px;
+}
+
+.trip-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-label {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.trip-date {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.trip-dest {
+  font-size: 13px;
+  color: #4F46E5;
+  font-weight: 500;
+}
+
+.no-trip-badge {
+  color: #6B7280;
+  font-size: 14px;
+}
+
+.btn-manage-trips {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-manage-trips:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* Modal zarządzania wyjazdami */
+.trips-modal .add-trip-form {
+  background: #F3F4F6;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.trips-modal .add-trip-form h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #374151;
+}
+
+.trips-modal .add-trip-form .btn-primary {
+  margin-top: 12px;
+}
+
+.trips-list h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #374151;
+}
+
+.trips-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.trip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.trip-item:hover {
+  border-color: #6366F1;
+}
+
+.trip-item.past {
+  opacity: 0.5;
+  background: #F9FAFB;
+}
+
+.trip-item.today {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+.trip-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-item-date {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.trip-item-dest {
+  font-size: 13px;
+  color: #6366F1;
+}
+
+.trip-item-note {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.empty-trips {
+  text-align: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+/* Slider wyjazdów w panelu admina/pracownika */
+.drivers-trips-slider {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.trips-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.trips-slider-title {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.trips-slider-content {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+}
+
+.trips-slider-content::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trips-slider-content::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+.trips-slider-content::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.driver-trip-card {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 280px;
+  scroll-snap-align: start;
+  transition: all 0.2s;
+}
+
+.driver-trip-card:hover {
+  background: rgba(255,255,255,0.15);
+  transform: translateY(-2px);
+}
+
+.driver-trip-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.driver-avatar {
+  font-size: 20px;
+}
+
+.driver-trip-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trip-date-chip {
+  background: rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-date-chip.today {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  animation: pulse-today 2s infinite;
+}
+
+.trip-date-chip.tomorrow {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+@keyframes pulse-today {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+.trip-date-text {
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trip-dest-text {
+  color: rgba(255,255,255,0.8);
+  font-size: 11px;
+}
+
+.more-trips {
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .driver-trips-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-manage-trips {
+    width: 100%;
+  }
+  
+  .driver-trip-card {
+    min-width: 250px;
+  }
+}
