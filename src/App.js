@@ -8,7 +8,7 @@ import {
   subscribeToComplaints, addComplaint, updateComplaint, deleteComplaint,
   subscribeToLeads, addLead, updateLead, deleteLead,
   subscribeToMessages, addMessage, updateMessage,
-  subscribeToPriceLists, addPriceList, updatePriceList, deletePriceList,
+  subscribeToPriceLists, addPriceList, deletePriceList,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -4643,7 +4643,6 @@ ${st.team}
 
   // Generuj HTML dokumentu potwierdzenia dostawy
   const generateDeliveryConfirmationHTML = (order) => {
-    const t = DELIVERY_EMAIL_TRANSLATIONS[deliveryEmailLanguage] || DELIVERY_EMAIL_TRANSLATIONS.pl;
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
     const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
