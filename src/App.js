@@ -1736,19 +1736,7 @@ Zespół obsługi zamówień`;
 
           <div className="form-group full">
             <label>TOWAR</label>
-            <div className="towar-input-row">
-              <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
-              {priceLists && priceLists.length > 0 && !isContractor && (
-                <button 
-                  type="button" 
-                  className="btn-search-product"
-                  onClick={() => setShowProductSearchInOrder(true)}
-                  title="Wyszukaj produkt z cennika"
-                >
-                  🔍 Szukaj w cennikach
-                </button>
-              )}
-            </div>
+            <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
           </div>
 
           <div className="form-section">
@@ -1894,7 +1882,19 @@ Zespół obsługi zamówień`;
 
               {/* KOSZT TOWARU */}
               <div className="cost-section">
-                <h4>🏭 Koszt towaru</h4>
+                <div className="cost-section-header">
+                  <h4>🏭 Koszt towaru</h4>
+                  {priceLists && priceLists.length > 0 && !isContractor && (
+                    <button 
+                      type="button" 
+                      className="btn-search-product-small"
+                      onClick={() => setShowProductSearchInOrder(true)}
+                      title="Wyszukaj produkt z cennika"
+                    >
+                      🔍 Szukaj w cennikach
+                    </button>
+                  )}
+                </div>
                 <div className="form-grid">
                   <div className="form-group">
                     <label>WALUTA</label>
@@ -2121,24 +2121,30 @@ Zespół obsługi zamówień`;
             priceLists={priceLists}
             producers={producers}
             onSelect={(product) => {
-              // Dodaj produkt do opisu towaru
-              const newTowar = form.towar 
-                ? `${form.towar}\n${product.nazwa} (${product.producerName}) - ${product.grupa}: ${product.cena} zł`
-                : `${product.nazwa} (${product.producerName}) - ${product.grupa}: ${product.cena} zł`;
+              // Oblicz VAT
+              const vatRate = form.koszty?.vatRate || 23;
+              const vatMultiplier = 1 + (vatRate / 100);
+              
+              // Ustaw koszt towaru
+              const updates = {
+                koszty: {
+                  ...form.koszty,
+                  zakupNetto: product.cena,
+                  zakupBrutto: Math.round(product.cena * vatMultiplier * 100) / 100
+                }
+              };
               
               // Ustaw producenta jeśli nie jest wybrany
-              const updates = { towar: newTowar };
               if (!form.zaladunek && product.producerId) {
                 updates.zaladunek = product.producerId;
               }
               
-              // Ustaw cenę zakupu jeśli pusta
-              if (!form.koszty?.zakupNetto && product.cena) {
-                updates.koszty = {
-                  ...form.koszty,
-                  zakupNetto: product.cena,
-                  zakupBrutto: Math.round(product.cena * 1.23 * 100) / 100
-                };
+              // Dodaj nazwę produktu do opisu towaru (jeśli chcesz)
+              if (product.nazwa) {
+                const productInfo = `${product.nazwa} (${product.grupa}: ${product.cena} zł)`;
+                updates.towar = form.towar 
+                  ? `${form.towar}\n${productInfo}`
+                  : productInfo;
               }
               
               setForm({ ...form, ...updates });
