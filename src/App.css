@@ -6641,3 +6641,47 @@ input.margin-negative {
     flex-direction: column;
   }
 }
+
+/* Przycisk wyszukiwania przy kosztach */
+.cost-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cost-section-header h4 {
+  margin: 0;
+}
+
+.btn-search-product-small {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-search-product-small:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+@media (max-width: 600px) {
+  .cost-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .btn-search-product-small {
+    width: 100%;
+    text-align: center;
+  }
+}
