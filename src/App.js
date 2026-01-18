@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   subscribeToOrders, addOrder, updateOrder, deleteOrder,
   subscribeToUsers, addUser, updateUser, deleteUser,
@@ -2475,9 +2476,6 @@ const PriceListManager = ({ producers, priceLists, onSave, onDelete, onClose }) 
     setImporting(true);
     
     try {
-      // Dynamiczny import biblioteki xlsx
-      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
-      
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
