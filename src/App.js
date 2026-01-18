@@ -2125,7 +2125,7 @@ Zespół obsługi zamówień`;
               const vatRate = form.koszty?.vatRate || 23;
               const vatMultiplier = 1 + (vatRate / 100);
               
-              // Ustaw koszt towaru
+              // Ustaw TYLKO koszt towaru - bez dodawania do opisu!
               const updates = {
                 koszty: {
                   ...form.koszty,
@@ -2137,14 +2137,6 @@ Zespół obsługi zamówień`;
               // Ustaw producenta jeśli nie jest wybrany
               if (!form.zaladunek && product.producerId) {
                 updates.zaladunek = product.producerId;
-              }
-              
-              // Dodaj nazwę produktu do opisu towaru (jeśli chcesz)
-              if (product.nazwa) {
-                const productInfo = `${product.nazwa} (${product.grupa}: ${product.cena} zł)`;
-                updates.towar = form.towar 
-                  ? `${form.towar}\n${productInfo}`
-                  : productInfo;
               }
               
               setForm({ ...form, ...updates });
@@ -3990,7 +3982,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 // PANEL KIEROWCY - POPRAWIONE ZDJĘCIA MOBILNE
 // ============================================
 
-const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification, onLogout }) => {
+const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification, onLogout, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState('pickup');
   const [showNotes, setShowNotes] = useState(null);
   const [showSignature, setShowSignature] = useState(null);
@@ -4017,6 +4009,44 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   
   // Filtrowanie po statusie w zakładce "Do odbioru"
   const [pickupStatusFilter, setPickupStatusFilter] = useState('all'); // all, potwierdzone, w_produkcji, gotowe_do_odbioru
+
+  // State dla planowanych wyjazdów
+  const [showTripsModal, setShowTripsModal] = useState(false);
+  const [newTripDate, setNewTripDate] = useState('');
+  const [newTripDestination, setNewTripDestination] = useState('');
+  const [newTripNote, setNewTripNote] = useState('');
+
+  // Planowane wyjazdy z profilu użytkownika
+  const plannedTrips = user.plannedTrips || [];
+
+  // Dodaj wyjazd
+  const addTrip = async () => {
+    if (!newTripDate) {
+      alert('Podaj datę wyjazdu!');
+      return;
+    }
+    const newTrip = {
+      id: Date.now().toString(),
+      date: newTripDate,
+      destination: newTripDestination || 'Nieokreślony',
+      note: newTripNote,
+      createdAt: new Date().toISOString()
+    };
+    const updatedTrips = [...plannedTrips, newTrip].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+    setNewTripDate('');
+    setNewTripDestination('');
+    setNewTripNote('');
+  };
+
+  // Usuń wyjazd
+  const removeTrip = async (tripId) => {
+    const updatedTrips = plannedTrips.filter(t => t.id !== tripId);
+    await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+  };
+
+  // Najbliższy wyjazd
+  const nextTrip = plannedTrips.find(t => new Date(t.date) >= new Date(new Date().setHours(0,0,0,0)));
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -5146,6 +5176,29 @@ ${t.team}
           </div>
         </div>
 
+        {/* Sekcja planowanych wyjazdów */}
+        <div className="driver-trips-section">
+          <div className="trips-info">
+            {nextTrip ? (
+              <div className="next-trip-badge">
+                <span className="trip-icon">🚗</span>
+                <div className="trip-details">
+                  <span className="trip-label">Najbliższy wyjazd:</span>
+                  <span className="trip-date">{formatDate(nextTrip.date)}</span>
+                  {nextTrip.destination && <span className="trip-dest">→ {nextTrip.destination}</span>}
+                </div>
+              </div>
+            ) : (
+              <div className="no-trip-badge">
+                <span>📅 Brak zaplanowanych wyjazdów</span>
+              </div>
+            )}
+          </div>
+          <button className="btn-manage-trips" onClick={() => setShowTripsModal(true)}>
+            📅 Zarządzaj wyjazdami
+          </button>
+        </div>
+
         <div className="driver-tabs">
           {tabs.map(t => (
             <button key={t.id} className={`driver-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
@@ -5899,6 +5952,97 @@ ${t.team}
               <button className="btn-primary" onClick={sendDriverStatusEmail}>
                 ✅ Tak, wyślij
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal zarządzania wyjazdami */}
+      {showTripsModal && (
+        <div className="modal-overlay" onClick={() => setShowTripsModal(false)}>
+          <div className="modal-content modal-medium trips-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📅 Moje planowane wyjazdy</h2>
+              <button className="btn-close" onClick={() => setShowTripsModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {/* Formularz dodawania wyjazdu */}
+              <div className="add-trip-form">
+                <h3>➕ Dodaj nowy wyjazd</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Data wyjazdu *</label>
+                    <input
+                      type="date"
+                      value={newTripDate}
+                      onChange={e => setNewTripDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Kierunek / Trasa</label>
+                    <input
+                      type="text"
+                      value={newTripDestination}
+                      onChange={e => setNewTripDestination(e.target.value)}
+                      placeholder="np. Niemcy, Holandia, Belgia..."
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Notatka (opcjonalnie)</label>
+                  <input
+                    type="text"
+                    value={newTripNote}
+                    onChange={e => setNewTripNote(e.target.value)}
+                    placeholder="np. Tylko małe przesyłki, pełny załadunek..."
+                  />
+                </div>
+                <button className="btn-primary" onClick={addTrip}>
+                  ➕ Dodaj wyjazd
+                </button>
+              </div>
+
+              {/* Lista zaplanowanych wyjazdów */}
+              <div className="trips-list">
+                <h3>📋 Zaplanowane wyjazdy ({plannedTrips.length})</h3>
+                {plannedTrips.length === 0 ? (
+                  <div className="empty-trips">
+                    <p>Brak zaplanowanych wyjazdów</p>
+                  </div>
+                ) : (
+                  <div className="trips-items">
+                    {plannedTrips.map(trip => {
+                      const tripDate = new Date(trip.date);
+                      const today = new Date();
+                      today.setHours(0,0,0,0);
+                      const isPast = tripDate < today;
+                      const isToday = tripDate.toDateString() === today.toDateString();
+                      
+                      return (
+                        <div key={trip.id} className={`trip-item ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}>
+                          <div className="trip-item-info">
+                            <span className="trip-item-date">
+                              {isToday ? '🔴 DZIŚ' : formatDate(trip.date)}
+                            </span>
+                            <span className="trip-item-dest">{trip.destination || 'Nieokreślony kierunek'}</span>
+                            {trip.note && <span className="trip-item-note">📝 {trip.note}</span>}
+                          </div>
+                          <button 
+                            className="btn-delete-small"
+                            onClick={() => removeTrip(trip.id)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowTripsModal(false)}>Zamknij</button>
             </div>
           </div>
         </div>
@@ -8682,6 +8826,13 @@ Zespół obsługi zamówień
         onUpdateOrder={updateOrder}
         onAddNotification={addNotif}
         onLogout={onLogout}
+        onUpdateUser={async (userId, data) => {
+          await updateUser(userId, data);
+          // Aktualizuj lokalny stan użytkownika
+          const updatedUser = { ...user, ...data };
+          setUser(updatedUser);
+          localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+        }}
       />
     );
   }
@@ -8828,6 +8979,64 @@ Zespół obsługi zamówień
       )}
 
       <main className="main">
+        {/* Slider planowanych wyjazdów kierowców - tylko dla admina i pracownika */}
+        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
+          const driversWithTrips = users
+            .filter(u => u.role === 'driver' && u.plannedTrips && u.plannedTrips.length > 0)
+            .map(driver => {
+              const today = new Date();
+              today.setHours(0,0,0,0);
+              const futureTrips = driver.plannedTrips
+                .filter(t => new Date(t.date) >= today)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+              return { ...driver, futureTrips };
+            })
+            .filter(d => d.futureTrips.length > 0);
+
+          if (driversWithTrips.length === 0) return null;
+
+          return (
+            <div className="drivers-trips-slider">
+              <div className="trips-slider-header">
+                <span className="trips-slider-title">🚗 Planowane wyjazdy kierowców</span>
+              </div>
+              <div className="trips-slider-content">
+                {driversWithTrips.map(driver => (
+                  <div key={driver.id} className="driver-trip-card">
+                    <div className="driver-trip-name">
+                      <span className="driver-avatar">🚚</span>
+                      <span>{driver.name}</span>
+                    </div>
+                    <div className="driver-trip-dates">
+                      {driver.futureTrips.slice(0, 3).map((trip, idx) => {
+                        const tripDate = new Date(trip.date);
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const isToday = tripDate.toDateString() === today.toDateString();
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const isTomorrow = tripDate.toDateString() === tomorrow.toDateString();
+                        
+                        return (
+                          <div key={idx} className={`trip-date-chip ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}>
+                            <span className="trip-date-text">
+                              {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : formatDate(trip.date)}
+                            </span>
+                            {trip.destination && <span className="trip-dest-text">→ {trip.destination}</span>}
+                          </div>
+                        );
+                      })}
+                      {driver.futureTrips.length > 3 && (
+                        <span className="more-trips">+{driver.futureTrips.length - 3} więcej</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="top-bar">
           <div className="top-left">
             <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
