@@ -4010,9 +4010,11 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // Filtrowanie po statusie w zakładce "Do odbioru"
   const [pickupStatusFilter, setPickupStatusFilter] = useState('all'); // all, potwierdzone, w_produkcji, gotowe_do_odbioru
 
-  // State dla planowanych wyjazdów
+  // State dla planowanych wyjazdów - rozbudowane
   const [showTripsModal, setShowTripsModal] = useState(false);
-  const [newTripDate, setNewTripDate] = useState('');
+  const [newPickupDateFrom, setNewPickupDateFrom] = useState(''); // Odbiory od
+  const [newPickupDateTo, setNewPickupDateTo] = useState(''); // Odbiory do
+  const [newTripDate, setNewTripDate] = useState(''); // Data wyjazdu
   const [newTripDestination, setNewTripDestination] = useState('');
   const [newTripNote, setNewTripNote] = useState('');
 
@@ -4025,15 +4027,23 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       alert('Podaj datę wyjazdu!');
       return;
     }
+    if (!newPickupDateFrom) {
+      alert('Podaj datę rozpoczęcia odbiorów!');
+      return;
+    }
     const newTrip = {
       id: Date.now().toString(),
-      date: newTripDate,
+      pickupFrom: newPickupDateFrom,
+      pickupTo: newPickupDateTo || newPickupDateFrom, // Jeśli nie podano "do", użyj "od"
+      departureDate: newTripDate,
       destination: newTripDestination || 'Nieokreślony',
       note: newTripNote,
       createdAt: new Date().toISOString()
     };
-    const updatedTrips = [...plannedTrips, newTrip].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const updatedTrips = [...plannedTrips, newTrip].sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
     await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+    setNewPickupDateFrom('');
+    setNewPickupDateTo('');
     setNewTripDate('');
     setNewTripDestination('');
     setNewTripNote('');
@@ -4045,8 +4055,13 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     await onUpdateUser(user.id, { plannedTrips: updatedTrips });
   };
 
-  // Najbliższy wyjazd
-  const nextTrip = plannedTrips.find(t => new Date(t.date) >= new Date(new Date().setHours(0,0,0,0)));
+  // Najbliższy wyjazd (sprawdzamy datę wyjazdu)
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const nextTrip = plannedTrips.find(t => {
+    const depDate = new Date(t.departureDate || t.date);
+    return depDate >= today;
+  });
 
   const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
   const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
@@ -5183,9 +5198,20 @@ ${t.team}
               <div className="next-trip-badge">
                 <span className="trip-icon">🚗</span>
                 <div className="trip-details">
-                  <span className="trip-label">Najbliższy wyjazd:</span>
-                  <span className="trip-date">{formatDate(nextTrip.date)}</span>
-                  {nextTrip.destination && <span className="trip-dest">→ {nextTrip.destination}</span>}
+                  <div className="trip-row">
+                    <span className="trip-label">📦 Odbiory:</span>
+                    <span className="trip-dates">
+                      {formatDate(nextTrip.pickupFrom || nextTrip.date)}
+                      {nextTrip.pickupTo && nextTrip.pickupTo !== nextTrip.pickupFrom && (
+                        <> — {formatDate(nextTrip.pickupTo)}</>
+                      )}
+                    </span>
+                  </div>
+                  <div className="trip-row">
+                    <span className="trip-label">🚗 Wyjazd:</span>
+                    <span className="trip-date-main">{formatDate(nextTrip.departureDate || nextTrip.date)}</span>
+                    {nextTrip.destination && <span className="trip-dest">→ {nextTrip.destination}</span>}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -5265,8 +5291,6 @@ ${t.team}
                     </span>
                   </div>
 
-                  <p className="driver-order-product">{order.towar}</p>
-
                   {producer && activeTab === 'pickup' && (
                     <div className="driver-section producer-section">
                       <div className="section-title">🏭 Producent do odbioru</div>
@@ -5279,7 +5303,7 @@ ${t.team}
                     </div>
                   )}
 
-                  <div className="driver-section client-section">
+                  <div className="driver-section client-section expandable">
                     <div className="section-title">👤 Klient</div>
                     <div className="section-name">{order.klient?.imie || '—'}</div>
                     <div className="section-detail">📍 {order.klient?.adres || '—'}</div>
@@ -5287,6 +5311,13 @@ ${t.team}
                       {order.klient?.telefon && <a href={`tel:${order.klient.telefon}`}>📞 {order.klient.telefon}</a>}
                       {order.klient?.facebookUrl && <a href={order.klient.facebookUrl} target="_blank" rel="noopener noreferrer">📘 Facebook</a>}
                     </div>
+                    {/* Towar dla tego klienta */}
+                    {order.towar && (
+                      <div className="client-product-info">
+                        <div className="product-info-header">📦 Towar do dostarczenia:</div>
+                        <div className="product-info-content">{order.towar}</div>
+                      </div>
+                    )}
                   </div>
 
                   {order.platnosci?.doZaplaty > 0 && (
@@ -5968,27 +5999,57 @@ ${t.team}
             <div className="modal-body">
               {/* Formularz dodawania wyjazdu */}
               <div className="add-trip-form">
-                <h3>➕ Dodaj nowy wyjazd</h3>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Data wyjazdu *</label>
-                    <input
-                      type="date"
-                      value={newTripDate}
-                      onChange={e => setNewTripDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Kierunek / Trasa</label>
-                    <input
-                      type="text"
-                      value={newTripDestination}
-                      onChange={e => setNewTripDestination(e.target.value)}
-                      placeholder="np. Niemcy, Holandia, Belgia..."
-                    />
+                <h3>➕ Zaplanuj nowy wyjazd</h3>
+                
+                <div className="trip-form-section">
+                  <label className="section-label">📦 Okres odbiorów</label>
+                  <div className="date-range-row">
+                    <div className="form-group">
+                      <label>Od dnia *</label>
+                      <input
+                        type="date"
+                        value={newPickupDateFrom}
+                        onChange={e => setNewPickupDateFrom(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <span className="date-separator">—</span>
+                    <div className="form-group">
+                      <label>Do dnia</label>
+                      <input
+                        type="date"
+                        value={newPickupDateTo}
+                        onChange={e => setNewPickupDateTo(e.target.value)}
+                        min={newPickupDateFrom || new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
                   </div>
                 </div>
+
+                <div className="trip-form-section">
+                  <label className="section-label">🚗 Wyjazd</label>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Data wyjazdu *</label>
+                      <input
+                        type="date"
+                        value={newTripDate}
+                        onChange={e => setNewTripDate(e.target.value)}
+                        min={newPickupDateTo || newPickupDateFrom || new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Kierunek / Trasa</label>
+                      <input
+                        type="text"
+                        value={newTripDestination}
+                        onChange={e => setNewTripDestination(e.target.value)}
+                        placeholder="np. Niemcy, Holandia, Belgia..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label>Notatka (opcjonalnie)</label>
                   <input
@@ -6013,20 +6074,40 @@ ${t.team}
                 ) : (
                   <div className="trips-items">
                     {plannedTrips.map(trip => {
-                      const tripDate = new Date(trip.date);
-                      const today = new Date();
-                      today.setHours(0,0,0,0);
-                      const isPast = tripDate < today;
-                      const isToday = tripDate.toDateString() === today.toDateString();
+                      const depDate = new Date(trip.departureDate || trip.date);
+                      const todayDate = new Date();
+                      todayDate.setHours(0,0,0,0);
+                      const isPast = depDate < todayDate;
+                      const isToday = depDate.toDateString() === todayDate.toDateString();
                       
                       return (
-                        <div key={trip.id} className={`trip-item ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}>
-                          <div className="trip-item-info">
-                            <span className="trip-item-date">
-                              {isToday ? '🔴 DZIŚ' : formatDate(trip.date)}
-                            </span>
-                            <span className="trip-item-dest">{trip.destination || 'Nieokreślony kierunek'}</span>
-                            {trip.note && <span className="trip-item-note">📝 {trip.note}</span>}
+                        <div key={trip.id} className={`trip-item-extended ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}>
+                          <div className="trip-item-info-extended">
+                            <div className="trip-info-row">
+                              <span className="trip-info-label">📦 Odbiory:</span>
+                              <span className="trip-info-value">
+                                {formatDate(trip.pickupFrom || trip.date)}
+                                {trip.pickupTo && trip.pickupTo !== trip.pickupFrom && (
+                                  <> — {formatDate(trip.pickupTo)}</>
+                                )}
+                              </span>
+                            </div>
+                            <div className="trip-info-row highlight">
+                              <span className="trip-info-label">🚗 Wyjazd:</span>
+                              <span className="trip-info-value">
+                                {isToday ? '🔴 DZIŚ' : formatDate(trip.departureDate || trip.date)}
+                              </span>
+                            </div>
+                            <div className="trip-info-row">
+                              <span className="trip-info-label">📍 Kierunek:</span>
+                              <span className="trip-info-value">{trip.destination || 'Nieokreślony'}</span>
+                            </div>
+                            {trip.note && (
+                              <div className="trip-info-row">
+                                <span className="trip-info-label">📝 Notatka:</span>
+                                <span className="trip-info-value note">{trip.note}</span>
+                              </div>
+                            )}
                           </div>
                           <button 
                             className="btn-delete-small"
@@ -8984,11 +9065,11 @@ Zespół obsługi zamówień
           const driversWithTrips = users
             .filter(u => u.role === 'driver' && u.plannedTrips && u.plannedTrips.length > 0)
             .map(driver => {
-              const today = new Date();
-              today.setHours(0,0,0,0);
+              const todayDate = new Date();
+              todayDate.setHours(0,0,0,0);
               const futureTrips = driver.plannedTrips
-                .filter(t => new Date(t.date) >= today)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+                .filter(t => new Date(t.departureDate || t.date) >= todayDate)
+                .sort((a, b) => new Date(a.departureDate || a.date) - new Date(b.departureDate || b.date));
               return { ...driver, futureTrips };
             })
             .filter(d => d.futureTrips.length > 0);
@@ -9002,32 +9083,49 @@ Zespół obsługi zamówień
               </div>
               <div className="trips-slider-content">
                 {driversWithTrips.map(driver => (
-                  <div key={driver.id} className="driver-trip-card">
+                  <div key={driver.id} className="driver-trip-card-extended">
                     <div className="driver-trip-name">
                       <span className="driver-avatar">🚚</span>
                       <span>{driver.name}</span>
                     </div>
-                    <div className="driver-trip-dates">
-                      {driver.futureTrips.slice(0, 3).map((trip, idx) => {
-                        const tripDate = new Date(trip.date);
-                        const today = new Date();
-                        today.setHours(0,0,0,0);
-                        const isToday = tripDate.toDateString() === today.toDateString();
-                        const tomorrow = new Date(today);
+                    <div className="driver-trip-schedule">
+                      {driver.futureTrips.slice(0, 2).map((trip, idx) => {
+                        const depDate = new Date(trip.departureDate || trip.date);
+                        const todayCheck = new Date();
+                        todayCheck.setHours(0,0,0,0);
+                        const isToday = depDate.toDateString() === todayCheck.toDateString();
+                        const tomorrow = new Date(todayCheck);
                         tomorrow.setDate(tomorrow.getDate() + 1);
-                        const isTomorrow = tripDate.toDateString() === tomorrow.toDateString();
+                        const isTomorrow = depDate.toDateString() === tomorrow.toDateString();
                         
                         return (
-                          <div key={idx} className={`trip-date-chip ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}>
-                            <span className="trip-date-text">
-                              {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : formatDate(trip.date)}
-                            </span>
-                            {trip.destination && <span className="trip-dest-text">→ {trip.destination}</span>}
+                          <div key={idx} className={`trip-schedule-item ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}>
+                            <div className="trip-schedule-pickup">
+                              <span className="schedule-label">📦 Odbiory:</span>
+                              <span className="schedule-value">
+                                {formatDate(trip.pickupFrom || trip.date)}
+                                {trip.pickupTo && trip.pickupTo !== trip.pickupFrom && (
+                                  <> — {formatDate(trip.pickupTo)}</>
+                                )}
+                              </span>
+                            </div>
+                            <div className="trip-schedule-departure">
+                              <span className="schedule-label">🚗 Wyjazd:</span>
+                              <span className="schedule-value highlight">
+                                {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : formatDate(trip.departureDate || trip.date)}
+                              </span>
+                            </div>
+                            {trip.destination && (
+                              <div className="trip-schedule-dest">
+                                <span className="schedule-label">📍</span>
+                                <span className="schedule-value">{trip.destination}</span>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
-                      {driver.futureTrips.length > 3 && (
-                        <span className="more-trips">+{driver.futureTrips.length - 3} więcej</span>
+                      {driver.futureTrips.length > 2 && (
+                        <span className="more-trips">+{driver.futureTrips.length - 2} więcej wyjazdów</span>
                       )}
                     </div>
                   </div>
