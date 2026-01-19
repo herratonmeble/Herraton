@@ -11071,3 +11071,292 @@ input.margin-negative {
   margin: 10px 0 0;
   opacity: 0.8;
 }
+
+/* ============================================
+   POWIĘKSZONY MODAL ZAMÓWIENIA
+   ============================================ */
+
+.modal-content.modal-form {
+  max-width: 900px;
+  width: 95%;
+  max-height: 92vh;
+}
+
+/* ============================================
+   NOWA SEKCJA FINANSÓW PRODUKTU
+   ============================================ */
+
+.product-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E5E7EB;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.product-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-email-producer {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-email-producer:hover {
+  background: #4F46E5;
+  color: white;
+}
+
+.product-financials {
+  margin-top: 16px;
+  padding: 16px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+
+.product-financials h4 {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  color: #1E1B4B;
+}
+
+.finance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #E2E8F0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.finance-row:last-child {
+  border-bottom: none;
+}
+
+.finance-row.highlight {
+  background: #DCFCE7;
+  margin: 8px -16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #86EFAC;
+}
+
+.finance-row.highlight-warning {
+  background: #FEF3C7;
+  margin: 8px -16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #FCD34D;
+}
+
+.finance-label {
+  font-size: 13px;
+  color: #64748B;
+  min-width: 150px;
+}
+
+.finance-row.highlight .finance-label,
+.finance-row.highlight-warning .finance-label {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.finance-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.currency-select {
+  padding: 6px 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 12px;
+  width: 60px;
+}
+
+.finance-input {
+  padding: 6px 10px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 13px;
+  width: 90px;
+  text-align: right;
+}
+
+.finance-input.large {
+  width: 120px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.finance-separator {
+  color: #9CA3AF;
+  font-size: 12px;
+}
+
+/* Podsumowanie produktów */
+.products-totals {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%);
+  border-radius: 12px;
+  border: 1px solid #C7D2FE;
+}
+
+.products-totals h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #1E1B4B;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.total-item span {
+  color: #64748B;
+}
+
+.total-item strong {
+  color: #1E1B4B;
+}
+
+.total-item.highlight {
+  background: #DCFCE7;
+  border: 1px solid #86EFAC;
+}
+
+.total-item.highlight strong {
+  color: #166534;
+}
+
+.total-item.warning {
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+}
+
+.total-item.warning strong {
+  color: #92400E;
+}
+
+.btn-sync-totals {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #4F46E5, #6366F1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sync-totals:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* Modal email do producenta */
+.modal-email-producer {
+  max-width: 600px;
+}
+
+.producer-contact-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.producer-contact-info span {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.email-type-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.email-type-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #E2E8F0;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.email-type-btn:hover {
+  border-color: #4F46E5;
+}
+
+.email-type-btn.active {
+  background: #4F46E5;
+  border-color: #4F46E5;
+  color: white;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .modal-content.modal-form {
+    max-width: 100%;
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .finance-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .finance-inputs {
+    width: 100%;
+  }
+  
+  .totals-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .product-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
