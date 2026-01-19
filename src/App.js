@@ -8731,22 +8731,6 @@ const SettlementsPanel = ({
     return filtered;
   };
 
-  // Zamówienia już rozliczone dla wybranego kierowcy
-  const getSettledOrders = (driverId) => {
-    return orders.filter(o => 
-      o.rozliczone && 
-      !o.usuniety && 
-      (driverId ? o.przypisanyKierowca === driverId : true)
-    );
-  };
-
-  // Oblicz kwotę do oddania dla zamówienia
-  const calculateSettlementAmount = (order) => {
-    const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
-    const transportCost = order.koszty?.transportNetto || 0;
-    return collected - transportCost;
-  };
-
   // Suma dla wybranych zamówień
   const calculateTotal = () => {
     let totalCollected = 0;
