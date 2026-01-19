@@ -6486,82 +6486,191 @@ ${t.team}
         </div>
       )}
 
-      {/* Modal rozliczeń kierowcy (tylko podgląd) */}
+      {/* Modal rozliczeń kierowcy - pełny podgląd */}
       {showSettlementsModal && (
-        <div className="modal-overlay" onClick={() => setShowSettlementsModal(false)}>
-          <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>💰 Moje rozliczenia</h2>
-              <button className="btn-close" onClick={() => setShowSettlementsModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              {(() => {
-                const mySettlements = settlements.filter(s => s.driverId === user.id);
-                
-                if (mySettlements.length === 0) {
-                  return (
-                    <div className="empty-settlements">
-                      <p>📭 Brak rozliczeń</p>
-                      <p className="subtitle">Twoje rozliczenia pojawią się tutaj po utworzeniu przez administratora.</p>
-                    </div>
-                  );
-                }
+        <DriverSettlementsModal
+          settlements={settlements.filter(s => s.driverId === user.id)}
+          formatDate={formatDate}
+          onClose={() => setShowSettlementsModal(false)}
+        />
+      )}
+    </div>
+  );
+};
 
-                return (
-                  <div className="settlements-list">
-                    {mySettlements.map(settlement => (
-                      <div key={settlement.id} className="settlement-card">
-                        <div className="settlement-header">
-                          <span className="settlement-date">📅 {formatDate(settlement.createdAt)}</span>
-                          <span className={`status-badge ${settlement.status}`}>
-                            {settlement.status === 'utworzone' ? '🆕 Oczekuje' : 
-                             settlement.status === 'rozliczone' ? '✅ Rozliczone' : settlement.status}
+// Komponent modala rozliczeń dla kierowcy
+const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
+  const [viewingSettlement, setViewingSettlement] = useState(null);
+
+  const formatCurrency = (amount, currency = 'PLN') => {
+    const symbols = { PLN: 'zł', EUR: '€', GBP: '£', USD: '$', CHF: 'CHF' };
+    return `${(amount || 0).toFixed(2)} ${symbols[currency] || currency}`;
+  };
+
+  // Widok szczegółów rozliczenia
+  if (viewingSettlement) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>💰 Szczegóły rozliczenia</h2>
+            <button className="btn-close" onClick={onClose}>×</button>
+          </div>
+          <div className="modal-body">
+            <button className="btn-back" onClick={() => setViewingSettlement(null)}>
+              ← Powrót do listy
+            </button>
+
+            <div className="driver-settlement-detail">
+              <div className="detail-header-row">
+                <div className="detail-title">
+                  <h3>Rozliczenie z {formatDate(viewingSettlement.createdAt)}</h3>
+                  <span className={`status-badge ${viewingSettlement.status}`}>
+                    {viewingSettlement.status === 'utworzone' ? '🆕 Oczekuje na rozliczenie' : '✅ Rozliczone'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Podsumowanie kwot */}
+              <div className="driver-settlement-summary">
+                <div className="summary-card collected">
+                  <span className="label">💵 Pobrano od klientów</span>
+                  <span className="amount">{formatCurrency(viewingSettlement.totalCollected, viewingSettlement.currency)}</span>
+                </div>
+                <div className="summary-card transport">
+                  <span className="label">🚚 Twój koszt transportu</span>
+                  <span className="amount">- {formatCurrency(viewingSettlement.totalTransportCost, viewingSettlement.currency)}</span>
+                </div>
+                <div className="summary-card total">
+                  <span className="label">💰 DO ODDANIA</span>
+                  <span className="amount">{formatCurrency(viewingSettlement.totalToReturn, viewingSettlement.currency)}</span>
+                </div>
+              </div>
+
+              {/* Lista zamówień */}
+              <div className="driver-settlement-orders">
+                <h4>📦 Zamówienia w tym rozliczeniu ({viewingSettlement.ordersCount})</h4>
+                <div className="orders-grid">
+                  {(viewingSettlement.orderDetails || []).map((order, idx) => (
+                    <div key={idx} className="order-detail-card">
+                      <div className="order-detail-header">
+                        <span className="order-number">{order.nrWlasny}</span>
+                        <span className="order-date">📅 Dostawa: {formatDate(order.dataDostawy)}</span>
+                      </div>
+                      <div className="order-detail-client">
+                        <div className="client-name">👤 {order.klient || 'Brak danych'}</div>
+                        {order.adres && <div className="client-address">📍 {order.adres}</div>}
+                      </div>
+                      {order.towar && (
+                        <div className="order-detail-product">
+                          📦 {order.towar.substring(0, 80)}{order.towar.length > 80 ? '...' : ''}
+                        </div>
+                      )}
+                      <div className="order-detail-amounts">
+                        <div className="amount-line">
+                          <span>Pobrano od klienta:</span>
+                          <span className="value">{formatCurrency(order.pobrano, viewingSettlement.currency)}</span>
+                        </div>
+                        <div className="amount-line">
+                          <span>Twój transport:</span>
+                          <span className="value transport">- {formatCurrency(order.transport, viewingSettlement.currency)}</span>
+                        </div>
+                        <div className="amount-line result">
+                          <span>Do oddania z tego zamówienia:</span>
+                          <span className={`value ${(order.pobrano - order.transport) >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(order.pobrano - order.transport, viewingSettlement.currency)}
                           </span>
                         </div>
-                        <div className="settlement-details">
-                          <div className="settlement-row">
-                            <span>📦 Zamówień:</span>
-                            <span className="value">{settlement.ordersCount}</span>
-                          </div>
-                          <div className="settlement-row">
-                            <span>💵 Pobrano od klientów:</span>
-                            <span className="value">{(settlement.totalCollected || 0).toFixed(2)} zł</span>
-                          </div>
-                          <div className="settlement-row">
-                            <span>🚚 Twój koszt transportu:</span>
-                            <span className="value minus">- {(settlement.totalTransportCost || 0).toFixed(2)} zł</span>
-                          </div>
-                          <div className="settlement-row total">
-                            <span>💰 Do oddania:</span>
-                            <span className="value highlight">{(settlement.totalToReturn || 0).toFixed(2)} zł</span>
-                          </div>
-                        </div>
-                        {settlement.history && settlement.history.length > 0 && (
-                          <details className="settlement-history">
-                            <summary>📜 Historia</summary>
-                            <div className="history-list">
-                              {settlement.history.map((h, idx) => (
-                                <div key={idx} className="history-item">
-                                  <span>{formatDate(h.date)}</span>
-                                  <span>{h.action}</span>
-                                  <span>— {h.user}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Historia */}
+              {viewingSettlement.history && viewingSettlement.history.length > 0 && (
+                <div className="driver-settlement-history">
+                  <h4>📜 Historia rozliczenia</h4>
+                  <div className="history-timeline">
+                    {viewingSettlement.history.map((h, idx) => (
+                      <div key={idx} className="history-entry">
+                        <span className="history-date">{formatDate(h.date)}</span>
+                        <span className="history-action">{h.action}</span>
+                        <span className="history-user">przez {h.user}</span>
                       </div>
                     ))}
                   </div>
-                );
-              })()}
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowSettlementsModal(false)}>Zamknij</button>
+                </div>
+              )}
             </div>
           </div>
+          <div className="modal-footer">
+            <button className="btn-secondary" onClick={() => setViewingSettlement(null)}>Powrót do listy</button>
+          </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // Widok listy rozliczeń
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>💰 Moje rozliczenia</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          {settlements.length === 0 ? (
+            <div className="empty-settlements">
+              <div className="empty-icon">📭</div>
+              <p>Brak rozliczeń</p>
+              <p className="subtitle">Twoje rozliczenia pojawią się tutaj po utworzeniu przez administratora.</p>
+            </div>
+          ) : (
+            <div className="driver-settlements-list">
+              {settlements.map(settlement => (
+                <div 
+                  key={settlement.id} 
+                  className="driver-settlement-card"
+                  onClick={() => setViewingSettlement(settlement)}
+                >
+                  <div className="card-header">
+                    <div className="card-date">📅 {formatDate(settlement.createdAt)}</div>
+                    <span className={`status-badge ${settlement.status}`}>
+                      {settlement.status === 'utworzone' ? '🆕 Oczekuje' : '✅ Rozliczone'}
+                    </span>
+                  </div>
+                  <div className="card-summary">
+                    <div className="summary-item">
+                      <span className="label">📦 Zamówień</span>
+                      <span className="value">{settlement.ordersCount}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="label">💵 Pobrano</span>
+                      <span className="value">{formatCurrency(settlement.totalCollected, settlement.currency)}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="label">🚚 Transport</span>
+                      <span className="value minus">- {formatCurrency(settlement.totalTransportCost, settlement.currency)}</span>
+                    </div>
+                    <div className="summary-item total">
+                      <span className="label">💰 Do oddania</span>
+                      <span className="value">{formatCurrency(settlement.totalToReturn, settlement.currency)}</span>
+                    </div>
+                  </div>
+                  <div className="card-footer">
+                    <span className="click-hint">Kliknij aby zobaczyć szczegóły zamówień →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
     </div>
   );
 };
