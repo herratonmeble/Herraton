@@ -10218,7 +10218,6 @@ const App = () => {
     if (!order || !order.produkty || !order.produkty[productIndex]) return;
     
     const updatedProducts = [...order.produkty];
-    const oldStatus = updatedProducts[productIndex].status;
     updatedProducts[productIndex] = {
       ...updatedProducts[productIndex],
       status: newStatus
