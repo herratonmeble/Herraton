@@ -2214,7 +2214,13 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(list);
+    try {
+      await onSave(list);
+      console.log('Zapisano zmiany producentów');
+    } catch (err) {
+      console.error('Błąd zapisywania producentów:', err);
+      alert('Błąd podczas zapisywania');
+    }
     setSaving(false);
     onClose();
   };
@@ -2406,7 +2412,13 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(list);
+    try {
+      await onSave(list);
+      console.log('Zapisano zmiany użytkowników');
+    } catch (err) {
+      console.error('Błąd zapisywania użytkowników:', err);
+      alert('Błąd podczas zapisywania');
+    }
     setSaving(false);
     onClose();
   };
@@ -9889,18 +9901,35 @@ Zespół obsługi zamówień
   };
 
   const handleSaveUsers = async (newList) => {
+    // Znajdź użytkowników do usunięcia
     for (const old of users) {
       if (!newList.find(x => x.id === old.id) && old.username !== 'admin') {
-        try { await deleteUser(old.id); } catch {}
+        console.log('Usuwanie użytkownika:', old.id, old.name);
+        try { 
+          await deleteUser(old.id); 
+          console.log('Użytkownik usunięty:', old.id);
+        } catch (err) {
+          console.error('Błąd usuwania użytkownika:', err);
+        }
       }
     }
+    // Dodaj nowych lub zaktualizuj istniejących
     for (const u of newList) {
       if (!u.id || String(u.id).startsWith('new_')) {
         const payload = { ...u };
         delete payload.id;
-        try { await addUser(payload); } catch {}
+        try { 
+          await addUser(payload); 
+          console.log('Dodano użytkownika:', payload.name);
+        } catch (err) {
+          console.error('Błąd dodawania użytkownika:', err);
+        }
       } else {
-        try { await updateUser(u.id, u); } catch {}
+        try { 
+          await updateUser(u.id, u); 
+        } catch (err) {
+          console.error('Błąd aktualizacji użytkownika:', err);
+        }
       }
     }
   };
@@ -9908,16 +9937,34 @@ Zespół obsługi zamówień
   const handleSaveProducers = async (list) => {
     const currentIds = new Set(Object.keys(producers));
     const nextIds = new Set(list.map(p => p.id));
+    
+    // Usuń producentów których nie ma na nowej liście
     for (const id of currentIds) {
       if (!nextIds.has(id)) {
-        try { await deleteProducer(id); } catch {}
+        console.log('Usuwanie producenta:', id);
+        try { 
+          await deleteProducer(id); 
+          console.log('Producent usunięty:', id);
+        } catch (err) {
+          console.error('Błąd usuwania producenta:', err);
+        }
       }
     }
+    // Dodaj lub zaktualizuj
     for (const p of list) {
       if (producers[p.id]) {
-        try { await updateProducer(p.id, p); } catch {}
+        try { 
+          await updateProducer(p.id, p); 
+        } catch (err) {
+          console.error('Błąd aktualizacji producenta:', err);
+        }
       } else {
-        try { await addProducer(p); } catch {}
+        try { 
+          await addProducer(p); 
+          console.log('Dodano producenta:', p.name);
+        } catch (err) {
+          console.error('Błąd dodawania producenta:', err);
+        }
       }
     }
   };
