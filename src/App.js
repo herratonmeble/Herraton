@@ -1531,6 +1531,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
         setForm(f => ({ ...f, produkty: updatedProducts }));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.nrWlasny]);
 
   // Funkcja generująca treść emaila z potwierdzeniem
