@@ -1937,797 +1937,458 @@ Zespół obsługi zamówień`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-form" onClick={e => e.stopPropagation()}>
+      <div className="modal-content modal-form modal-fullscreen" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{order ? '✏️ Edytuj' : '➕ Nowe'} zamówienie</h2>
+          <h2>{order ? '✏️ Edytuj' : '➕ Nowe'} zamówienie {form.nrWlasny && `#${form.nrWlasny}`}</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label>KRAJ DOSTAWY</label>
-              <select value={form.kraj || 'PL'} onChange={e => setForm({ ...form, kraj: e.target.value })}>
-                {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>NR ZAMÓWIENIA</label>
-              <input value={form.nrWlasny} onChange={e => setForm({ ...form, nrWlasny: e.target.value })} placeholder="Auto" />
-            </div>
-            {!isContractor && (
-              <div className="form-group">
-                <label>STATUS {form.produkty?.length > 1 ? '(wszystkich)' : ''}</label>
-                <select 
-                  value={form.status} 
-                  onChange={e => {
-                    const newStatus = e.target.value;
-                    // Gdy zmieniam główny status - aktualizuj też wszystkie produkty
-                    const updatedProducts = form.produkty.map(p => ({ ...p, status: newStatus }));
-                    setForm({ ...form, status: newStatus, produkty: updatedProducts });
-                  }}
-                >
-                  {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-                </select>
+        <div className="modal-body modal-body-sections">
+          {/* LEWA KOLUMNA - Podstawowe info i Produkty */}
+          <div className="modal-column modal-column-left">
+            
+            {/* ========== SEKCJA 1: PODSTAWOWE INFO ========== */}
+            <div className="form-section-box">
+              <div className="section-header">
+                <span className="section-icon">📋</span>
+                <h3>Podstawowe informacje</h3>
               </div>
-            )}
-            <div className="form-group">
-              <label>DATA ZLECENIA</label>
-              <input type="date" value={form.dataZlecenia} onChange={e => setForm({ ...form, dataZlecenia: e.target.value })} />
-            </div>
-          </div>
-
-          {!isContractor && (
-            <div className="form-grid">
-              <div className="form-group">
-                <label>KIEROWCA {form.produkty?.length > 1 ? '(domyślny)' : ''}</label>
-                <select 
-                  value={form.przypisanyKierowca || ''} 
-                  onChange={e => {
-                    const newDriver = e.target.value || null;
-                    // Aktualizuj też produkty bez przypisanego kierowcy
-                    const updatedProducts = form.produkty.map(p => ({
-                      ...p,
-                      kierowca: p.kierowca || newDriver
-                    }));
-                    setForm({ ...form, przypisanyKierowca: newDriver, produkty: updatedProducts });
-                  }}
-                >
-                  <option value="">-- Wybierz kierowcę --</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* SEKCJA PRODUKTÓW - obsługa wielu produktów/producentów */}
-          <div className="form-section products-section">
-            <div className="products-header">
-              <h3>📦 Produkty ({form.produkty?.length || 0})</h3>
-              {!isContractor && (
-                <button type="button" className="btn-add-product" onClick={addProduct}>
-                  ➕ Dodaj kolejny produkt
-                </button>
-              )}
-            </div>
-
-            {/* Zakładki produktów - tylko gdy więcej niż 1 */}
-            {form.produkty && form.produkty.length > 1 && (
-              <div className="product-tabs">
-                {form.produkty.map((prod, idx) => {
-                  const prodStatus = getStatus(prod.status);
-                  const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
-                  return (
-                    <button
-                      key={prod.id}
-                      type="button"
-                      className={`product-tab ${activeProductIndex === idx ? 'active' : ''}`}
-                      onClick={() => setActiveProductIndex(idx)}
-                    >
-                      <span className="tab-number">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
-                      <span className="tab-producer">{prodProducer?.name || prod.producentNazwa || '—'}</span>
-                      <span className="tab-status" style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}>
-                        {prodStatus?.icon}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Aktywny produkt */}
-            {form.produkty && form.produkty[activeProductIndex] && (
-              <div className="product-form-card">
-                <div className="product-form-header">
-                  <span className="product-number">
-                    📦 {form.produkty[activeProductIndex].nrPodzamowienia || `Produkt ${activeProductIndex + 1}`}
-                  </span>
-                  <div className="product-header-actions">
-                    {!isContractor && form.produkty[activeProductIndex].producent && (
-                      <button 
-                        type="button" 
-                        className="btn-email-producer"
-                        onClick={() => setShowEmailModal({ type: 'producer', productIndex: activeProductIndex })}
-                      >
-                        📧 Email do producenta
-                      </button>
-                    )}
-                    {form.produkty.length > 1 && (
-                      <button 
-                        type="button" 
-                        className="btn-remove-product"
-                        onClick={() => removeProduct(activeProductIndex)}
-                      >
-                        🗑️ Usuń
-                      </button>
-                    )}
+              <div className="section-content">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>🌍 KRAJ DOSTAWY</label>
+                    <select value={form.kraj || 'PL'} onChange={e => setForm({ ...form, kraj: e.target.value })}>
+                      {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>🔢 NR ZAMÓWIENIA</label>
+                    <input value={form.nrWlasny} onChange={e => setForm({ ...form, nrWlasny: e.target.value })} placeholder="Auto" />
+                  </div>
+                  <div className="form-group">
+                    <label>📅 DATA ZLECENIA</label>
+                    <input type="date" value={form.dataZlecenia} onChange={e => setForm({ ...form, dataZlecenia: e.target.value })} />
                   </div>
                 </div>
-
-                {/* Opis towaru */}
-                <div className="form-group full">
-                  <label>OPIS TOWARU *</label>
-                  <textarea 
-                    value={form.produkty[activeProductIndex].towar || ''} 
-                    onChange={e => updateProduct(activeProductIndex, 'towar', e.target.value)} 
-                    rows={2} 
-                    placeholder="Szczegółowy opis produktu..."
-                  />
-                </div>
-
                 {!isContractor && (
-                  <>
-                    {/* Wiersz 1: Producent, Status, Kierowca */}
-                    <div className="form-grid form-grid-3">
-                      <div className="form-group">
-                        <label>🏭 PRODUCENT</label>
-                        <select 
-                          value={form.produkty[activeProductIndex].producent || ''} 
-                          onChange={e => {
-                            updateProduct(activeProductIndex, 'producent', e.target.value);
-                            if (e.target.value !== '_other') {
-                              updateProduct(activeProductIndex, 'producentNazwa', '');
-                            }
-                          }}
-                        >
-                          <option value="">-- Wybierz --</option>
-                          {Object.values(producers).map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                          <option value="_other">➕ Inny...</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>📊 STATUS</label>
-                        <select 
-                          value={form.produkty[activeProductIndex].status || 'nowe'} 
-                          onChange={e => {
-                            updateProduct(activeProductIndex, 'status', e.target.value);
-                            // Aktualizuj główny status jeśli wszystkie produkty mają ten sam
-                            const newStatus = e.target.value;
-                            const otherStatuses = form.produkty.filter((_, i) => i !== activeProductIndex).map(p => p.status);
-                            if (otherStatuses.every(s => s === newStatus)) {
-                              setForm(prev => ({ ...prev, status: newStatus }));
-                            }
-                          }}
-                        >
-                          {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>🚚 KIEROWCA</label>
-                        <select 
-                          value={form.produkty[activeProductIndex].kierowca || ''} 
-                          onChange={e => updateProduct(activeProductIndex, 'kierowca', e.target.value)}
-                        >
-                          <option value="">-- Wybierz --</option>
-                          {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </select>
-                      </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>📊 STATUS {form.produkty?.length > 1 ? '(wszystkich)' : ''}</label>
+                      <select 
+                        value={form.status} 
+                        onChange={e => {
+                          const newStatus = e.target.value;
+                          const updatedProducts = form.produkty.map(p => ({ ...p, status: newStatus }));
+                          setForm({ ...form, status: newStatus, produkty: updatedProducts });
+                        }}
+                      >
+                        {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                      </select>
                     </div>
+                    <div className="form-group">
+                      <label>🚚 KIEROWCA {form.produkty?.length > 1 ? '(domyślny)' : ''}</label>
+                      <select 
+                        value={form.przypisanyKierowca || ''} 
+                        onChange={e => {
+                          const newDriver = e.target.value || null;
+                          const updatedProducts = form.produkty.map(p => ({
+                            ...p,
+                            kierowca: p.kierowca || newDriver
+                          }));
+                          setForm({ ...form, przypisanyKierowca: newDriver, produkty: updatedProducts });
+                        }}
+                      >
+                        <option value="">-- Wybierz --</option>
+                        {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>📅 DATA DOSTAWY</label>
+                      <input type="date" value={form.dataDostawy || ''} onChange={e => setForm({ ...form, dataDostawy: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ========== SEKCJA 2: PRODUKTY ========== */}
+            <div className="form-section-box products-box">
+              <div className="section-header">
+                <span className="section-icon">📦</span>
+                <h3>Produkty ({form.produkty?.length || 0})</h3>
+                {!isContractor && (
+                  <button type="button" className="btn-add-small" onClick={addProduct}>
+                    ➕ Dodaj produkt
+                  </button>
+                )}
+              </div>
+              <div className="section-content">
+                {/* Zakładki produktów */}
+                {form.produkty && form.produkty.length > 1 && (
+                  <div className="product-tabs-horizontal">
+                    {form.produkty.map((prod, idx) => {
+                      const prodStatus = getStatus(prod.status);
+                      const prodDriver = drivers.find(d => d.id === prod.kierowca);
+                      return (
+                        <button
+                          key={prod.id}
+                          type="button"
+                          className={`product-tab-h ${activeProductIndex === idx ? 'active' : ''}`}
+                          onClick={() => setActiveProductIndex(idx)}
+                        >
+                          <span className="tab-nr">#{idx + 1}</span>
+                          <span className="tab-status-dot" style={{ background: prodStatus?.color }}></span>
+                          {prodDriver && <span className="tab-driver">🚚</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Aktywny produkt */}
+                {form.produkty && form.produkty[activeProductIndex] && (
+                  <div className="product-edit-card">
+                    <div className="product-card-header">
+                      <span>Produkt {activeProductIndex + 1} {form.produkty[activeProductIndex].nrPodzamowienia ? `(${form.produkty[activeProductIndex].nrPodzamowienia})` : ''}</span>
+                      {form.produkty.length > 1 && (
+                        <button type="button" className="btn-remove-small" onClick={() => removeProduct(activeProductIndex)}>🗑️</button>
+                      )}
+                    </div>
+                    
+                    {/* Opis towaru */}
+                    <div className="form-group full">
+                      <label>📝 OPIS TOWARU *</label>
+                      <textarea 
+                        value={form.produkty[activeProductIndex].towar || ''} 
+                        onChange={e => updateProduct(activeProductIndex, 'towar', e.target.value)} 
+                        rows={3} 
+                        placeholder="Szczegółowy opis produktu..."
+                      />
+                    </div>
+
+                    {!isContractor && (
+                      <div className="product-details-grid">
+                        <div className="form-group">
+                          <label>🏭 PRODUCENT</label>
+                          <select 
+                            value={form.produkty[activeProductIndex].producent || ''} 
+                            onChange={e => {
+                              updateProduct(activeProductIndex, 'producent', e.target.value);
+                              if (e.target.value !== '_other') {
+                                updateProduct(activeProductIndex, 'producentNazwa', '');
+                              }
+                            }}
+                          >
+                            <option value="">-- Wybierz --</option>
+                            {Object.values(producers).map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                            <option value="_other">➕ Inny...</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>📊 STATUS</label>
+                          <select 
+                            value={form.produkty[activeProductIndex].status || 'nowe'} 
+                            onChange={e => updateProduct(activeProductIndex, 'status', e.target.value)}
+                          >
+                            {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>🚚 KIEROWCA</label>
+                          <select 
+                            value={form.produkty[activeProductIndex].kierowca || ''} 
+                            onChange={e => updateProduct(activeProductIndex, 'kierowca', e.target.value)}
+                          >
+                            <option value="">-- Wybierz --</option>
+                            {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>📅 DATA ODBIORU</label>
+                          <input 
+                            type="date" 
+                            value={form.produkty[activeProductIndex].dataOdbioru || ''} 
+                            onChange={e => updateProduct(activeProductIndex, 'dataOdbioru', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Inny producent */}
                     {form.produkty[activeProductIndex].producent === '_other' && (
                       <div className="form-group full">
-                        <label>NAZWA INNEGO PRODUCENTA</label>
+                        <label>NAZWA PRODUCENTA</label>
                         <input 
                           value={form.produkty[activeProductIndex].producentNazwa || ''} 
                           onChange={e => updateProduct(activeProductIndex, 'producentNazwa', e.target.value)}
-                          placeholder="Wpisz nazwę producenta..."
+                          placeholder="Wpisz nazwę..."
                         />
                       </div>
                     )}
 
-                    {/* Wiersz 2: Data odbioru */}
-                    <div className="form-grid form-grid-2">
-                      <div className="form-group">
-                        <label>📅 DATA ODBIORU OD PRODUCENTA</label>
-                        <input 
-                          type="date" 
-                          value={form.produkty[activeProductIndex].dataOdbioru || ''} 
-                          onChange={e => updateProduct(activeProductIndex, 'dataOdbioru', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* KOSZTY I CENY - tylko dla admina */}
-                    {isAdmin && (
-                      <div className="product-financials">
-                        <h4>💰 Finanse tego produktu</h4>
-                        
-                        {/* Koszt zakupu */}
-                        <div className="finance-row">
-                          <span className="finance-label">Koszt zakupu:</span>
-                          <div className="finance-inputs">
-                            <select 
-                              value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
-                              onChange={e => updateProductCost(activeProductIndex, 'waluta', e.target.value)}
-                              className="currency-select"
-                            >
-                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol}</option>)}
-                            </select>
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
-                              onChange={e => updateProductCost(activeProductIndex, 'zakupNetto', e.target.value)}
-                              placeholder="Netto"
-                              className="finance-input"
-                            />
-                            <span className="finance-separator">/</span>
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].koszty?.zakupBrutto || ''} 
-                              onChange={e => updateProductCost(activeProductIndex, 'zakupBrutto', e.target.value)}
-                              placeholder="Brutto"
-                              className="finance-input"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Koszt transportu */}
-                        <div className="finance-row">
-                          <span className="finance-label">Koszt transportu:</span>
-                          <div className="finance-inputs">
-                            <select 
-                              value={form.produkty[activeProductIndex].koszty?.transportWaluta || 'PLN'} 
-                              onChange={e => updateProductCost(activeProductIndex, 'transportWaluta', e.target.value)}
-                              className="currency-select"
-                            >
-                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol}</option>)}
-                            </select>
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].koszty?.transportNetto || ''} 
-                              onChange={e => updateProductCost(activeProductIndex, 'transportNetto', e.target.value)}
-                              placeholder="Netto"
-                              className="finance-input"
-                            />
-                            <span className="finance-separator">/</span>
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].koszty?.transportBrutto || ''} 
-                              onChange={e => updateProductCost(activeProductIndex, 'transportBrutto', e.target.value)}
-                              placeholder="Brutto"
-                              className="finance-input"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Cena dla klienta */}
-                        <div className="finance-row highlight">
-                          <span className="finance-label">💵 Cena dla klienta (brutto):</span>
-                          <div className="finance-inputs">
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].cenaKlienta || ''} 
-                              onChange={e => {
-                                const cena = parseFloat(e.target.value) || 0;
-                                updateProduct(activeProductIndex, 'cenaKlienta', cena);
-                              }}
-                              placeholder="0.00"
-                              className="finance-input large"
-                            />
-                            <span className="currency-label">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
-                          </div>
-                        </div>
-
-                        {/* Kwota do pobrania przez kierowcę */}
-                        <div className="finance-row highlight-warning">
-                          <span className="finance-label">🚚 Do pobrania przez kierowcę:</span>
-                          <div className="finance-inputs">
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={form.produkty[activeProductIndex].doPobrania || ''} 
-                              onChange={e => {
-                                const kwota = parseFloat(e.target.value) || 0;
-                                updateProduct(activeProductIndex, 'doPobrania', kwota);
-                              }}
-                              placeholder="0.00"
-                              className="finance-input large"
-                            />
-                            <span className="currency-label">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Przycisk email do producenta */}
+                    {!isContractor && form.produkty[activeProductIndex].producent && form.produkty[activeProductIndex].producent !== '_other' && (
+                      <button 
+                        type="button" 
+                        className="btn-producer-email"
+                        onClick={() => setShowEmailModal({ type: 'producer', productIndex: activeProductIndex })}
+                      >
+                        📧 Wyślij zapytanie/zlecenie do producenta
+                      </button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Podsumowanie wszystkich produktów */}
-            {form.produkty && form.produkty.length > 0 && (
-              <div className="products-totals">
-                <h4>📊 Podsumowanie {form.produkty.length > 1 ? `(${form.produkty.length} produkty)` : ''}</h4>
-                <div className="totals-grid">
-                  <div className="total-item">
-                    <span>Suma kosztów zakupu:</span>
-                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0), 'PLN')} netto</strong>
+          {/* PRAWA KOLUMNA - Klient, Płatności, Koszty */}
+          <div className="modal-column modal-column-right">
+            
+            {/* ========== SEKCJA 3: DANE KLIENTA ========== */}
+            <div className="form-section-box">
+              <div className="section-header">
+                <span className="section-icon">👤</span>
+                <h3>Dane klienta</h3>
+              </div>
+              <div className="section-content">
+                <div className="client-grid">
+                  <div className="form-group name-autocomplete">
+                    <label>IMIĘ I NAZWISKO</label>
+                    <input 
+                      value={form.klient?.imie || ''} 
+                      onChange={e => handleNameChange(e.target.value)} 
+                      onFocus={() => {
+                        const sugg = getContactSuggestions(form.klient?.imie || '');
+                        setSuggestions(sugg);
+                        setShowSuggestions(sugg.length > 0);
+                      }}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      placeholder="Jan Kowalski" 
+                      autoComplete="off"
+                    />
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div className="suggestions-dropdown">
+                        <div className="suggestions-header">📇 Znalezieni klienci:</div>
+                        {suggestions.map((s, idx) => (
+                          <div key={idx} className="suggestion-item" onMouseDown={() => selectSuggestion(s)}>
+                            <div className="suggestion-name">{s.imie}</div>
+                            <div className="suggestion-details">
+                              {s.telefon && <span>📞 {s.telefon}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="total-item">
-                    <span>Suma kosztów transportu:</span>
-                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.transportNetto || 0), 0), 'PLN')} netto</strong>
+                  <div className="form-group">
+                    <label>TELEFON</label>
+                    <input value={form.klient?.telefon || ''} onChange={e => updateKlient('telefon', e.target.value)} placeholder="+48 123 456 789" />
                   </div>
-                  <div className="total-item highlight">
-                    <span>Suma cen dla klienta:</span>
-                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.cenaKlienta || 0), 0), form.platnosci?.waluta || 'PLN')}</strong>
+                  <div className="form-group full-width">
+                    <label>ADRES DOSTAWY</label>
+                    <input value={form.klient?.adres || ''} onChange={e => updateKlient('adres', e.target.value)} placeholder="ul. Przykładowa 1, 00-000 Miasto" />
                   </div>
-                  <div className="total-item warning">
-                    <span>Suma do pobrania:</span>
-                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.doPobrania || 0), 0), form.platnosci?.waluta || 'PLN')}</strong>
+                  <div className="form-group">
+                    <label>EMAIL</label>
+                    <input value={form.klient?.email || ''} onChange={e => updateKlient('email', e.target.value)} placeholder="email@example.com" />
+                  </div>
+                  <div className="form-group">
+                    <label>FACEBOOK</label>
+                    <input value={form.klient?.facebookUrl || ''} onChange={e => updateKlient('facebookUrl', e.target.value)} placeholder="https://facebook.com/..." />
                   </div>
                 </div>
-                {isAdmin && (
-                  <button 
-                    type="button" 
-                    className="btn-sync-totals"
-                    onClick={() => {
-                      // Synchronizuj sumy z głównymi polami
-                      const sumaCena = form.produkty.reduce((sum, p) => sum + (p.cenaKlienta || 0), 0);
-                      const sumaDoPobrania = form.produkty.reduce((sum, p) => sum + (p.doPobrania || 0), 0);
-                      const sumaZakupNetto = form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0);
-                      const sumaZakupBrutto = form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupBrutto || 0), 0);
-                      const sumaTransportNetto = form.produkty.reduce((sum, p) => sum + (p.koszty?.transportNetto || 0), 0);
-                      const sumaTransportBrutto = form.produkty.reduce((sum, p) => sum + (p.koszty?.transportBrutto || 0), 0);
-                      
-                      setForm(prev => ({
-                        ...prev,
-                        platnosci: {
-                          ...prev.platnosci,
-                          cenaCalkowita: sumaCena,
-                          doZaplaty: sumaDoPobrania
-                        },
-                        koszty: {
-                          ...prev.koszty,
-                          zakupNetto: sumaZakupNetto,
-                          zakupBrutto: sumaZakupBrutto,
-                          transportNetto: sumaTransportNetto,
-                          transportBrutto: sumaTransportBrutto
-                        }
-                      }));
-                    }}
-                  >
-                    🔄 Przepisz sumy do płatności i kosztów
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="form-section">
-            <h3>👤 Dane klienta</h3>
-            <div className="form-grid">
-              <div className="form-group name-autocomplete">
-                <label>IMIĘ I NAZWISKO</label>
-                <input 
-                  value={form.klient?.imie || ''} 
-                  onChange={e => handleNameChange(e.target.value)} 
-                  onFocus={() => {
-                    const sugg = getContactSuggestions(form.klient?.imie || '');
-                    setSuggestions(sugg);
-                    setShowSuggestions(sugg.length > 0);
-                  }}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                  placeholder="Jan Kowalski" 
-                  autoComplete="off"
-                />
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="suggestions-dropdown">
-                    <div className="suggestions-header">📇 Znalezieni klienci:</div>
-                    {suggestions.map((s, idx) => (
-                      <div 
-                        key={idx} 
-                        className="suggestion-item"
-                        onMouseDown={() => selectSuggestion(s)}
-                      >
-                        <div className="suggestion-name">{s.imie}</div>
-                        <div className="suggestion-details">
-                          {s.telefon && <span>📞 {s.telefon}</span>}
-                          {s.email && <span>✉️ {s.email}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="form-group">
-                <label>TELEFON</label>
-                <input value={form.klient?.telefon || ''} onChange={e => updateKlient('telefon', e.target.value)} placeholder="+48 123 456 789" />
-              </div>
-              <div className="form-group span-2">
-                <label>ADRES DOSTAWY</label>
-                <input value={form.klient?.adres || ''} onChange={e => updateKlient('adres', e.target.value)} placeholder="ul. Przykładowa 1, 00-000 Miasto" />
-              </div>
-              <div className="form-group">
-                <label>EMAIL</label>
-                <input value={form.klient?.email || ''} onChange={e => updateKlient('email', e.target.value)} placeholder="email@example.com" />
-              </div>
-              <div className="form-group">
-                <label>LINK DO FACEBOOK</label>
-                <input value={form.klient?.facebookUrl || ''} onChange={e => updateKlient('facebookUrl', e.target.value)} placeholder="https://facebook.com/..." />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section payment">
-            <h3>💰 Płatności</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>WALUTA</label>
-                <select value={form.platnosci?.waluta || 'PLN'} onChange={e => updatePlatnosci('waluta', e.target.value)}>
-                  {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>CENA CAŁKOWITA</label>
-                <input type="number" value={form.platnosci?.cenaCalkowita || ''} onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label>ZAPŁACONO</label>
-                <input type="number" value={form.platnosci?.zaplacono || ''} onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label>METODA PŁATNOŚCI</label>
-                <select value={form.platnosci?.metodaZaplaty || ''} onChange={e => updatePlatnosci('metodaZaplaty', e.target.value)}>
-                  <option value="">-- Wybierz --</option>
-                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>DATA PŁATNOŚCI</label>
-                <input type="date" value={form.platnosci?.dataZaplaty || ''} onChange={e => updatePlatnosci('dataZaplaty', e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>DO ZAPŁATY</label>
-                <input type="number" value={form.platnosci?.doZaplaty || 0} readOnly className={form.platnosci?.doZaplaty > 0 ? 'unpaid' : 'paid'} />
               </div>
             </div>
 
-            {/* PŁATNOŚĆ PRZY DOSTAWIE - dla kierowcy */}
-            {form.platnosci?.doZaplaty > 0 && (
-              <div className="delivery-payment-section">
-                <h4>🚚 Płatność przy dostawie</h4>
-                <p className="delivery-payment-info">
-                  Klient musi jeszcze zapłacić: <strong>{formatCurrency(form.platnosci.doZaplaty, form.platnosci?.waluta)}</strong>
-                </p>
-                <div className="form-grid">
+            {/* ========== SEKCJA 4: PŁATNOŚCI ========== */}
+            <div className="form-section-box">
+              <div className="section-header">
+                <span className="section-icon">💳</span>
+                <h3>Płatności</h3>
+              </div>
+              <div className="section-content">
+                <div className="payment-grid">
                   <div className="form-group">
-                    <label>JAK KLIENT ZAPŁACI RESZTĘ? *</label>
-                    <select 
-                      value={form.platnosci?.metodaPrzyDostawie || 'gotowka'} 
-                      onChange={e => updatePlatnosci('metodaPrzyDostawie', e.target.value)}
-                      className="delivery-payment-select"
-                    >
-                      {DELIVERY_PAYMENT_METHODS.filter(m => m.id !== 'brak').map(m => (
-                        <option key={m.id} value={m.id}>{m.icon} {m.name}</option>
-                      ))}
+                    <label>WALUTA</label>
+                    <select value={form.platnosci?.waluta || 'PLN'} onChange={e => updatePlatnosci('waluta', e.target.value)}>
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>UWAGI DO PŁATNOŚCI</label>
+                    <label>CENA CAŁKOWITA</label>
                     <input 
-                      type="text" 
-                      value={form.platnosci?.uwagiPlatnosc || ''} 
-                      onChange={e => updatePlatnosci('uwagiPlatnosc', e.target.value)}
-                      placeholder="np. Klient poprosi o fakturę, czeka na kredyt..."
+                      type="number" 
+                      value={form.platnosci?.cenaCalkowita || ''} 
+                      onChange={e => updatePlatnosci('cenaCalkowita', parseFloat(e.target.value) || 0)} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>ZAPŁACONO</label>
+                    <input 
+                      type="number" 
+                      value={form.platnosci?.zaplacono || ''} 
+                      onChange={e => updatePlatnosci('zaplacono', parseFloat(e.target.value) || 0)} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>METODA</label>
+                    <select value={form.platnosci?.metodaZaplaty || ''} onChange={e => updatePlatnosci('metodaZaplaty', e.target.value)}>
+                      <option value="">-- Wybierz --</option>
+                      {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>DATA PŁATNOŚCI</label>
+                    <input type="date" value={form.platnosci?.dataZaplaty || ''} onChange={e => updatePlatnosci('dataZaplaty', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>DO ZAPŁATY</label>
+                    <input 
+                      type="number" 
+                      value={form.platnosci?.doZaplaty || 0} 
+                      readOnly 
+                      className={form.platnosci?.doZaplaty > 0 ? 'unpaid-input' : 'paid-input'} 
                     />
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* SEKCJA KOSZTÓW - TYLKO DLA ADMINA */}
-          {isAdmin && (
-            <div className="form-section costs">
-              <h3>📊 Koszty i marża (widoczne tylko dla admina)</h3>
-              
-              {/* Podsumowanie kosztów z produktów - jeśli są */}
-              {form.produkty && form.produkty.length > 0 && form.produkty.some(p => p.koszty?.zakupNetto > 0 || p.koszty?.zakupBrutto > 0) && (
-                <div className="products-costs-summary">
-                  <h4>📦 Koszty zakupu produktów</h4>
-                  <div className="products-costs-list">
-                    {form.produkty.map((p, idx) => {
-                      if (!p.koszty?.zakupNetto && !p.koszty?.zakupBrutto) return null;
-                      const prodProducer = Object.values(producers).find(pr => pr.id === p.producent);
-                      return (
-                        <div key={idx} className="product-cost-row">
-                          <span className="prod-name">{p.nrPodzamowienia || `#${idx + 1}`}: {prodProducer?.name || p.producentNazwa || '—'}</span>
-                          <span className="prod-cost">
-                            {formatCurrency(p.koszty?.zakupNetto || 0, p.koszty?.waluta || 'PLN')} netto
-                          </span>
-                        </div>
-                      );
-                    })}
-                    <div className="product-cost-total">
-                      <span>SUMA:</span>
-                      <span>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0), 'PLN')} netto</span>
-                    </div>
+                {/* Podsumowanie płatności */}
+                <div className={`payment-summary ${form.platnosci?.doZaplaty > 0 ? 'unpaid' : ''}`}>
+                  <div className="payment-summary-row">
+                    <span>Cena całkowita:</span>
+                    <strong>{formatCurrency(form.platnosci?.cenaCalkowita || 0, form.platnosci?.waluta)}</strong>
                   </div>
-                  <p className="costs-sync-info">
-                    ℹ️ Koszty z produktów są automatycznie sumowane poniżej. Możesz też ręcznie wpisać koszty.
-                  </p>
+                  <div className="payment-summary-row">
+                    <span>Zapłacono:</span>
+                    <strong>{formatCurrency(form.platnosci?.zaplacono || 0, form.platnosci?.waluta)}</strong>
+                  </div>
+                  <div className="payment-summary-row total">
+                    <span>{form.platnosci?.doZaplaty > 0 ? '⚠️ Pozostało do zapłaty:' : '✅ Opłacone'}</span>
+                    <strong>{formatCurrency(form.platnosci?.doZaplaty || 0, form.platnosci?.waluta)}</strong>
+                  </div>
                 </div>
-              )}
-              
-              {/* Wiersz 1: Stawka VAT */}
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>STAWKA VAT (%)</label>
-                  <select value={form.koszty?.vatRate || 23} onChange={e => updateKoszty('vatRate', parseInt(e.target.value))}>
-                    <option value={23}>23% (standard)</option>
-                    <option value={8}>8%</option>
-                    <option value={5}>5%</option>
-                    <option value={0}>0% (zwolniony)</option>
-                  </select>
-                </div>
-              </div>
 
-              {/* KOSZT TOWARU */}
-              <div className="cost-section">
-                <div className="cost-section-header">
-                  <h4>🏭 Koszt towaru {form.produkty?.length > 1 ? '(suma z produktów)' : ''}</h4>
-                  {priceLists && priceLists.length > 0 && !isContractor && (
-                    <button 
-                      type="button" 
-                      className="btn-search-product-small"
-                      onClick={() => setShowProductSearchInOrder(true)}
-                      title="Wyszukaj produkt z cennika"
-                    >
-                      🔍 Szukaj w cennikach
-                    </button>
-                  )}
-                </div>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>WALUTA</label>
-                    <select value={form.koszty?.waluta || 'PLN'} onChange={e => updateKoszty('waluta', e.target.value)}>
-                      {CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>
-                          {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] && c.code !== 'PLN' ? `• ${exchangeRates[c.code].toFixed(4)} PLN` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>KOSZT BRUTTO</label>
-                    <div className="input-with-currency">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={form.koszty?.zakupBrutto || ''} 
-                        onChange={e => updateKoszty('zakupBrutto', parseFloat(e.target.value) || 0)} 
-                        placeholder="0.00" 
-                      />
-                      <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>KOSZT NETTO (auto)</label>
-                    <div className="input-with-currency">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={form.koszty?.zakupNetto || ''} 
-                        onChange={e => updateKoszty('zakupNetto', parseFloat(e.target.value) || 0)} 
-                        placeholder="0.00" 
-                      />
-                      <span className="currency-label">{getCurrency(form.koszty?.waluta || 'PLN').symbol}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* KOSZT TRANSPORTU */}
-              <div className="cost-section">
-                <div className="cost-section-header">
-                  <h4>🚚 Koszt transportu</h4>
-                </div>
-                
-                {/* Stawki kierowcy - jeśli przypisany */}
-                {form.przypisanyKierowca && !isContractor && (() => {
-                  const assignedDriver = drivers.find(d => d.id === form.przypisanyKierowca);
-                  const driverRates = assignedDriver?.transportRates || [];
-                  const countryRates = driverRates.filter(r => r.country === form.kraj);
+                {/* Pobranie per kierowca - gdy są różni kierowcy */}
+                {form.produkty && form.produkty.length > 1 && (() => {
+                  const driverAmounts = {};
+                  form.produkty.forEach(p => {
+                    const driverId = p.kierowca || form.przypisanyKierowca;
+                    if (driverId && p.doPobrania > 0) {
+                      if (!driverAmounts[driverId]) driverAmounts[driverId] = 0;
+                      driverAmounts[driverId] += p.doPobrania;
+                    }
+                  });
+                  const driverIds = Object.keys(driverAmounts);
                   
-                  if (countryRates.length > 0) {
+                  if (driverIds.length > 1) {
                     return (
-                      <div className="driver-rates-hint">
-                        <div className="rates-hint-header">
-                          💶 Stawki kierowcy {assignedDriver?.name} dla {getCountry(form.kraj)?.flag} {getCountry(form.kraj)?.name}:
-                        </div>
-                        <div className="rates-hint-list">
-                          {countryRates.map(rate => (
-                            <button
-                              key={rate.id}
-                              type="button"
-                              className="rate-quick-btn"
-                              onClick={() => {
-                                const vatRate = form.koszty?.vatRate || 23;
-                                const vatMultiplier = 1 + (vatRate / 100);
-                                updateKoszty('transportWaluta', rate.currency);
-                                updateKoszty('transportNetto', rate.priceNetto);
-                                updateKoszty('transportBrutto', Math.round(rate.priceNetto * vatMultiplier * 100) / 100);
-                              }}
-                            >
-                              <span className="rate-name">{rate.name}</span>
-                              <span className="rate-price">{rate.priceNetto?.toFixed(2)} {CURRENCIES.find(c => c.code === rate.currency)?.symbol}</span>
-                            </button>
-                          ))}
-                        </div>
+                      <div className="driver-collection-info">
+                        <h4>🚚 Pobranie per kierowca:</h4>
+                        {driverIds.map(dId => {
+                          const driver = drivers.find(d => d.id === dId);
+                          return (
+                            <div key={dId} className="driver-collection-row">
+                              <span className="driver-name">{driver?.name || 'Nieznany'}</span>
+                              <span className="driver-amount">{formatCurrency(driverAmounts[dId], form.platnosci?.waluta)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   }
                   return null;
                 })()}
-
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>WALUTA</label>
-                    <select value={form.koszty?.transportWaluta || 'PLN'} onChange={e => updateKoszty('transportWaluta', e.target.value)}>
-                      {CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>
-                          {c.code} ({c.symbol}) {exchangeRates && exchangeRates[c.code] && c.code !== 'PLN' ? `• ${exchangeRates[c.code].toFixed(4)} PLN` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>KOSZT BRUTTO</label>
-                    <div className="input-with-currency">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={form.koszty?.transportBrutto || ''} 
-                        onChange={e => updateKoszty('transportBrutto', parseFloat(e.target.value) || 0)} 
-                        placeholder="0.00" 
-                      />
-                      <span className="currency-label">{getCurrency(form.koszty?.transportWaluta || 'PLN').symbol}</span>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>KOSZT NETTO (auto)</label>
-                    <div className="input-with-currency">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={form.koszty?.transportNetto || ''} 
-                        onChange={e => updateKoszty('transportNetto', parseFloat(e.target.value) || 0)} 
-                        placeholder="0.00" 
-                      />
-                      <span className="currency-label">{getCurrency(form.koszty?.transportWaluta || 'PLN').symbol}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
+            </div>
 
-              {/* Podsumowanie marży */}
-              <div className="margin-summary">
-                <div className="margin-breakdown">
-                  <div className="margin-item">
-                    <span className="margin-label">Cena od klienta (brutto)</span>
-                    <span className="margin-value">
-                      {formatCurrency(calcMarza().cenaBrutto, form.platnosci?.waluta)}
-                      {form.platnosci?.waluta !== 'PLN' && (
-                        <small className="converted"> = {formatCurrency(calcMarza().cenaBruttoPLN, 'PLN')}</small>
-                      )}
-                    </span>
-                  </div>
-                  <div className="margin-item">
-                    <span className="margin-label">Cena od klienta (netto po VAT {form.koszty?.vatRate || 23}%)</span>
-                    <span className="margin-value">
-                      {formatCurrency(calcMarza().cenaNetto, form.platnosci?.waluta)}
-                      {form.platnosci?.waluta !== 'PLN' && (
-                        <small className="converted"> = {formatCurrency(calcMarza().cenaNettoPLN, 'PLN')}</small>
-                      )}
-                    </span>
-                  </div>
-                  <div className="margin-item subtract">
-                    <span className="margin-label">− Koszt towaru (netto)</span>
-                    <span className="margin-value">
-                      {formatCurrency(calcMarza().zakupNettoOriginal, form.koszty?.waluta)}
-                      {form.koszty?.waluta !== 'PLN' && (
-                        <small className="converted"> = {formatCurrency(calcMarza().zakupNettoPLN, 'PLN')}</small>
-                      )}
-                    </span>
-                  </div>
-                  <div className="margin-item subtract">
-                    <span className="margin-label">− Transport (netto)</span>
-                    <span className="margin-value">
-                      {formatCurrency(calcMarza().transportNettoOriginal, form.koszty?.transportWaluta)}
-                      {form.koszty?.transportWaluta !== 'PLN' && (
-                        <small className="converted"> = {formatCurrency(calcMarza().transportNettoPLN, 'PLN')}</small>
-                      )}
-                    </span>
-                  </div>
-                  {/* Pokaż rabat jeśli był udzielony */}
-                  {form.rabatPrzyDostawie?.kwota > 0 && (
-                    <div className="margin-item subtract discount-item">
-                      <span className="margin-label">− Rabat kierowcy (netto)</span>
-                      <span className="margin-value discount-value">
-                        {formatCurrency(calcMarza().rabatPLN, 'PLN')}
-                        <small className="discount-info"> ({form.rabatPrzyDostawie.powod})</small>
-                      </span>
+            {/* ========== SEKCJA 5: KOSZTY (admin) ========== */}
+            {isAdmin && (
+              <div className="form-section-box">
+                <div className="section-header">
+                  <span className="section-icon">📊</span>
+                  <h3>Koszty i marża</h3>
+                </div>
+                <div className="section-content">
+                  {/* Podsumowanie kosztów z produktów */}
+                  {form.produkty && form.produkty.length > 0 && (
+                    <div className="costs-summary-box">
+                      <h4>💰 Koszty produktów:</h4>
+                      <div className="costs-products-list">
+                        {form.produkty.map((p, idx) => (
+                          <div key={idx} className="cost-product-row">
+                            <span>#{idx + 1}: {p.towar?.substring(0, 30) || 'Produkt'}...</span>
+                            <span>
+                              Zakup: {formatCurrency(p.koszty?.zakupNetto || 0, p.koszty?.waluta || 'PLN')} | 
+                              Transport: {formatCurrency(p.koszty?.transportNetto || 0, p.koszty?.transportWaluta || 'PLN')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between' }}>
+                        <strong>SUMA:</strong>
+                        <strong>
+                          {formatCurrency(form.produkty.reduce((s, p) => s + (p.koszty?.zakupNetto || 0) + (p.koszty?.transportNetto || 0), 0), 'PLN')} netto
+                        </strong>
+                      </div>
                     </div>
                   )}
-                </div>
-                <div className={`margin-total ${calcMarza().marzaPLN >= 0 ? 'positive' : 'negative'}`}>
-                  <span className="margin-label">= MARŻA NETTO (PLN){form.rabatPrzyDostawie?.kwota > 0 ? ' (po rabacie)' : ''}</span>
-                  <span className="margin-value">
-                    {formatCurrency(calcMarza().marzaPLN, 'PLN')}
-                    <span className="margin-percent">({calcMarza().marzaProcentowa}%)</span>
-                  </span>
+
+                  {/* Marża */}
+                  {(() => {
+                    const przychod = form.platnosci?.cenaCalkowita || 0;
+                    const kosztyZakupu = form.produkty?.reduce((s, p) => s + (p.koszty?.zakupNetto || 0), 0) || form.koszty?.zakupNetto || 0;
+                    const kosztyTransport = form.produkty?.reduce((s, p) => s + (p.koszty?.transportNetto || 0), 0) || form.koszty?.transportNetto || 0;
+                    const marza = przychod - kosztyZakupu - kosztyTransport;
+                    
+                    return (
+                      <div className={`margin-display ${marza >= 0 ? 'positive' : 'negative'}`}>
+                        <span>📈 Szacowana marża netto:</span>
+                        <strong>{formatCurrency(marza, form.platnosci?.waluta || 'PLN')}</strong>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
+            )}
 
-              {/* Informacja o kursach */}
-              {exchangeRates && (
-                <div className="exchange-rates-info">
-                  <small>💱 Kursy NBP: {Object.entries(exchangeRates).filter(([k]) => ['EUR', 'USD', 'GBP', 'CHF'].includes(k)).map(([k, v]) => `${k}: ${v.toFixed(4)}`).join(' | ')}</small>
-                </div>
-              )}
+            {/* ========== SEKCJA 6: UWAGI ========== */}
+            <div className="form-section-box">
+              <div className="section-header">
+                <span className="section-icon">📝</span>
+                <h3>Uwagi</h3>
+              </div>
+              <div className="section-content notes-section">
+                <textarea 
+                  value={form.uwagi || ''} 
+                  onChange={e => setForm({ ...form, uwagi: e.target.value })}
+                  placeholder="Dodatkowe uwagi do zamówienia..."
+                  rows={3}
+                />
+              </div>
             </div>
-          )}
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label>PLANOWANA DATA ODBIORU</label>
-              <input type="date" value={form.dataOdbioru || ''} onChange={e => setForm({ ...form, dataOdbioru: e.target.value })} />
-            </div>
-            <div className="form-group">
-              <label>PLANOWANA DATA DOSTAWY</label>
-              <input type="date" value={form.dataDostawy || ''} onChange={e => setForm({ ...form, dataDostawy: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="form-group full">
-            <label>UWAGI</label>
-            <textarea value={form.uwagi || ''} onChange={e => setForm({ ...form, uwagi: e.target.value })} rows={2} placeholder="Dodatkowe uwagi..." />
           </div>
         </div>
 
-        <div className="modal-footer">
-          <div className="footer-left">
+        {/* FOOTER Z PRZYCISKAMI */}
+        <div className="modal-footer-full">
+          <div className="footer-left-actions">
             {form.klient?.email && (
-              <button 
-                type="button"
-                className="btn-send-confirmation" 
-                onClick={() => setShowConfirmationModal(true)}
-                title="Wyślij potwierdzenie zamówienia na email klienta"
-              >
-                📧 Wyślij potwierdzenie
+              <button type="button" className="btn-secondary" onClick={() => setShowConfirmationModal(true)}>
+                📧 Wyślij potwierdzenie do klienta
               </button>
             )}
           </div>
-          <div className="footer-right">
-            <button className="btn-secondary" onClick={onClose}>Anuluj</button>
-            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          <div className="footer-right-actions">
+            <button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>
+            <button 
+              type="button" 
+              className="btn-primary btn-save-order" 
+              onClick={handleSave}
+              disabled={saving}
+            >
               {saving ? '⏳ Zapisuję...' : '💾 Zapisz zamówienie'}
             </button>
           </div>
@@ -6450,39 +6111,65 @@ ${t.team}
                     </div>
                   </div>
 
-                  {order.platnosci?.doZaplaty > 0 && (
-                    <div className="driver-payment-alert">
-                      <div className="payment-header">
-                        <div className="payment-label">💰 Do pobrania od klienta</div>
-                        <div className="payment-amount">{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</div>
-                      </div>
-                      {/* Pokaż zaliczkę jeśli była wpłacona */}
-                      {(order.platnosci?.zaliczka > 0 || order.platnosci?.zaplacono > 0) && (
-                        <div className="payment-advance-info">
-                          💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci.zaplacono || order.platnosci.zaliczka, order.platnosci.waluta)}</strong>
-                        </div>
-                      )}
-                      <div className="payment-details">
-                        {order.platnosci.metodaPrzyDostawie && (
-                          <div className="payment-method-badge">
-                            {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).icon} {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).name}
+                  {/* Kwota do pobrania - tylko dla produktów tego kierowcy */}
+                  {(() => {
+                    let myAmount = 0;
+                    
+                    if (order.produkty && order.produkty.length > 0) {
+                      // Zamówienie łączone - sumuj tylko produkty tego kierowcy
+                      order.produkty.forEach(p => {
+                        const prodDriverId = p.kierowca || order.przypisanyKierowca;
+                        if (prodDriverId === user.id && p.doPobrania > 0) {
+                          myAmount += p.doPobrania;
+                        }
+                      });
+                    } else {
+                      // Stare zamówienie - sprawdź czy jest przypisane do tego kierowcy
+                      if (order.przypisanyKierowca === user.id) {
+                        myAmount = order.platnosci?.doZaplaty || 0;
+                      }
+                    }
+                    
+                    if (myAmount > 0) {
+                      return (
+                        <div className="driver-payment-alert">
+                          <div className="payment-header">
+                            <div className="payment-label">💰 Do pobrania od klienta</div>
+                            <div className="payment-amount">{formatCurrency(myAmount, order.platnosci?.waluta)}</div>
                           </div>
-                        )}
-                        {!order.platnosci.metodaPrzyDostawie && (
-                          <div className="payment-method-badge default">💵 Gotówka (domyślnie)</div>
-                        )}
-                      </div>
-                      {order.platnosci.uwagiPlatnosc && (
-                        <div className="payment-notes">📝 {order.platnosci.uwagiPlatnosc}</div>
-                      )}
-                    </div>
-                  )}
-
-                  {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
-                    <div className="driver-payment-ok">
-                      <span>✅ Zapłacone w całości</span>
-                    </div>
-                  )}
+                          {(order.platnosci?.zaliczka > 0 || order.platnosci?.zaplacono > 0) && (
+                            <div className="payment-advance-info">
+                              💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci?.zaplacono || order.platnosci?.zaliczka, order.platnosci?.waluta)}</strong>
+                            </div>
+                          )}
+                          <div className="payment-details">
+                            {order.platnosci?.metodaPrzyDostawie && (
+                              <div className="payment-method-badge">
+                                {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).icon} {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).name}
+                              </div>
+                            )}
+                            {!order.platnosci?.metodaPrzyDostawie && (
+                              <div className="payment-method-badge default">💵 Gotówka (domyślnie)</div>
+                            )}
+                          </div>
+                          {order.platnosci?.uwagiPlatnosc && (
+                            <div className="payment-notes">📝 {order.platnosci.uwagiPlatnosc}</div>
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    // Jeśli kwota = 0, pokaż że opłacone
+                    if (order.platnosci?.cenaCalkowita > 0) {
+                      return (
+                        <div className="driver-payment-ok">
+                          <span>✅ Zapłacone w całości</span>
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })()}
 
                   {(order.szacowanyOdbior || order.szacowanaDostwa) && (
                     <div className="driver-dates">
