@@ -1401,36 +1401,83 @@ Zespół obsługi zamówień`;
 };
 
 // ============================================
-// MODAL EDYCJI ZAMÓWIENIA - POPRAWIONY (zamyka się po zapisie)
+// MODAL EDYCJI ZAMÓWIENIA - KOMPLEKSOWA PRZEBUDOWA
 // ============================================
 
 const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin, exchangeRates, priceLists }) => {
-  // Inicjalizacja produktów - jeśli brak tablicy, utwórz z istniejącego towaru
+  // Inicjalizacja produktów - każdy produkt ma własne dane
   const initProducts = (existingOrder) => {
     if (existingOrder?.produkty && existingOrder.produkty.length > 0) {
-      return existingOrder.produkty;
+      // Upewnij się że każdy produkt ma wszystkie wymagane pola
+      return existingOrder.produkty.map((p, idx) => ({
+        id: p.id || 'prod_' + Date.now() + '_' + idx,
+        nrPodzamowienia: p.nrPodzamowienia || '',
+        towar: p.towar || '',
+        producent: p.producent || '',
+        producentNazwa: p.producentNazwa || '',
+        status: p.status || existingOrder.status || 'nowe',
+        kierowca: p.kierowca || existingOrder.przypisanyKierowca || '',
+        dataOdbioru: p.dataOdbioru || existingOrder.dataOdbioru || '',
+        koszty: {
+          waluta: p.koszty?.waluta || 'PLN',
+          zakupNetto: p.koszty?.zakupNetto || 0,
+          zakupBrutto: p.koszty?.zakupBrutto || 0,
+          transportWaluta: p.koszty?.transportWaluta || 'PLN',
+          transportNetto: p.koszty?.transportNetto || 0,
+          transportBrutto: p.koszty?.transportBrutto || 0,
+          vatRate: p.koszty?.vatRate || 23
+        },
+        // Ile klient płaci za ten konkretny produkt
+        cenaKlienta: p.cenaKlienta || 0,
+        // Ile kierowca ma pobrać za ten produkt
+        doPobrania: p.doPobrania || 0
+      }));
     }
-    // Migracja starego formatu - jeden towar bez tablicy produktów
+    // Migracja starego formatu
     if (existingOrder?.towar) {
       return [{
         id: 'prod_' + Date.now(),
         nrPodzamowienia: existingOrder.nrWlasny,
         towar: existingOrder.towar,
         producent: existingOrder.zaladunek || '',
+        producentNazwa: '',
         status: existingOrder.status || 'nowe',
+        kierowca: existingOrder.przypisanyKierowca || '',
         dataOdbioru: existingOrder.dataOdbioru || '',
-        koszty: existingOrder.koszty || { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0 }
+        koszty: {
+          waluta: existingOrder.koszty?.waluta || 'PLN',
+          zakupNetto: existingOrder.koszty?.zakupNetto || 0,
+          zakupBrutto: existingOrder.koszty?.zakupBrutto || 0,
+          transportWaluta: existingOrder.koszty?.transportWaluta || 'PLN',
+          transportNetto: existingOrder.koszty?.transportNetto || 0,
+          transportBrutto: existingOrder.koszty?.transportBrutto || 0,
+          vatRate: existingOrder.koszty?.vatRate || 23
+        },
+        cenaKlienta: existingOrder.platnosci?.cenaCalkowita || 0,
+        doPobrania: existingOrder.platnosci?.doZaplaty || 0
       }];
     }
-    // Nowe zamówienie - jeden pusty produkt
+    // Nowe zamówienie
     return [{
       id: 'prod_' + Date.now(),
       nrPodzamowienia: '',
       towar: '',
       producent: '',
+      producentNazwa: '',
       status: 'nowe',
+      kierowca: '',
       dataOdbioru: '',
-      koszty: { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0, vatRate: 23 }
+      koszty: {
+        waluta: 'PLN',
+        zakupNetto: 0,
+        zakupBrutto: 0,
+        transportWaluta: 'PLN',
+        transportNetto: 0,
+        transportBrutto: 0,
+        vatRate: 23
+      },
+      cenaKlienta: 0,
+      doPobrania: 0
     }];
   };
 
@@ -1442,9 +1489,9 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     kraj: 'PL',
     status: 'nowe',
     dataZlecenia: new Date().toISOString().split('T')[0],
-    towar: '', // Zachowaj dla kompatybilności wstecznej
-    zaladunek: '', // Zachowaj dla kompatybilności wstecznej
-    produkty: initProducts(null), // Nowa tablica produktów
+    towar: '',
+    zaladunek: '',
+    produkty: initProducts(null),
     klient: { imie: '', adres: '', telefon: '', email: '', facebookUrl: '' },
     platnosci: { waluta: 'PLN', zaplacono: 0, metodaZaplaty: '', dataZaplaty: '', doZaplaty: 0, cenaCalkowita: 0 },
     koszty: { 
@@ -1468,11 +1515,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showProductSearchInOrder, setShowProductSearchInOrder] = useState(false);
   const [activeProductIndex, setActiveProductIndex] = useState(0);
+  const [showEmailModal, setShowEmailModal] = useState(null); // {type: 'producer'|'confirmation', productIndex?: number}
+  const [producerEmailType, setProducerEmailType] = useState('inquiry'); // inquiry | order
 
   // Generuj numer podzamówienia
   const generateSubOrderNumber = (baseNr, index) => {
     if (index === 0) return baseNr;
-    const suffix = String.fromCharCode(65 + index); // A, B, C...
+    const suffix = String.fromCharCode(65 + index - 1); // A, B, C...
     return `${baseNr}-${suffix}`;
   };
 
@@ -1483,10 +1532,21 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
       nrPodzamowienia: generateSubOrderNumber(form.nrWlasny, form.produkty.length),
       towar: '',
       producent: '',
-      producentNazwa: '', // Dla "inny producent"
+      producentNazwa: '',
       status: 'nowe',
+      kierowca: form.przypisanyKierowca || '', // Domyślnie główny kierowca
       dataOdbioru: '',
-      koszty: { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0, vatRate: 23 }
+      koszty: {
+        waluta: 'PLN',
+        zakupNetto: 0,
+        zakupBrutto: 0,
+        transportWaluta: 'PLN',
+        transportNetto: 0,
+        transportBrutto: 0,
+        vatRate: 23
+      },
+      cenaKlienta: 0,
+      doPobrania: 0
     };
     setForm({ ...form, produkty: [...form.produkty, newProduct] });
     setActiveProductIndex(form.produkty.length);
@@ -1542,19 +1602,31 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
         const brutto = parseFloat(value) || 0;
         newKoszty.zakupBrutto = brutto;
         newKoszty.zakupNetto = Math.round(brutto / (1 + vatRate / 100) * 100) / 100;
+      } else if (field === 'transportNetto') {
+        const netto = parseFloat(value) || 0;
+        newKoszty.transportNetto = netto;
+        newKoszty.transportBrutto = Math.round(netto * (1 + vatRate / 100) * 100) / 100;
+      } else if (field === 'transportBrutto') {
+        const brutto = parseFloat(value) || 0;
+        newKoszty.transportBrutto = brutto;
+        newKoszty.transportNetto = Math.round(brutto / (1 + vatRate / 100) * 100) / 100;
       } else {
         newKoszty[field] = value;
       }
       
       newProducts[index] = { ...newProducts[index], koszty: newKoszty };
       
-      // Automatycznie zsumuj koszty wszystkich produktów
+      // Automatycznie zsumuj koszty wszystkich produktów do głównych pól
       let sumZakupNetto = 0;
       let sumZakupBrutto = 0;
+      let sumTransportNetto = 0;
+      let sumTransportBrutto = 0;
       newProducts.forEach(p => {
         if (p.koszty) {
           sumZakupNetto += p.koszty.zakupNetto || 0;
           sumZakupBrutto += p.koszty.zakupBrutto || 0;
+          sumTransportNetto += p.koszty.transportNetto || 0;
+          sumTransportBrutto += p.koszty.transportBrutto || 0;
         }
       });
       
@@ -1564,7 +1636,9 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
         koszty: {
           ...prevForm.koszty,
           zakupNetto: sumZakupNetto,
-          zakupBrutto: sumZakupBrutto
+          zakupBrutto: sumZakupBrutto,
+          transportNetto: sumTransportNetto,
+          transportBrutto: sumTransportBrutto
         }
       };
     });
@@ -1883,8 +1957,16 @@ Zespół obsługi zamówień`;
             </div>
             {!isContractor && (
               <div className="form-group">
-                <label>STATUS</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <label>STATUS {form.produkty?.length > 1 ? '(wszystkich)' : ''}</label>
+                <select 
+                  value={form.status} 
+                  onChange={e => {
+                    const newStatus = e.target.value;
+                    // Gdy zmieniam główny status - aktualizuj też wszystkie produkty
+                    const updatedProducts = form.produkty.map(p => ({ ...p, status: newStatus }));
+                    setForm({ ...form, status: newStatus, produkty: updatedProducts });
+                  }}
+                >
                   {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
                 </select>
               </div>
@@ -1898,8 +1980,19 @@ Zespół obsługi zamówień`;
           {!isContractor && (
             <div className="form-grid">
               <div className="form-group">
-                <label>KIEROWCA</label>
-                <select value={form.przypisanyKierowca || ''} onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}>
+                <label>KIEROWCA {form.produkty?.length > 1 ? '(domyślny)' : ''}</label>
+                <select 
+                  value={form.przypisanyKierowca || ''} 
+                  onChange={e => {
+                    const newDriver = e.target.value || null;
+                    // Aktualizuj też produkty bez przypisanego kierowcy
+                    const updatedProducts = form.produkty.map(p => ({
+                      ...p,
+                      kierowca: p.kierowca || newDriver
+                    }));
+                    setForm({ ...form, przypisanyKierowca: newDriver, produkty: updatedProducts });
+                  }}
+                >
                   <option value="">-- Wybierz kierowcę --</option>
                   {drivers.map(d => <option key={d.id} value={d.id}>🚚 {d.name}</option>)}
                 </select>
@@ -1949,19 +2042,30 @@ Zespół obsługi zamówień`;
                   <span className="product-number">
                     📦 {form.produkty[activeProductIndex].nrPodzamowienia || `Produkt ${activeProductIndex + 1}`}
                   </span>
-                  {form.produkty.length > 1 && (
-                    <button 
-                      type="button" 
-                      className="btn-remove-product"
-                      onClick={() => removeProduct(activeProductIndex)}
-                    >
-                      🗑️ Usuń
-                    </button>
-                  )}
+                  <div className="product-header-actions">
+                    {!isContractor && form.produkty[activeProductIndex].producent && (
+                      <button 
+                        type="button" 
+                        className="btn-email-producer"
+                        onClick={() => setShowEmailModal({ type: 'producer', productIndex: activeProductIndex })}
+                      >
+                        📧 Email do producenta
+                      </button>
+                    )}
+                    {form.produkty.length > 1 && (
+                      <button 
+                        type="button" 
+                        className="btn-remove-product"
+                        onClick={() => removeProduct(activeProductIndex)}
+                      >
+                        🗑️ Usuń
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Opis towaru - na górze */}
-                <div className="form-group full" style={{ marginBottom: '16px' }}>
+                {/* Opis towaru */}
+                <div className="form-group full">
                   <label>OPIS TOWARU *</label>
                   <textarea 
                     value={form.produkty[activeProductIndex].towar || ''} 
@@ -1973,10 +2077,10 @@ Zespół obsługi zamówień`;
 
                 {!isContractor && (
                   <>
-                    {/* Wiersz 1: Producent i Status */}
-                    <div className="form-grid form-grid-2">
+                    {/* Wiersz 1: Producent, Status, Kierowca */}
+                    <div className="form-grid form-grid-3">
                       <div className="form-group">
-                        <label>PRODUCENT</label>
+                        <label>🏭 PRODUCENT</label>
                         <select 
                           value={form.produkty[activeProductIndex].producent || ''} 
                           onChange={e => {
@@ -1994,30 +2098,22 @@ Zespół obsługi zamówień`;
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>STATUS</label>
+                        <label>📊 STATUS</label>
                         <select 
                           value={form.produkty[activeProductIndex].status || 'nowe'} 
-                          onChange={e => updateProduct(activeProductIndex, 'status', e.target.value)}
+                          onChange={e => {
+                            updateProduct(activeProductIndex, 'status', e.target.value);
+                            // Aktualizuj główny status jeśli wszystkie produkty mają ten sam
+                            const newStatus = e.target.value;
+                            const otherStatuses = form.produkty.filter((_, i) => i !== activeProductIndex).map(p => p.status);
+                            if (otherStatuses.every(s => s === newStatus)) {
+                              setForm(prev => ({ ...prev, status: newStatus }));
+                            }
+                          }}
                         >
                           {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
                         </select>
                       </div>
-                    </div>
-
-                    {/* Inny producent - warunkowo */}
-                    {form.produkty[activeProductIndex].producent === '_other' && (
-                      <div className="form-group full" style={{ marginTop: '8px' }}>
-                        <label>NAZWA INNEGO PRODUCENTA</label>
-                        <input 
-                          value={form.produkty[activeProductIndex].producentNazwa || ''} 
-                          onChange={e => updateProduct(activeProductIndex, 'producentNazwa', e.target.value)}
-                          placeholder="Wpisz nazwę producenta..."
-                        />
-                      </div>
-                    )}
-
-                    {/* Wiersz 2: Kierowca i Data odbioru */}
-                    <div className="form-grid form-grid-2" style={{ marginTop: '12px' }}>
                       <div className="form-group">
                         <label>🚚 KIEROWCA</label>
                         <select 
@@ -2028,8 +2124,24 @@ Zespół obsługi zamówień`;
                           {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
+                    </div>
+
+                    {/* Inny producent */}
+                    {form.produkty[activeProductIndex].producent === '_other' && (
+                      <div className="form-group full">
+                        <label>NAZWA INNEGO PRODUCENTA</label>
+                        <input 
+                          value={form.produkty[activeProductIndex].producentNazwa || ''} 
+                          onChange={e => updateProduct(activeProductIndex, 'producentNazwa', e.target.value)}
+                          placeholder="Wpisz nazwę producenta..."
+                        />
+                      </div>
+                    )}
+
+                    {/* Wiersz 2: Data odbioru */}
+                    <div className="form-grid form-grid-2">
                       <div className="form-group">
-                        <label>📅 DATA ODBIORU</label>
+                        <label>📅 DATA ODBIORU OD PRODUCENTA</label>
                         <input 
                           type="date" 
                           value={form.produkty[activeProductIndex].dataOdbioru || ''} 
@@ -2038,39 +2150,108 @@ Zespół obsługi zamówień`;
                       </div>
                     </div>
 
-                    {/* Koszty zakupu - tylko dla admina */}
+                    {/* KOSZTY I CENY - tylko dla admina */}
                     {isAdmin && (
-                      <div className="product-costs">
-                        <h4>💰 Koszty zakupu</h4>
-                        <div className="form-grid form-grid-3">
-                          <div className="form-group">
-                            <label>WALUTA</label>
+                      <div className="product-financials">
+                        <h4>💰 Finanse tego produktu</h4>
+                        
+                        {/* Koszt zakupu */}
+                        <div className="finance-row">
+                          <span className="finance-label">Koszt zakupu:</span>
+                          <div className="finance-inputs">
                             <select 
                               value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
                               onChange={e => updateProductCost(activeProductIndex, 'waluta', e.target.value)}
+                              className="currency-select"
                             >
-                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol}</option>)}
                             </select>
-                          </div>
-                          <div className="form-group">
-                            <label>NETTO</label>
                             <input 
                               type="number" 
                               step="0.01"
                               value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
                               onChange={e => updateProductCost(activeProductIndex, 'zakupNetto', e.target.value)}
-                              placeholder="0.00"
+                              placeholder="Netto"
+                              className="finance-input"
                             />
-                          </div>
-                          <div className="form-group">
-                            <label>BRUTTO</label>
+                            <span className="finance-separator">/</span>
                             <input 
                               type="number" 
                               step="0.01"
                               value={form.produkty[activeProductIndex].koszty?.zakupBrutto || ''} 
                               onChange={e => updateProductCost(activeProductIndex, 'zakupBrutto', e.target.value)}
-                              placeholder="0.00"
+                              placeholder="Brutto"
+                              className="finance-input"
                             />
+                          </div>
+                        </div>
+
+                        {/* Koszt transportu */}
+                        <div className="finance-row">
+                          <span className="finance-label">Koszt transportu:</span>
+                          <div className="finance-inputs">
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.transportWaluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportWaluta', e.target.value)}
+                              className="currency-select"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol}</option>)}
+                            </select>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.transportNetto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportNetto', e.target.value)}
+                              placeholder="Netto"
+                              className="finance-input"
+                            />
+                            <span className="finance-separator">/</span>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.transportBrutto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportBrutto', e.target.value)}
+                              placeholder="Brutto"
+                              className="finance-input"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Cena dla klienta */}
+                        <div className="finance-row highlight">
+                          <span className="finance-label">💵 Cena dla klienta (brutto):</span>
+                          <div className="finance-inputs">
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].cenaKlienta || ''} 
+                              onChange={e => {
+                                const cena = parseFloat(e.target.value) || 0;
+                                updateProduct(activeProductIndex, 'cenaKlienta', cena);
+                              }}
+                              placeholder="0.00"
+                              className="finance-input large"
+                            />
+                            <span className="currency-label">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
+                          </div>
+                        </div>
+
+                        {/* Kwota do pobrania przez kierowcę */}
+                        <div className="finance-row highlight-warning">
+                          <span className="finance-label">🚚 Do pobrania przez kierowcę:</span>
+                          <div className="finance-inputs">
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].doPobrania || ''} 
+                              onChange={e => {
+                                const kwota = parseFloat(e.target.value) || 0;
+                                updateProduct(activeProductIndex, 'doPobrania', kwota);
+                              }}
+                              placeholder="0.00"
+                              className="finance-input large"
+                            />
+                            <span className="currency-label">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
                           </div>
                         </div>
                       </div>
@@ -2080,16 +2261,61 @@ Zespół obsługi zamówień`;
               </div>
             )}
 
-            {/* Podsumowanie kosztów wszystkich produktów */}
-            {isAdmin && form.produkty && form.produkty.length > 1 && (
-              <div className="products-summary">
-                <strong>📊 Suma kosztów zakupu:</strong>
-                <span>
-                  {formatCurrency(
-                    form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0),
-                    'PLN'
-                  )} netto
-                </span>
+            {/* Podsumowanie wszystkich produktów */}
+            {form.produkty && form.produkty.length > 0 && (
+              <div className="products-totals">
+                <h4>📊 Podsumowanie {form.produkty.length > 1 ? `(${form.produkty.length} produkty)` : ''}</h4>
+                <div className="totals-grid">
+                  <div className="total-item">
+                    <span>Suma kosztów zakupu:</span>
+                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0), 'PLN')} netto</strong>
+                  </div>
+                  <div className="total-item">
+                    <span>Suma kosztów transportu:</span>
+                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.transportNetto || 0), 0), 'PLN')} netto</strong>
+                  </div>
+                  <div className="total-item highlight">
+                    <span>Suma cen dla klienta:</span>
+                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.cenaKlienta || 0), 0), form.platnosci?.waluta || 'PLN')}</strong>
+                  </div>
+                  <div className="total-item warning">
+                    <span>Suma do pobrania:</span>
+                    <strong>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.doPobrania || 0), 0), form.platnosci?.waluta || 'PLN')}</strong>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button 
+                    type="button" 
+                    className="btn-sync-totals"
+                    onClick={() => {
+                      // Synchronizuj sumy z głównymi polami
+                      const sumaCena = form.produkty.reduce((sum, p) => sum + (p.cenaKlienta || 0), 0);
+                      const sumaDoPobrania = form.produkty.reduce((sum, p) => sum + (p.doPobrania || 0), 0);
+                      const sumaZakupNetto = form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0);
+                      const sumaZakupBrutto = form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupBrutto || 0), 0);
+                      const sumaTransportNetto = form.produkty.reduce((sum, p) => sum + (p.koszty?.transportNetto || 0), 0);
+                      const sumaTransportBrutto = form.produkty.reduce((sum, p) => sum + (p.koszty?.transportBrutto || 0), 0);
+                      
+                      setForm(prev => ({
+                        ...prev,
+                        platnosci: {
+                          ...prev.platnosci,
+                          cenaCalkowita: sumaCena,
+                          doZaplaty: sumaDoPobrania
+                        },
+                        koszty: {
+                          ...prev.koszty,
+                          zakupNetto: sumaZakupNetto,
+                          zakupBrutto: sumaZakupBrutto,
+                          transportNetto: sumaTransportNetto,
+                          transportBrutto: sumaTransportBrutto
+                        }
+                      }));
+                    }}
+                  >
+                    🔄 Przepisz sumy do płatności i kosztów
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2507,7 +2733,7 @@ Zespół obsługi zamówień`;
           </div>
         </div>
 
-        {/* Modal podglądu potwierdzenia */}
+        {/* Modal podglądu potwierdzenia dla klienta */}
         {showConfirmationModal && (
           <div className="confirmation-modal-overlay" onClick={() => setShowConfirmationModal(false)}>
             <div className="confirmation-modal" onClick={e => e.stopPropagation()}>
@@ -2537,6 +2763,121 @@ Zespół obsługi zamówień`;
             </div>
           </div>
         )}
+
+        {/* Modal emailowy do producenta - dla konkretnego produktu */}
+        {showEmailModal?.type === 'producer' && (() => {
+          const productIdx = showEmailModal.productIndex;
+          const product = form.produkty[productIdx];
+          const producer = Object.values(producers).find(p => p.id === product?.producent);
+          
+          if (!producer) {
+            return (
+              <div className="confirmation-modal-overlay" onClick={() => setShowEmailModal(null)}>
+                <div className="confirmation-modal" onClick={e => e.stopPropagation()}>
+                  <div className="confirmation-modal-header">
+                    <h3>⚠️ Brak producenta</h3>
+                    <button className="btn-close" onClick={() => setShowEmailModal(null)}>×</button>
+                  </div>
+                  <div className="confirmation-modal-body">
+                    <p>Wybierz producenta dla tego produktu, aby móc wysłać email.</p>
+                  </div>
+                  <div className="confirmation-modal-footer">
+                    <button className="btn-secondary" onClick={() => setShowEmailModal(null)}>Zamknij</button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const inquiryBody = `Dzień dobry,
+
+Pytanie dotyczące zamówienia nr ${product.nrPodzamowienia || form.nrWlasny}
+
+Opis produktu:
+${product.towar}
+
+${product.dataOdbioru ? `Planowany termin odbioru: ${formatDate(product.dataOdbioru)}` : ''}
+
+Proszę o informację o dostępności i terminie realizacji.
+
+Z poważaniem`;
+
+          const orderBody = `Dzień dobry,
+
+Zlecam realizację zamówienia:
+
+Nr zamówienia: ${product.nrPodzamowienia || form.nrWlasny}
+
+Opis produktu:
+${product.towar}
+
+${product.dataOdbioru ? `Termin odbioru: ${formatDate(product.dataOdbioru)}` : 'Termin odbioru: Do ustalenia'}
+
+Proszę o potwierdzenie przyjęcia zlecenia.
+
+Z poważaniem`;
+
+          const body = producerEmailType === 'inquiry' ? inquiryBody : orderBody;
+          const subject = producerEmailType === 'inquiry' 
+            ? `Zapytanie - zamówienie ${product.nrPodzamowienia || form.nrWlasny}` 
+            : `ZLECENIE - zamówienie ${product.nrPodzamowienia || form.nrWlasny}`;
+
+          return (
+            <div className="confirmation-modal-overlay" onClick={() => setShowEmailModal(null)}>
+              <div className="confirmation-modal modal-email-producer" onClick={e => e.stopPropagation()}>
+                <div className="confirmation-modal-header">
+                  <h3>📧 Email do producenta: {producer.name}</h3>
+                  <button className="btn-close" onClick={() => setShowEmailModal(null)}>×</button>
+                </div>
+                <div className="confirmation-modal-body">
+                  <div className="producer-contact-info">
+                    <span>📧 {producer.email || '—'}</span>
+                    <span>📞 {producer.phone || '—'}</span>
+                    {producer.address && <span>📍 {producer.address}</span>}
+                  </div>
+
+                  <div className="email-type-buttons">
+                    <button 
+                      className={`email-type-btn ${producerEmailType === 'inquiry' ? 'active' : ''}`}
+                      onClick={() => setProducerEmailType('inquiry')}
+                    >
+                      ❓ Zapytanie
+                    </button>
+                    <button 
+                      className={`email-type-btn ${producerEmailType === 'order' ? 'active' : ''}`}
+                      onClick={() => setProducerEmailType('order')}
+                    >
+                      📦 Zlecenie
+                    </button>
+                  </div>
+
+                  <div className="email-preview">
+                    <div className="email-subject">
+                      <strong>Temat:</strong> {subject}
+                    </div>
+                    <div className="email-body-preview">
+                      <pre>{body}</pre>
+                    </div>
+                  </div>
+                </div>
+                <div className="confirmation-modal-footer">
+                  <button className="btn-secondary" onClick={() => setShowEmailModal(null)}>Anuluj</button>
+                  {producer.phone && (
+                    <a href={`tel:${producer.phone}`} className="btn-secondary">📞 Zadzwoń</a>
+                  )}
+                  {producer.email && (
+                    <a 
+                      href={`mailto:${producer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                      className="btn-primary"
+                    >
+                      📤 Wyślij {producerEmailType === 'order' ? 'zlecenie' : 'zapytanie'}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Wyszukiwarka produktów z cennika */}
         {showProductSearchInOrder && priceLists && (
@@ -4712,7 +5053,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   const toPickup = myOrders.filter(o => {
     const effectiveStatus = getEffectiveStatus(o);
-    return ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(effectiveStatus);
+    return ['nowe', 'potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(effectiveStatus);
   });
   const pickedUp = myOrders.filter(o => getEffectiveStatus(o) === 'odebrane');
   const inTransit = myOrders.filter(o => getEffectiveStatus(o) === 'w_transporcie');
@@ -4724,7 +5065,7 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // Filtrowane zamówienia do odbioru (status + producent)
   let filteredToPickup = pickupStatusFilter === 'all' 
     ? toPickup 
-    : toPickup.filter(o => o.status === pickupStatusFilter);
+    : toPickup.filter(o => getEffectiveStatus(o) === pickupStatusFilter);
   
   // Dodatkowy filtr po producencie
   if (producerFilterDriver !== 'all') {
