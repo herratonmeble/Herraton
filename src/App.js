@@ -1505,19 +1505,50 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     }
   };
 
-  // Aktualizuj produkt
+  // Aktualizuj produkt - obsługa zagnieżdżonych pól
   const updateProduct = (index, field, value) => {
-    const newProducts = [...form.produkty];
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      newProducts[index] = {
-        ...newProducts[index],
-        [parent]: { ...newProducts[index][parent], [child]: value }
-      };
-    } else {
-      newProducts[index] = { ...newProducts[index], [field]: value };
-    }
-    setForm({ ...form, produkty: newProducts });
+    setForm(prevForm => {
+      const newProducts = [...prevForm.produkty];
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.');
+        newProducts[index] = {
+          ...newProducts[index],
+          [parent]: { 
+            ...(newProducts[index][parent] || {}), 
+            [child]: value 
+          }
+        };
+      } else {
+        newProducts[index] = { ...newProducts[index], [field]: value };
+      }
+      return { ...prevForm, produkty: newProducts };
+    });
+  };
+
+  // Aktualizuj koszty produktu z przeliczaniem netto/brutto
+  const updateProductCost = (index, field, value) => {
+    setForm(prevForm => {
+      const newProducts = [...prevForm.produkty];
+      const currentKoszty = newProducts[index].koszty || { waluta: 'PLN', vatRate: 23 };
+      const vatRate = currentKoszty.vatRate || 23;
+      
+      let newKoszty = { ...currentKoszty };
+      
+      if (field === 'zakupNetto') {
+        const netto = parseFloat(value) || 0;
+        newKoszty.zakupNetto = netto;
+        newKoszty.zakupBrutto = Math.round(netto * (1 + vatRate / 100) * 100) / 100;
+      } else if (field === 'zakupBrutto') {
+        const brutto = parseFloat(value) || 0;
+        newKoszty.zakupBrutto = brutto;
+        newKoszty.zakupNetto = Math.round(brutto / (1 + vatRate / 100) * 100) / 100;
+      } else {
+        newKoszty[field] = value;
+      }
+      
+      newProducts[index] = { ...newProducts[index], koszty: newKoszty };
+      return { ...prevForm, produkty: newProducts };
+    });
   };
 
   // Aktualizuj numery podzamówień gdy zmienia się główny numer
@@ -1868,7 +1899,7 @@ Zespół obsługi zamówień`;
               )}
             </div>
 
-            {/* Zakładki produktów */}
+            {/* Zakładki produktów - tylko gdy więcej niż 1 */}
             {form.produkty && form.produkty.length > 1 && (
               <div className="product-tabs">
                 {form.produkty.map((prod, idx) => {
@@ -1882,7 +1913,7 @@ Zespół obsługi zamówień`;
                       onClick={() => setActiveProductIndex(idx)}
                     >
                       <span className="tab-number">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
-                      <span className="tab-producer">{prodProducer?.name || prod.producentNazwa || '?'}</span>
+                      <span className="tab-producer">{prodProducer?.name || prod.producentNazwa || '—'}</span>
                       <span className="tab-status" style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}>
                         {prodStatus?.icon}
                       </span>
@@ -1897,7 +1928,7 @@ Zespół obsługi zamówień`;
               <div className="product-form-card">
                 <div className="product-form-header">
                   <span className="product-number">
-                    {form.produkty[activeProductIndex].nrPodzamowienia || `Produkt ${activeProductIndex + 1}`}
+                    📦 {form.produkty[activeProductIndex].nrPodzamowienia || `Produkt ${activeProductIndex + 1}`}
                   </span>
                   {form.produkty.length > 1 && (
                     <button 
@@ -1905,32 +1936,59 @@ Zespół obsługi zamówień`;
                       className="btn-remove-product"
                       onClick={() => removeProduct(activeProductIndex)}
                     >
-                      🗑️ Usuń produkt
+                      🗑️ Usuń
                     </button>
                   )}
                 </div>
 
+                {/* Opis towaru - na górze */}
+                <div className="form-group full" style={{ marginBottom: '16px' }}>
+                  <label>OPIS TOWARU *</label>
+                  <textarea 
+                    value={form.produkty[activeProductIndex].towar || ''} 
+                    onChange={e => updateProduct(activeProductIndex, 'towar', e.target.value)} 
+                    rows={2} 
+                    placeholder="Szczegółowy opis produktu..."
+                  />
+                </div>
+
                 {!isContractor && (
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label>PRODUCENT</label>
-                      <select 
-                        value={form.produkty[activeProductIndex].producent} 
-                        onChange={e => {
-                          updateProduct(activeProductIndex, 'producent', e.target.value);
-                          if (e.target.value !== '_other') {
-                            updateProduct(activeProductIndex, 'producentNazwa', '');
-                          }
-                        }}
-                      >
-                        <option value="">-- Wybierz producenta --</option>
-                        {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        <option value="_other">➕ Inny producent...</option>
-                      </select>
-                    </div>
-                    {form.produkty[activeProductIndex].producent === '_other' && (
+                  <>
+                    {/* Wiersz 1: Producent i Status */}
+                    <div className="form-grid form-grid-2">
                       <div className="form-group">
-                        <label>NAZWA PRODUCENTA</label>
+                        <label>PRODUCENT</label>
+                        <select 
+                          value={form.produkty[activeProductIndex].producent || ''} 
+                          onChange={e => {
+                            updateProduct(activeProductIndex, 'producent', e.target.value);
+                            if (e.target.value !== '_other') {
+                              updateProduct(activeProductIndex, 'producentNazwa', '');
+                            }
+                          }}
+                        >
+                          <option value="">-- Wybierz --</option>
+                          {Object.values(producers).map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                          <option value="_other">➕ Inny...</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>STATUS</label>
+                        <select 
+                          value={form.produkty[activeProductIndex].status || 'nowe'} 
+                          onChange={e => updateProduct(activeProductIndex, 'status', e.target.value)}
+                        >
+                          {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Inny producent - warunkowo */}
+                    {form.produkty[activeProductIndex].producent === '_other' && (
+                      <div className="form-group full" style={{ marginTop: '8px' }}>
+                        <label>NAZWA INNEGO PRODUCENTA</label>
                         <input 
                           value={form.produkty[activeProductIndex].producentNazwa || ''} 
                           onChange={e => updateProduct(activeProductIndex, 'producentNazwa', e.target.value)}
@@ -1938,95 +1996,81 @@ Zespół obsługi zamówień`;
                         />
                       </div>
                     )}
-                    <div className="form-group">
-                      <label>STATUS PRODUKTU</label>
-                      <select 
-                        value={form.produkty[activeProductIndex].status} 
-                        onChange={e => updateProduct(activeProductIndex, 'status', e.target.value)}
-                      >
-                        {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>DATA ODBIORU OD PRODUCENTA</label>
-                      <input 
-                        type="date" 
-                        value={form.produkty[activeProductIndex].dataOdbioru || ''} 
-                        onChange={e => updateProduct(activeProductIndex, 'dataOdbioru', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
 
-                <div className="form-group full">
-                  <label>OPIS TOWARU</label>
-                  <textarea 
-                    value={form.produkty[activeProductIndex].towar || ''} 
-                    onChange={e => updateProduct(activeProductIndex, 'towar', e.target.value)} 
-                    rows={3} 
-                    placeholder="Szczegółowy opis produktu..."
-                  />
-                </div>
-
-                {/* Koszty zakupu tego produktu - tylko dla admina */}
-                {isAdmin && (
-                  <div className="product-costs">
-                    <h4>💰 Koszty zakupu tego produktu</h4>
-                    <div className="form-grid">
+                    {/* Wiersz 2: Kierowca i Data odbioru */}
+                    <div className="form-grid form-grid-2" style={{ marginTop: '12px' }}>
                       <div className="form-group">
-                        <label>WALUTA ZAKUPU</label>
+                        <label>🚚 KIEROWCA</label>
                         <select 
-                          value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
-                          onChange={e => updateProduct(activeProductIndex, 'koszty.waluta', e.target.value)}
+                          value={form.produkty[activeProductIndex].kierowca || ''} 
+                          onChange={e => updateProduct(activeProductIndex, 'kierowca', e.target.value)}
                         >
-                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+                          <option value="">-- Wybierz --</option>
+                          {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>ZAKUP NETTO</label>
+                        <label>📅 DATA ODBIORU</label>
                         <input 
-                          type="number" 
-                          step="0.01"
-                          value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
-                          onChange={e => {
-                            const netto = parseFloat(e.target.value) || 0;
-                            const vatRate = form.produkty[activeProductIndex].koszty?.vatRate || 23;
-                            const brutto = netto * (1 + vatRate / 100);
-                            const newKoszty = { 
-                              ...form.produkty[activeProductIndex].koszty, 
-                              zakupNetto: netto, 
-                              zakupBrutto: Math.round(brutto * 100) / 100 
-                            };
-                            const newProducts = [...form.produkty];
-                            newProducts[activeProductIndex] = { ...newProducts[activeProductIndex], koszty: newKoszty };
-                            setForm({ ...form, produkty: newProducts });
-                          }}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>ZAKUP BRUTTO</label>
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          value={form.produkty[activeProductIndex].koszty?.zakupBrutto || ''} 
-                          onChange={e => {
-                            const brutto = parseFloat(e.target.value) || 0;
-                            const vatRate = form.produkty[activeProductIndex].koszty?.vatRate || 23;
-                            const netto = brutto / (1 + vatRate / 100);
-                            const newKoszty = { 
-                              ...form.produkty[activeProductIndex].koszty, 
-                              zakupBrutto: brutto, 
-                              zakupNetto: Math.round(netto * 100) / 100 
-                            };
-                            const newProducts = [...form.produkty];
-                            newProducts[activeProductIndex] = { ...newProducts[activeProductIndex], koszty: newKoszty };
-                            setForm({ ...form, produkty: newProducts });
-                          }}
+                          type="date" 
+                          value={form.produkty[activeProductIndex].dataOdbioru || ''} 
+                          onChange={e => updateProduct(activeProductIndex, 'dataOdbioru', e.target.value)}
                         />
                       </div>
                     </div>
-                  </div>
+
+                    {/* Koszty zakupu - tylko dla admina */}
+                    {isAdmin && (
+                      <div className="product-costs">
+                        <h4>💰 Koszty zakupu</h4>
+                        <div className="form-grid form-grid-3">
+                          <div className="form-group">
+                            <label>WALUTA</label>
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'waluta', e.target.value)}
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>NETTO</label>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'zakupNetto', e.target.value)}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>BRUTTO</label>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.zakupBrutto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'zakupBrutto', e.target.value)}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
+              </div>
+            )}
+
+            {/* Podsumowanie kosztów wszystkich produktów */}
+            {isAdmin && form.produkty && form.produkty.length > 1 && (
+              <div className="products-summary">
+                <strong>📊 Suma kosztów zakupu:</strong>
+                <span>
+                  {formatCurrency(
+                    form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0),
+                    'PLN'
+                  )} netto
+                </span>
               </div>
             )}
           </div>
@@ -4182,7 +4226,7 @@ Z poważaniem`;
 // KARTA ZAMÓWIENIA
 // ============================================
 
-const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates, currentUser }) => {
+const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates, currentUser, onProductStatusChange }) => {
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -4194,6 +4238,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+  
+  // Czy to zamówienie łączone (wiele produktów)?
+  const hasMultipleProducts = order.produkty && order.produkty.length > 1;
 
   // Konwersja do PLN
   const convertToPLN = (amount, currency) => {
@@ -4213,9 +4260,18 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     // Konwertuj cenę do PLN
     const cenaNettoPLN = convertToPLN(cenaNetto, order.platnosci?.waluta);
     
-    // Koszty - konwertuj do PLN
-    const zakupNetto = order.koszty?.zakupNetto || 0;
-    const zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
+    // Koszty - suma z produktów lub ze starego pola
+    let zakupNettoPLN = 0;
+    if (order.produkty && order.produkty.length > 0) {
+      order.produkty.forEach(p => {
+        if (p.koszty?.zakupNetto) {
+          zakupNettoPLN += convertToPLN(p.koszty.zakupNetto, p.koszty?.waluta || 'PLN');
+        }
+      });
+    } else {
+      const zakupNetto = order.koszty?.zakupNetto || 0;
+      zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
+    }
     
     const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
     const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
@@ -4244,31 +4300,74 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         <div className="order-card-title">
           <span className="country-flag">{country?.flag}</span>
           <span className="order-number">{order.nrWlasny || '—'}</span>
+          {hasMultipleProducts && <span className="multi-product-badge">📦 {order.produkty.length}</span>}
           {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
         </div>
-        <select
-          value={order.status}
-          onClick={e => e.stopPropagation()}
-          onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
-          className="status-select"
-          style={{ background: status?.bgColor, color: status?.color }}
-        >
-          {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-        </select>
+        {!hasMultipleProducts && (
+          <select
+            value={order.status}
+            onClick={e => e.stopPropagation()}
+            onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
+            className="status-select"
+            style={{ background: status?.bgColor, color: status?.color }}
+          >
+            {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="order-card-body">
-        <p className="order-product">{order.towar || 'Brak opisu'}</p>
+        {/* Jeśli wiele produktów - pokaż listę z osobnymi statusami */}
+        {hasMultipleProducts ? (
+          <div className="order-products-list">
+            {order.produkty.map((prod, idx) => {
+              const prodStatus = getStatus(prod.status);
+              const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
+              const prodDriver = drivers.find(d => d.id === prod.kierowca);
+              return (
+                <div key={prod.id || idx} className="order-product-item">
+                  <div className="product-item-header">
+                    <span className="product-item-nr">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
+                    <select
+                      value={prod.status || 'nowe'}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => {
+                        e.stopPropagation();
+                        if (onProductStatusChange) {
+                          onProductStatusChange(order.id, idx, e.target.value);
+                        }
+                      }}
+                      className="status-select small"
+                      style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}
+                    >
+                      {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="product-item-desc">{prod.towar?.substring(0, 60) || '—'}{prod.towar?.length > 60 ? '...' : ''}</div>
+                  <div className="product-item-tags">
+                    {prodProducer && <span className="mini-tag producer">🏭 {prodProducer.name}</span>}
+                    {prod.producentNazwa && <span className="mini-tag producer">🏭 {prod.producentNazwa}</span>}
+                    {prodDriver && <span className="mini-tag driver">🚚 {prodDriver.name}</span>}
+                    {prod.dataOdbioru && <span className="mini-tag date">📅 {formatDate(prod.dataOdbioru)}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <p className="order-product">{order.towar || 'Brak opisu'}</p>
+            <div className="order-tags">
+              {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
+              {order.dataOdbioru && <span className="tag tag-date">📅 {formatDate(order.dataOdbioru)}</span>}
+              {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
+            </div>
+          </>
+        )}
 
         <div className="order-client">
           <div className="client-name">{order.klient?.imie || '—'}</div>
           <div className="client-address">📍 {order.klient?.adres || '—'}</div>
-        </div>
-
-        <div className="order-tags">
-          {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
-          {order.dataOdbioru && <span className="tag tag-date">📅 {formatDate(order.dataOdbioru)}</span>}
-          {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
         </div>
 
         <div className="order-payment">
@@ -4291,7 +4390,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             <span className="paid-badge">✓ Opłacone</span>
           )}
           {/* Marża - tylko dla admina - ZAWSZE W PLN */}
-          {isAdmin && order.koszty && (order.koszty.zakupNetto > 0 || order.koszty.zakupBrutto > 0) && (
+          {isAdmin && (order.koszty?.zakupNetto > 0 || order.koszty?.zakupBrutto > 0 || (order.produkty?.some(p => p.koszty?.zakupNetto > 0))) && (
             <span className={calcMarzaPLN() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
               📊 Marża: <strong>{formatCurrency(calcMarzaPLN(), 'PLN')}</strong>
               {order.rabatPrzyDostawie?.kwota > 0 && <small className="discount-note"> (po rabacie)</small>}
@@ -10113,6 +10212,42 @@ const App = () => {
     }
   };
 
+  // Zmiana statusu pojedynczego produktu w zamówieniu łączonym
+  const handleProductStatusChange = async (orderId, productIndex, newStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order || !order.produkty || !order.produkty[productIndex]) return;
+    
+    const updatedProducts = [...order.produkty];
+    const oldStatus = updatedProducts[productIndex].status;
+    updatedProducts[productIndex] = {
+      ...updatedProducts[productIndex],
+      status: newStatus
+    };
+    
+    const newStatusName = getStatus(newStatus)?.name || newStatus;
+    const productNr = updatedProducts[productIndex].nrPodzamowienia || `Produkt ${productIndex + 1}`;
+    
+    // Zapisz zmianę
+    await updateOrder(orderId, {
+      ...order,
+      produkty: updatedProducts,
+      historia: [...(order.historia || []), { 
+        data: new Date().toISOString(), 
+        uzytkownik: user?.name || 'system', 
+        akcja: `${productNr}: ${newStatusName}` 
+      }]
+    });
+    
+    // Powiadomienie
+    await addNotif({
+      icon: getStatus(newStatus)?.icon,
+      title: `Status produktu: ${productNr}`,
+      message: `${user?.name || 'System'} zmienił status na: ${newStatusName}`,
+      orderId: orderId,
+      type: 'status_change'
+    });
+  };
+
   // Funkcja wysyłania emaila o zmianie statusu
   const sendStatusChangeEmail = async (modalData) => {
     const { order, oldStatus, newStatus, newStatusCode } = modalData;
@@ -10851,6 +10986,7 @@ Zespół obsługi zamówień
               order={o}
               onEdit={x => { setEditingOrder(x); setShowOrderModal(true); }}
               onStatusChange={handleStatusChange}
+              onProductStatusChange={handleProductStatusChange}
               onEmailClick={(x, p) => setEmailModal({ order: x, producer: p })}
               onClick={x => setViewingOrder(x)}
               onDelete={handleDeleteOrder}
