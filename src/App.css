@@ -9896,3 +9896,355 @@ input.margin-negative {
     right: -50px;
   }
 }
+
+/* ============================================
+   ROZLICZENIA KIEROWCY - PEŁNY WIDOK
+   ============================================ */
+
+.driver-settlements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.driver-settlement-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 2px solid #FDE68A;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.driver-settlement-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.2);
+  border-color: #F59E0B;
+}
+
+.driver-settlement-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.driver-settlement-card .card-date {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.driver-settlement-card .card-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.driver-settlement-card .summary-item {
+  text-align: center;
+  padding: 10px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+}
+
+.driver-settlement-card .summary-item .label {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+  margin-bottom: 4px;
+}
+
+.driver-settlement-card .summary-item .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.driver-settlement-card .summary-item .value.minus {
+  color: #DC2626;
+}
+
+.driver-settlement-card .summary-item.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.driver-settlement-card .summary-item.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.driver-settlement-card .summary-item.total .value {
+  color: #86EFAC;
+  font-size: 18px;
+}
+
+.driver-settlement-card .card-footer {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0,0,0,0.1);
+}
+
+.driver-settlement-card .click-hint {
+  font-size: 12px;
+  color: #64748B;
+  text-align: center;
+  display: block;
+}
+
+/* Szczegóły rozliczenia kierowcy */
+.driver-settlement-detail {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.detail-header-row {
+  margin-bottom: 20px;
+}
+
+.detail-header-row h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.driver-settlement-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.driver-settlement-summary .summary-card {
+  padding: 20px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.driver-settlement-summary .summary-card.collected {
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  border: 1px solid #A7F3D0;
+}
+
+.driver-settlement-summary .summary-card.transport {
+  background: linear-gradient(135deg, #FEF2F2, #FEE2E2);
+  border: 1px solid #FECACA;
+}
+
+.driver-settlement-summary .summary-card.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.driver-settlement-summary .summary-card .label {
+  display: block;
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.driver-settlement-summary .summary-card.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.driver-settlement-summary .summary-card .amount {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1E1B4B;
+}
+
+.driver-settlement-summary .summary-card.transport .amount {
+  color: #DC2626;
+}
+
+.driver-settlement-summary .summary-card.total .amount {
+  color: #86EFAC;
+  font-size: 28px;
+}
+
+/* Lista zamówień */
+.driver-settlement-orders h4 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  color: #1E1B4B;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.orders-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.order-detail-card {
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.order-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.order-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.order-detail-header .order-number {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1E1B4B;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.order-detail-header .order-date {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.order-detail-client {
+  margin-bottom: 10px;
+}
+
+.order-detail-client .client-name {
+  font-weight: 600;
+  color: #1E1B4B;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.order-detail-client .client-address {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.order-detail-product {
+  font-size: 12px;
+  color: #475569;
+  background: #E2E8F0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.order-detail-amounts {
+  padding-top: 12px;
+  border-top: 1px dashed #CBD5E1;
+}
+
+.order-detail-amounts .amount-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.order-detail-amounts .amount-line .value {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.order-detail-amounts .amount-line .value.transport {
+  color: #DC2626;
+}
+
+.order-detail-amounts .amount-line.result {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #CBD5E1;
+  font-weight: 600;
+}
+
+.order-detail-amounts .amount-line .value.positive {
+  color: #059669;
+  font-size: 15px;
+}
+
+.order-detail-amounts .amount-line .value.negative {
+  color: #DC2626;
+  font-size: 15px;
+}
+
+/* Historia */
+.driver-settlement-history {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.driver-settlement-history h4 {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  color: #64748B;
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.history-entry .history-date {
+  color: #6366F1;
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.history-entry .history-action {
+  flex: 1;
+  color: #1E1B4B;
+}
+
+.history-entry .history-user {
+  color: #94A3B8;
+  font-style: italic;
+}
+
+/* Empty state */
+.empty-settlements .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .driver-settlement-card .card-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .driver-settlement-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .history-entry {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
