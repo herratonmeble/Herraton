@@ -1937,7 +1937,47 @@ Zespół obsługi zamówień`;
 
               {/* KOSZT TRANSPORTU */}
               <div className="cost-section">
-                <h4>🚚 Koszt transportu</h4>
+                <div className="cost-section-header">
+                  <h4>🚚 Koszt transportu</h4>
+                </div>
+                
+                {/* Stawki kierowcy - jeśli przypisany */}
+                {form.przypisanyKierowca && !isContractor && (() => {
+                  const assignedDriver = drivers.find(d => d.id === form.przypisanyKierowca);
+                  const driverRates = assignedDriver?.transportRates || [];
+                  const countryRates = driverRates.filter(r => r.country === form.kraj);
+                  
+                  if (countryRates.length > 0) {
+                    return (
+                      <div className="driver-rates-hint">
+                        <div className="rates-hint-header">
+                          💶 Stawki kierowcy {assignedDriver?.name} dla {getCountry(form.kraj)?.flag} {getCountry(form.kraj)?.name}:
+                        </div>
+                        <div className="rates-hint-list">
+                          {countryRates.map(rate => (
+                            <button
+                              key={rate.id}
+                              type="button"
+                              className="rate-quick-btn"
+                              onClick={() => {
+                                const vatRate = form.koszty?.vatRate || 23;
+                                const vatMultiplier = 1 + (vatRate / 100);
+                                updateKoszty('transportWaluta', rate.currency);
+                                updateKoszty('transportNetto', rate.priceNetto);
+                                updateKoszty('transportBrutto', Math.round(rate.priceNetto * vatMultiplier * 100) / 100);
+                              }}
+                            >
+                              <span className="rate-name">{rate.name}</span>
+                              <span className="rate-price">{rate.priceNetto?.toFixed(2)} {CURRENCIES.find(c => c.code === rate.currency)?.symbol}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 <div className="form-grid">
                   <div className="form-group">
                     <label>WALUTA</label>
@@ -4017,11 +4057,23 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const [newTripDate, setNewTripDate] = useState(''); // Data wyjazdu
   const [newTripDestination, setNewTripDestination] = useState('');
   const [newTripNote, setNewTripNote] = useState('');
+  const [editingTrip, setEditingTrip] = useState(null); // Do edycji wyjazdu
+
+  // State dla cennika transportu kierowcy
+  const [showTransportRatesModal, setShowTransportRatesModal] = useState(false);
+  const [newRate, setNewRate] = useState({ name: '', priceNetto: '', priceBrutto: '', currency: 'EUR', country: 'DE', type: 'netto' });
+  const [editingRate, setEditingRate] = useState(null);
+
+  // Filtr po producentach
+  const [producerFilterDriver, setProducerFilterDriver] = useState('all');
 
   // Planowane wyjazdy z profilu użytkownika
   const plannedTrips = user.plannedTrips || [];
+  
+  // Cennik transportu kierowcy
+  const transportRates = user.transportRates || [];
 
-  // Dodaj wyjazd
+  // Dodaj/Edytuj wyjazd
   const addTrip = async () => {
     if (!newTripDate) {
       alert('Podaj datę wyjazdu!');
@@ -4031,17 +4083,56 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       alert('Podaj datę rozpoczęcia odbiorów!');
       return;
     }
-    const newTrip = {
-      id: Date.now().toString(),
-      pickupFrom: newPickupDateFrom,
-      pickupTo: newPickupDateTo || newPickupDateFrom, // Jeśli nie podano "do", użyj "od"
-      departureDate: newTripDate,
-      destination: newTripDestination || 'Nieokreślony',
-      note: newTripNote,
-      createdAt: new Date().toISOString()
-    };
-    const updatedTrips = [...plannedTrips, newTrip].sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
-    await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+    
+    if (editingTrip) {
+      // Edycja istniejącego
+      const updatedTrips = plannedTrips.map(t => 
+        t.id === editingTrip.id ? {
+          ...t,
+          pickupFrom: newPickupDateFrom,
+          pickupTo: newPickupDateTo || newPickupDateFrom,
+          departureDate: newTripDate,
+          destination: newTripDestination || 'Nieokreślony',
+          note: newTripNote
+        } : t
+      ).sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
+      await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+      setEditingTrip(null);
+    } else {
+      // Nowy wyjazd
+      const newTripObj = {
+        id: Date.now().toString(),
+        pickupFrom: newPickupDateFrom,
+        pickupTo: newPickupDateTo || newPickupDateFrom,
+        departureDate: newTripDate,
+        destination: newTripDestination || 'Nieokreślony',
+        note: newTripNote,
+        createdAt: new Date().toISOString()
+      };
+      const updatedTrips = [...plannedTrips, newTripObj].sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
+      await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+    }
+    
+    setNewPickupDateFrom('');
+    setNewPickupDateTo('');
+    setNewTripDate('');
+    setNewTripDestination('');
+    setNewTripNote('');
+  };
+
+  // Rozpocznij edycję wyjazdu
+  const startEditTrip = (trip) => {
+    setEditingTrip(trip);
+    setNewPickupDateFrom(trip.pickupFrom || trip.date || '');
+    setNewPickupDateTo(trip.pickupTo || '');
+    setNewTripDate(trip.departureDate || trip.date || '');
+    setNewTripDestination(trip.destination || '');
+    setNewTripNote(trip.note || '');
+  };
+
+  // Anuluj edycję
+  const cancelEditTrip = () => {
+    setEditingTrip(null);
     setNewPickupDateFrom('');
     setNewPickupDateTo('');
     setNewTripDate('');
@@ -4051,8 +4142,54 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   // Usuń wyjazd
   const removeTrip = async (tripId) => {
+    if (!window.confirm('Czy na pewno usunąć ten wyjazd?')) return;
     const updatedTrips = plannedTrips.filter(t => t.id !== tripId);
     await onUpdateUser(user.id, { plannedTrips: updatedTrips });
+  };
+
+  // Dodaj/Edytuj stawkę transportu
+  const saveTransportRate = async () => {
+    if (!newRate.name || (!newRate.priceNetto && !newRate.priceBrutto)) {
+      alert('Podaj nazwę i cenę!');
+      return;
+    }
+    
+    // Oblicz drugą cenę jeśli podano tylko jedną
+    let priceNetto = parseFloat(newRate.priceNetto) || 0;
+    let priceBrutto = parseFloat(newRate.priceBrutto) || 0;
+    
+    if (newRate.type === 'netto' && priceNetto > 0) {
+      priceBrutto = Math.round(priceNetto * 1.23 * 100) / 100;
+    } else if (newRate.type === 'brutto' && priceBrutto > 0) {
+      priceNetto = Math.round(priceBrutto / 1.23 * 100) / 100;
+    }
+    
+    const rateData = {
+      id: editingRate?.id || Date.now().toString(),
+      name: newRate.name,
+      priceNetto,
+      priceBrutto,
+      currency: newRate.currency,
+      country: newRate.country
+    };
+    
+    let updatedRates;
+    if (editingRate) {
+      updatedRates = transportRates.map(r => r.id === editingRate.id ? rateData : r);
+    } else {
+      updatedRates = [...transportRates, rateData];
+    }
+    
+    await onUpdateUser(user.id, { transportRates: updatedRates });
+    setNewRate({ name: '', priceNetto: '', priceBrutto: '', currency: 'EUR', country: 'DE', type: 'netto' });
+    setEditingRate(null);
+  };
+
+  // Usuń stawkę
+  const removeTransportRate = async (rateId) => {
+    if (!window.confirm('Usunąć tę stawkę?')) return;
+    const updatedRates = transportRates.filter(r => r.id !== rateId);
+    await onUpdateUser(user.id, { transportRates: updatedRates });
   };
 
   // Najbliższy wyjazd (sprawdzamy datę wyjazdu)
@@ -4069,10 +4206,24 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   const inTransit = myOrders.filter(o => o.status === 'w_transporcie');
   const delivered = myOrders.filter(o => o.status === 'dostarczone');
   
-  // Filtrowane zamówienia do odbioru
-  const filteredToPickup = pickupStatusFilter === 'all' 
+  // Lista unikalnych producentów w zamówieniach kierowcy (do odbioru)
+  const uniqueProducersInPickup = [...new Set(toPickup.map(o => o.zaladunek).filter(Boolean))];
+  
+  // Filtrowane zamówienia do odbioru (status + producent)
+  let filteredToPickup = pickupStatusFilter === 'all' 
     ? toPickup 
     : toPickup.filter(o => o.status === pickupStatusFilter);
+  
+  // Dodatkowy filtr po producencie
+  if (producerFilterDriver !== 'all') {
+    filteredToPickup = filteredToPickup.filter(o => o.zaladunek === producerFilterDriver);
+  }
+
+  // Liczba zamówień per producent
+  const ordersPerProducer = uniqueProducersInPickup.reduce((acc, prodId) => {
+    acc[prodId] = toPickup.filter(o => o.zaladunek === prodId).length;
+    return acc;
+  }, {});
 
   const tabs = [
     { id: 'pickup', label: 'Do odbioru', count: toPickup.length, icon: '📦' },
@@ -5220,9 +5371,14 @@ ${t.team}
               </div>
             )}
           </div>
-          <button className="btn-manage-trips" onClick={() => setShowTripsModal(true)}>
-            📅 Zarządzaj wyjazdami
-          </button>
+          <div className="trips-buttons">
+            <button className="btn-manage-trips" onClick={() => setShowTripsModal(true)}>
+              📅 Wyjazdy
+            </button>
+            <button className="btn-transport-rates" onClick={() => setShowTransportRatesModal(true)}>
+              💶 Stawki transportu
+            </button>
+          </div>
         </div>
 
         <div className="driver-tabs">
@@ -5236,27 +5392,29 @@ ${t.team}
 
         {/* Filtr statusów dla zakładki "Do odbioru" */}
         {activeTab === 'pickup' && (
-          <div className="driver-status-filter">
-            <span className="filter-label">Filtruj:</span>
-            <div className="filter-buttons">
-              <button 
-                className={`filter-btn ${pickupStatusFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setPickupStatusFilter('all')}
-              >
-                Wszystkie ({toPickup.length})
-              </button>
-              <button 
-                className={`filter-btn ${pickupStatusFilter === 'gotowe_do_odbioru' ? 'active' : ''}`}
-                onClick={() => setPickupStatusFilter('gotowe_do_odbioru')}
-              >
-                ✅ Gotowe ({toPickup.filter(o => o.status === 'gotowe_do_odbioru').length})
-              </button>
-              <button 
-                className={`filter-btn ${pickupStatusFilter === 'w_produkcji' ? 'active' : ''}`}
-                onClick={() => setPickupStatusFilter('w_produkcji')}
-              >
-                🔨 W produkcji ({toPickup.filter(o => o.status === 'w_produkcji').length})
-              </button>
+          <div className="driver-filters-section">
+            {/* Filtr statusów */}
+            <div className="driver-status-filter">
+              <span className="filter-label">Status:</span>
+              <div className="filter-buttons">
+                <button 
+                  className={`filter-btn ${pickupStatusFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setPickupStatusFilter('all')}
+                >
+                  Wszystkie ({toPickup.length})
+                </button>
+                <button 
+                  className={`filter-btn ${pickupStatusFilter === 'gotowe_do_odbioru' ? 'active' : ''}`}
+                  onClick={() => setPickupStatusFilter('gotowe_do_odbioru')}
+                >
+                  ✅ Gotowe ({toPickup.filter(o => o.status === 'gotowe_do_odbioru').length})
+                </button>
+                <button 
+                  className={`filter-btn ${pickupStatusFilter === 'w_produkcji' ? 'active' : ''}`}
+                  onClick={() => setPickupStatusFilter('w_produkcji')}
+                >
+                  🔨 W produkcji ({toPickup.filter(o => o.status === 'w_produkcji').length})
+                </button>
               <button 
                 className={`filter-btn ${pickupStatusFilter === 'potwierdzone' ? 'active' : ''}`}
                 onClick={() => setPickupStatusFilter('potwierdzone')}
@@ -5264,6 +5422,34 @@ ${t.team}
                 📋 Potwierdzone ({toPickup.filter(o => o.status === 'potwierdzone').length})
               </button>
             </div>
+          </div>
+          
+          {/* Filtr producentów */}
+          {uniqueProducersInPickup.length > 0 && (
+            <div className="driver-producer-filter">
+              <span className="filter-label">🏭 Producent:</span>
+              <div className="filter-buttons producer-filter-buttons">
+                <button 
+                  className={`filter-btn ${producerFilterDriver === 'all' ? 'active' : ''}`}
+                  onClick={() => setProducerFilterDriver('all')}
+                >
+                  Wszyscy ({toPickup.length})
+                </button>
+                {uniqueProducersInPickup.map(prodId => {
+                  const prod = Object.values(producers).find(p => p.id === prodId);
+                  return (
+                    <button 
+                      key={prodId}
+                      className={`filter-btn ${producerFilterDriver === prodId ? 'active' : ''}`}
+                      onClick={() => setProducerFilterDriver(prodId)}
+                    >
+                      {prod?.name || prodId} ({ordersPerProducer[prodId]})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           </div>
         )}
 
@@ -5990,16 +6176,16 @@ ${t.team}
 
       {/* Modal zarządzania wyjazdami */}
       {showTripsModal && (
-        <div className="modal-overlay" onClick={() => setShowTripsModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowTripsModal(false); cancelEditTrip(); }}>
           <div className="modal-content modal-medium trips-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>📅 Moje planowane wyjazdy</h2>
-              <button className="btn-close" onClick={() => setShowTripsModal(false)}>×</button>
+              <button className="btn-close" onClick={() => { setShowTripsModal(false); cancelEditTrip(); }}>×</button>
             </div>
             <div className="modal-body">
-              {/* Formularz dodawania wyjazdu */}
-              <div className="add-trip-form">
-                <h3>➕ Zaplanuj nowy wyjazd</h3>
+              {/* Formularz dodawania/edycji wyjazdu */}
+              <div className={`add-trip-form ${editingTrip ? 'editing' : ''}`}>
+                <h3>{editingTrip ? '✏️ Edytuj wyjazd' : '➕ Zaplanuj nowy wyjazd'}</h3>
                 
                 <div className="trip-form-section">
                   <label className="section-label">📦 Okres odbiorów</label>
@@ -6010,7 +6196,6 @@ ${t.team}
                         type="date"
                         value={newPickupDateFrom}
                         onChange={e => setNewPickupDateFrom(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <span className="date-separator">—</span>
@@ -6020,7 +6205,7 @@ ${t.team}
                         type="date"
                         value={newPickupDateTo}
                         onChange={e => setNewPickupDateTo(e.target.value)}
-                        min={newPickupDateFrom || new Date().toISOString().split('T')[0]}
+                        min={newPickupDateFrom}
                       />
                     </div>
                   </div>
@@ -6035,7 +6220,6 @@ ${t.team}
                         type="date"
                         value={newTripDate}
                         onChange={e => setNewTripDate(e.target.value)}
-                        min={newPickupDateTo || newPickupDateFrom || new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <div className="form-group">
@@ -6051,17 +6235,24 @@ ${t.team}
                 </div>
 
                 <div className="form-group">
-                  <label>Notatka (opcjonalnie)</label>
-                  <input
-                    type="text"
+                  <label>Uwagi (widoczne dla admina)</label>
+                  <textarea
                     value={newTripNote}
                     onChange={e => setNewTripNote(e.target.value)}
-                    placeholder="np. Tylko małe przesyłki, pełny załadunek..."
+                    placeholder="np. Tylko małe przesyłki, pełny załadunek, max 5 zamówień..."
+                    rows={2}
                   />
                 </div>
-                <button className="btn-primary" onClick={addTrip}>
-                  ➕ Dodaj wyjazd
-                </button>
+                <div className="trip-form-buttons">
+                  {editingTrip && (
+                    <button className="btn-secondary" onClick={cancelEditTrip}>
+                      ✖️ Anuluj
+                    </button>
+                  )}
+                  <button className="btn-primary" onClick={addTrip}>
+                    {editingTrip ? '💾 Zapisz zmiany' : '➕ Dodaj wyjazd'}
+                  </button>
+                </div>
               </div>
 
               {/* Lista zaplanowanych wyjazdów */}
@@ -6079,9 +6270,10 @@ ${t.team}
                       todayDate.setHours(0,0,0,0);
                       const isPast = depDate < todayDate;
                       const isToday = depDate.toDateString() === todayDate.toDateString();
+                      const isEditing = editingTrip?.id === trip.id;
                       
                       return (
-                        <div key={trip.id} className={`trip-item-extended ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}>
+                        <div key={trip.id} className={`trip-item-extended ${isPast ? 'past' : ''} ${isToday ? 'today' : ''} ${isEditing ? 'editing' : ''}`}>
                           <div className="trip-item-info-extended">
                             <div className="trip-info-row">
                               <span className="trip-info-label">📦 Odbiory:</span>
@@ -6104,17 +6296,27 @@ ${t.team}
                             </div>
                             {trip.note && (
                               <div className="trip-info-row">
-                                <span className="trip-info-label">📝 Notatka:</span>
+                                <span className="trip-info-label">📝 Uwagi:</span>
                                 <span className="trip-info-value note">{trip.note}</span>
                               </div>
                             )}
                           </div>
-                          <button 
-                            className="btn-delete-small"
-                            onClick={() => removeTrip(trip.id)}
-                          >
-                            🗑️
-                          </button>
+                          <div className="trip-item-actions">
+                            <button 
+                              className="btn-edit-small"
+                              onClick={() => startEditTrip(trip)}
+                              title="Edytuj"
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn-delete-small"
+                              onClick={() => removeTrip(trip.id)}
+                              title="Usuń"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -6123,7 +6325,143 @@ ${t.team}
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowTripsModal(false)}>Zamknij</button>
+              <button className="btn-secondary" onClick={() => { setShowTripsModal(false); cancelEditTrip(); }}>Zamknij</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal stawek transportu */}
+      {showTransportRatesModal && (
+        <div className="modal-overlay" onClick={() => { setShowTransportRatesModal(false); setEditingRate(null); }}>
+          <div className="modal-content modal-medium rates-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>💶 Moje stawki transportu</h2>
+              <button className="btn-close" onClick={() => { setShowTransportRatesModal(false); setEditingRate(null); }}>×</button>
+            </div>
+            <div className="modal-body">
+              {/* Formularz dodawania stawki */}
+              <div className="add-rate-form">
+                <h3>{editingRate ? '✏️ Edytuj stawkę' : '➕ Dodaj stawkę'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Nazwa (np. Narożnik L, Sofa 3-os)</label>
+                    <input
+                      type="text"
+                      value={newRate.name}
+                      onChange={e => setNewRate({...newRate, name: e.target.value})}
+                      placeholder="Typ towaru..."
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Kraj</label>
+                    <select value={newRate.country} onChange={e => setNewRate({...newRate, country: e.target.value})}>
+                      {COUNTRIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Typ ceny</label>
+                    <select value={newRate.type} onChange={e => setNewRate({...newRate, type: e.target.value})}>
+                      <option value="netto">Netto</option>
+                      <option value="brutto">Brutto</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>{newRate.type === 'netto' ? 'Cena netto' : 'Cena brutto'}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newRate.type === 'netto' ? newRate.priceNetto : newRate.priceBrutto}
+                      onChange={e => {
+                        if (newRate.type === 'netto') {
+                          setNewRate({...newRate, priceNetto: e.target.value});
+                        } else {
+                          setNewRate({...newRate, priceBrutto: e.target.value});
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Waluta</label>
+                    <select value={newRate.currency} onChange={e => setNewRate({...newRate, currency: e.target.value})}>
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="rate-form-buttons">
+                  {editingRate && (
+                    <button className="btn-secondary" onClick={() => { setEditingRate(null); setNewRate({ name: '', priceNetto: '', priceBrutto: '', currency: 'EUR', country: 'DE', type: 'netto' }); }}>
+                      ✖️ Anuluj
+                    </button>
+                  )}
+                  <button className="btn-primary" onClick={saveTransportRate}>
+                    {editingRate ? '💾 Zapisz' : '➕ Dodaj'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista stawek */}
+              <div className="rates-list">
+                <h3>📋 Twoje stawki ({transportRates.length})</h3>
+                {transportRates.length === 0 ? (
+                  <div className="empty-rates">
+                    <p>Brak stawek. Dodaj swoje stawki transportu.</p>
+                  </div>
+                ) : (
+                  <div className="rates-items">
+                    {transportRates.map(rate => {
+                      const country = getCountry(rate.country);
+                      const currency = CURRENCIES.find(c => c.code === rate.currency);
+                      return (
+                        <div key={rate.id} className="rate-item">
+                          <div className="rate-item-info">
+                            <span className="rate-name">{rate.name}</span>
+                            <span className="rate-country">{country?.flag} {country?.name}</span>
+                          </div>
+                          <div className="rate-item-price">
+                            <span className="rate-price-netto">{rate.priceNetto?.toFixed(2)} {currency?.symbol} netto</span>
+                            <span className="rate-price-brutto">({rate.priceBrutto?.toFixed(2)} brutto)</span>
+                          </div>
+                          <div className="rate-item-actions">
+                            <button 
+                              className="btn-edit-small"
+                              onClick={() => {
+                                setEditingRate(rate);
+                                setNewRate({
+                                  name: rate.name,
+                                  priceNetto: rate.priceNetto?.toString() || '',
+                                  priceBrutto: rate.priceBrutto?.toString() || '',
+                                  currency: rate.currency,
+                                  country: rate.country,
+                                  type: 'netto'
+                                });
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn-delete-small"
+                              onClick={() => removeTransportRate(rate.id)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => { setShowTransportRatesModal(false); setEditingRate(null); }}>Zamknij</button>
             </div>
           </div>
         </div>
@@ -8294,6 +8632,7 @@ const App = () => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false); // Menu rozwijane
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
+  const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
@@ -9060,7 +9399,7 @@ Zespół obsługi zamówień
       )}
 
       <main className="main">
-        {/* Slider planowanych wyjazdów kierowców - tylko dla admina i pracownika */}
+        {/* Kompaktowy slider planowanych wyjazdów kierowców */}
         {(user?.role === 'admin' || user?.role === 'worker') && (() => {
           const driversWithTrips = users
             .filter(u => u.role === 'driver' && u.plannedTrips && u.plannedTrips.length > 0)
@@ -9077,59 +9416,65 @@ Zespół obsługi zamówień
           if (driversWithTrips.length === 0) return null;
 
           return (
-            <div className="drivers-trips-slider">
-              <div className="trips-slider-header">
-                <span className="trips-slider-title">🚗 Planowane wyjazdy kierowców</span>
+            <div className="drivers-trips-slider-compact">
+              <div className="trips-slider-header-compact">
+                <span className="trips-slider-title">🚗 Najbliższe wyjazdy kierowców</span>
               </div>
-              <div className="trips-slider-content">
-                {driversWithTrips.map(driver => (
-                  <div key={driver.id} className="driver-trip-card-extended">
-                    <div className="driver-trip-name">
-                      <span className="driver-avatar">🚚</span>
-                      <span>{driver.name}</span>
-                    </div>
-                    <div className="driver-trip-schedule">
-                      {driver.futureTrips.slice(0, 2).map((trip, idx) => {
-                        const depDate = new Date(trip.departureDate || trip.date);
-                        const todayCheck = new Date();
-                        todayCheck.setHours(0,0,0,0);
-                        const isToday = depDate.toDateString() === todayCheck.toDateString();
-                        const tomorrow = new Date(todayCheck);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const isTomorrow = depDate.toDateString() === tomorrow.toDateString();
-                        
-                        return (
-                          <div key={idx} className={`trip-schedule-item ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}>
-                            <div className="trip-schedule-pickup">
-                              <span className="schedule-label">📦 Odbiory:</span>
-                              <span className="schedule-value">
-                                {formatDate(trip.pickupFrom || trip.date)}
-                                {trip.pickupTo && trip.pickupTo !== trip.pickupFrom && (
-                                  <> — {formatDate(trip.pickupTo)}</>
-                                )}
-                              </span>
-                            </div>
-                            <div className="trip-schedule-departure">
-                              <span className="schedule-label">🚗 Wyjazd:</span>
-                              <span className="schedule-value highlight">
-                                {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : formatDate(trip.departureDate || trip.date)}
-                              </span>
-                            </div>
-                            {trip.destination && (
-                              <div className="trip-schedule-dest">
-                                <span className="schedule-label">📍</span>
-                                <span className="schedule-value">{trip.destination}</span>
-                              </div>
+              <div className="trips-slider-content-compact">
+                {driversWithTrips.map(driver => {
+                  const nextTrip = driver.futureTrips[0];
+                  if (!nextTrip) return null;
+                  
+                  const depDate = new Date(nextTrip.departureDate || nextTrip.date);
+                  const todayCheck = new Date();
+                  todayCheck.setHours(0,0,0,0);
+                  const isToday = depDate.toDateString() === todayCheck.toDateString();
+                  const tomorrow = new Date(todayCheck);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  const isTomorrow = depDate.toDateString() === tomorrow.toDateString();
+                  
+                  return (
+                    <div 
+                      key={driver.id} 
+                      className={`driver-trip-card-compact ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}
+                      onClick={() => setShowDriverTripsDetail(driver)}
+                    >
+                      <div className="card-compact-header">
+                        <span className="driver-name-compact">🚚 {driver.name}</span>
+                        {driver.futureTrips.length > 1 && (
+                          <span className="more-badge">+{driver.futureTrips.length - 1}</span>
+                        )}
+                      </div>
+                      <div className="card-compact-body">
+                        <div className="compact-row">
+                          <span>📦</span>
+                          <span>
+                            {formatDate(nextTrip.pickupFrom || nextTrip.date)}
+                            {nextTrip.pickupTo && nextTrip.pickupTo !== nextTrip.pickupFrom && (
+                              <> — {formatDate(nextTrip.pickupTo)}</>
                             )}
+                          </span>
+                        </div>
+                        <div className="compact-row departure">
+                          <span>🚗</span>
+                          <span className="departure-date">
+                            {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : formatDate(nextTrip.departureDate || nextTrip.date)}
+                          </span>
+                          {nextTrip.destination && <span className="compact-dest">→ {nextTrip.destination}</span>}
+                        </div>
+                        {nextTrip.note && (
+                          <div className="compact-row note">
+                            <span>📝</span>
+                            <span className="note-text">{nextTrip.note}</span>
                           </div>
-                        );
-                      })}
-                      {driver.futureTrips.length > 2 && (
-                        <span className="more-trips">+{driver.futureTrips.length - 2} więcej wyjazdów</span>
-                      )}
+                        )}
+                      </div>
+                      <div className="card-compact-footer">
+                        <span className="view-more">Kliknij, aby zobaczyć wszystkie wyjazdy →</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -9372,6 +9717,75 @@ Zespół obsługi zamówień
           }}
           onClose={() => setShowProductSearch(false)}
         />
+      )}
+
+      {/* Modal szczegółów wyjazdów kierowcy */}
+      {showDriverTripsDetail && (
+        <div className="modal-overlay" onClick={() => setShowDriverTripsDetail(null)}>
+          <div className="modal-content modal-medium driver-trips-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🚚 Wyjazdy: {showDriverTripsDetail.name}</h2>
+              <button className="btn-close" onClick={() => setShowDriverTripsDetail(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {showDriverTripsDetail.futureTrips?.length === 0 ? (
+                <div className="empty-trips">
+                  <p>Brak zaplanowanych wyjazdów</p>
+                </div>
+              ) : (
+                <div className="trips-detail-list">
+                  {showDriverTripsDetail.futureTrips?.map((trip, idx) => {
+                    const depDate = new Date(trip.departureDate || trip.date);
+                    const todayDate = new Date();
+                    todayDate.setHours(0,0,0,0);
+                    const isToday = depDate.toDateString() === todayDate.toDateString();
+                    const tomorrow = new Date(todayDate);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const isTomorrow = depDate.toDateString() === tomorrow.toDateString();
+                    
+                    return (
+                      <div key={idx} className={`trip-detail-card ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}`}>
+                        <div className="trip-detail-header">
+                          <span className="trip-number">Wyjazd #{idx + 1}</span>
+                          {isToday && <span className="trip-badge today">🔴 DZIŚ</span>}
+                          {isTomorrow && <span className="trip-badge tomorrow">🟡 JUTRO</span>}
+                        </div>
+                        <div className="trip-detail-content">
+                          <div className="detail-row">
+                            <span className="detail-label">📦 Odbiory:</span>
+                            <span className="detail-value">
+                              {formatDate(trip.pickupFrom || trip.date)}
+                              {trip.pickupTo && trip.pickupTo !== trip.pickupFrom && (
+                                <> — {formatDate(trip.pickupTo)}</>
+                              )}
+                            </span>
+                          </div>
+                          <div className="detail-row highlight">
+                            <span className="detail-label">🚗 Wyjazd:</span>
+                            <span className="detail-value">{formatDate(trip.departureDate || trip.date)}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="detail-label">📍 Kierunek:</span>
+                            <span className="detail-value">{trip.destination || 'Nieokreślony'}</span>
+                          </div>
+                          {trip.note && (
+                            <div className="detail-row note-row">
+                              <span className="detail-label">📝 Uwagi:</span>
+                              <span className="detail-value note">{trip.note}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowDriverTripsDetail(null)}>Zamknij</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showCompanyModal && (
