@@ -11366,12 +11366,19 @@ input.margin-negative {
 
 /* Fullscreen modal */
 .modal-content.modal-form.modal-fullscreen {
-  width: 98%;
-  max-width: 1400px;
-  height: 95vh;
-  max-height: 95vh;
+  width: 98vw !important;
+  max-width: 1600px !important;
+  height: 95vh !important;
+  max-height: 95vh !important;
   display: flex;
   flex-direction: column;
+  margin: 2.5vh auto;
+}
+
+.modal-content.modal-form.modal-fullscreen .modal-header {
+  flex-shrink: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid #E2E8F0;
 }
 
 .modal-content.modal-form.modal-fullscreen .modal-body {
@@ -11396,6 +11403,25 @@ input.margin-negative {
   gap: 16px;
   overflow-y: auto;
   padding-right: 10px;
+  max-height: calc(95vh - 140px);
+}
+
+.modal-column::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-column::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.modal-column::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.modal-column::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 /* Sekcje z nagłówkami */
@@ -11403,13 +11429,12 @@ input.margin-negative {
   background: white;
   border-radius: 12px;
   border: 1px solid #E2E8F0;
-  overflow: hidden;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .form-section-box.products-box {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  flex: 0 0 auto;
 }
 
 .section-header {
@@ -11688,7 +11713,8 @@ input.margin-negative {
 
 /* Footer modalu */
 .modal-footer-full {
-  padding: 16px 20px;
+  flex-shrink: 0;
+  padding: 16px 24px;
   background: #F8FAFC;
   border-top: 1px solid #E2E8F0;
   display: flex;
@@ -11705,6 +11731,18 @@ input.margin-negative {
 .footer-right-actions {
   display: flex;
   gap: 8px;
+}
+
+/* Input styles */
+.unpaid-input {
+  background: #FEF3C7 !important;
+  border-color: #F59E0B !important;
+  font-weight: 600;
+}
+
+.paid-input {
+  background: #DCFCE7 !important;
+  border-color: #22C55E !important;
 }
 
 /* Kierowca - pobranie per produkt */
@@ -11743,17 +11781,27 @@ input.margin-negative {
 }
 
 /* Responsywność */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .modal-body-sections {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
   
   .modal-column {
     max-height: none;
+    overflow: visible;
   }
 }
 
 @media (max-width: 768px) {
+  .modal-content.modal-form.modal-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0;
+    margin: 0;
+  }
+  
   .form-row {
     grid-template-columns: 1fr;
   }
