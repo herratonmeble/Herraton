@@ -1586,7 +1586,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   };
 
   // Aktualizuj koszty produktu z przeliczaniem netto/brutto
-  // eslint-disable-next-line no-unused-vars
   const updateProductCost = (index, field, value) => {
     setForm(prevForm => {
       const newProducts = [...prevForm.produkty];
@@ -1976,19 +1975,6 @@ Zespół obsługi zamówień`;
                 {!isContractor && (
                   <div className="form-row">
                     <div className="form-group">
-                      <label>📊 STATUS {form.produkty?.length > 1 ? '(wszystkich)' : ''}</label>
-                      <select 
-                        value={form.status} 
-                        onChange={e => {
-                          const newStatus = e.target.value;
-                          const updatedProducts = form.produkty.map(p => ({ ...p, status: newStatus }));
-                          setForm({ ...form, status: newStatus, produkty: updatedProducts });
-                        }}
-                      >
-                        {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group">
                       <label>🚚 KIEROWCA {form.produkty?.length > 1 ? '(domyślny)' : ''}</label>
                       <select 
                         value={form.przypisanyKierowca || ''} 
@@ -2008,6 +1994,9 @@ Zespół obsługi zamówień`;
                     <div className="form-group">
                       <label>📅 DATA DOSTAWY</label>
                       <input type="date" value={form.dataDostawy || ''} onChange={e => setForm({ ...form, dataDostawy: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      {/* Puste miejsce dla wyrównania */}
                     </div>
                   </div>
                 )}
@@ -2140,6 +2129,131 @@ Zespół obsługi zamówień`;
                       >
                         📧 Wyślij zapytanie/zlecenie do producenta
                       </button>
+                    )}
+
+                    {/* ===== KOSZTY PRODUKTU (tylko admin) ===== */}
+                    {isAdmin && (
+                      <div className="product-costs-section">
+                        <div className="product-costs-header">
+                          <h4>💰 Koszty tego produktu</h4>
+                        </div>
+                        
+                        {/* KOSZT ZAKUPU */}
+                        <div className="cost-input-row">
+                          <label>🏭 Koszt zakupu (netto):</label>
+                          <div className="cost-input-group">
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'waluta', e.target.value)}
+                              className="currency-select-small"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'zakupNetto', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              className="cost-input"
+                            />
+                            {priceLists && priceLists.length > 0 && (
+                              <button 
+                                type="button" 
+                                className="btn-search-price"
+                                onClick={() => setShowProductSearchInOrder(true)}
+                                title="Szukaj w cennikach"
+                              >
+                                🔍
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* KOSZT TRANSPORTU */}
+                        <div className="cost-input-row">
+                          <label>🚚 Koszt transportu (netto):</label>
+                          <div className="cost-input-group">
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.transportWaluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportWaluta', e.target.value)}
+                              className="currency-select-small"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].koszty?.transportNetto || ''} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportNetto', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              className="cost-input"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Stawki kierowcy - podpowiedź */}
+                        {form.produkty[activeProductIndex].kierowca && (() => {
+                          const prodDriver = drivers.find(d => d.id === form.produkty[activeProductIndex].kierowca);
+                          const driverRates = prodDriver?.transportRates || [];
+                          const countryRates = driverRates.filter(r => r.country === form.kraj);
+                          
+                          if (countryRates.length > 0) {
+                            return (
+                              <div className="driver-rates-quick">
+                                <span className="rates-label">Stawki {prodDriver?.name}:</span>
+                                <div className="rates-buttons">
+                                  {countryRates.map(rate => (
+                                    <button
+                                      key={rate.id}
+                                      type="button"
+                                      className="rate-quick-btn-small"
+                                      onClick={() => {
+                                        updateProductCost(activeProductIndex, 'transportWaluta', rate.currency);
+                                        updateProductCost(activeProductIndex, 'transportNetto', rate.priceNetto);
+                                      }}
+                                    >
+                                      {rate.name}: {rate.priceNetto} {CURRENCIES.find(c => c.code === rate.currency)?.symbol}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {/* CENA DLA KLIENTA i DO POBRANIA */}
+                        <div className="cost-input-row highlight-row">
+                          <label>💵 Cena dla klienta (brutto):</label>
+                          <div className="cost-input-group">
+                            <span className="currency-label-fixed">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].cenaKlienta || ''} 
+                              onChange={e => updateProduct(activeProductIndex, 'cenaKlienta', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              className="cost-input"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="cost-input-row warning-row">
+                          <label>🚚 Do pobrania przez kierowcę:</label>
+                          <div className="cost-input-group">
+                            <span className="currency-label-fixed">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={form.produkty[activeProductIndex].doPobrania || ''} 
+                              onChange={e => updateProduct(activeProductIndex, 'doPobrania', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              className="cost-input"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
