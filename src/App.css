@@ -10248,3 +10248,323 @@ input.margin-negative {
     gap: 4px;
   }
 }
+
+/* ============================================
+   ROZLICZENIA - OBSŁUGA WIELU WALUT
+   ============================================ */
+
+.currency-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.currency-total-card {
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  border: 2px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.currency-total-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.currency-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.currency-flag {
+  font-size: 24px;
+}
+
+.currency-code {
+  font-weight: 800;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.currency-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.currency-row .value {
+  font-weight: 600;
+}
+
+.currency-row .value.minus {
+  color: #DC2626;
+}
+
+.currency-row.total {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 2px solid #E2E8F0;
+  font-weight: 700;
+}
+
+.currency-row.total .value.positive {
+  color: #059669;
+  font-size: 18px;
+}
+
+.currency-row.total .value.negative {
+  color: #DC2626;
+  font-size: 18px;
+}
+
+/* Preview walut na liście */
+.settlement-currency-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.currency-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+  border-radius: 10px;
+  color: white;
+}
+
+.currency-badge .currency {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.currency-badge .amount {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.currency-badge .amount.positive {
+  color: #86EFAC;
+}
+
+.currency-badge .amount.negative {
+  color: #FCA5A5;
+}
+
+/* Rabat w szczegółach zamówienia */
+.order-discount-info {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border: 1px solid #F59E0B;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.order-discount-info .discount-badge {
+  font-weight: 700;
+  color: #92400E;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.order-discount-info .discount-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #78350F;
+}
+
+.order-discount-info .original-price {
+  text-decoration: line-through;
+  color: #92400E;
+}
+
+.order-discount-info .discount-amount {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+/* Rabat w tworzeniu rozliczenia */
+.order-discount-badge {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  color: #92400E;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+/* Sekcja rabatu w szczegółach */
+.order-discount-section {
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 2px solid #F59E0B;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 12px 0;
+}
+
+.order-discount-section .discount-header {
+  font-weight: 700;
+  color: #92400E;
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #F59E0B;
+}
+
+.order-discount-section .discount-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-discount-section .discount-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.order-discount-section .discount-row .strikethrough {
+  text-decoration: line-through;
+  color: #92400E;
+}
+
+.order-discount-section .discount-row.highlight {
+  padding: 6px 10px;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 6px;
+}
+
+.order-discount-section .discount-row .discount-amount {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+.order-discount-section .discount-reason,
+.order-discount-section .discount-by {
+  font-size: 12px;
+  color: #78350F;
+  font-style: italic;
+}
+
+/* Podsumowanie walut na karcie kierowcy */
+.card-currency-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.currency-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+}
+
+.currency-summary-item.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.currency-summary-item .currency-label {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.currency-summary-item.total .currency-label {
+  color: rgba(255,255,255,0.8);
+}
+
+.currency-summary-item .currency-value {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1E1B4B;
+}
+
+.currency-summary-item .currency-value.positive {
+  color: #059669;
+}
+
+.currency-summary-item .currency-value.negative {
+  color: #DC2626;
+}
+
+.currency-summary-item.total .currency-value {
+  color: #86EFAC;
+  font-size: 18px;
+}
+
+.card-orders-count {
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+/* Driver currency summary */
+.driver-currency-summary {
+  margin-bottom: 24px;
+}
+
+.driver-currency-summary h4 {
+  margin: 0 0 12px 0;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+/* Podsumowanie na dole formularza tworzenia */
+.settlement-summary .currency-totals-grid {
+  margin-bottom: 16px;
+}
+
+.settlement-summary .currency-total-card {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.settlement-summary .currency-header {
+  border-color: rgba(255,255,255,0.2);
+}
+
+.settlement-summary .currency-code {
+  color: white;
+}
+
+.settlement-summary .currency-row {
+  color: rgba(255,255,255,0.8);
+}
+
+.settlement-summary .currency-row .value {
+  color: white;
+}
+
+.settlement-summary .currency-row.total {
+  border-color: rgba(255,255,255,0.3);
+}
+
+@media (max-width: 768px) {
+  .currency-totals-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .settlement-currency-preview {
+    flex-direction: column;
+  }
+  
+  .currency-badge {
+    justify-content: space-between;
+  }
+}
