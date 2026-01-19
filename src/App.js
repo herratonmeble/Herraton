@@ -1405,13 +1405,46 @@ Zespół obsługi zamówień`;
 // ============================================
 
 const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, orders, isContractor, isAdmin, exchangeRates, priceLists }) => {
-  const [form, setForm] = useState(order || {
+  // Inicjalizacja produktów - jeśli brak tablicy, utwórz z istniejącego towaru
+  const initProducts = (existingOrder) => {
+    if (existingOrder?.produkty && existingOrder.produkty.length > 0) {
+      return existingOrder.produkty;
+    }
+    // Migracja starego formatu - jeden towar bez tablicy produktów
+    if (existingOrder?.towar) {
+      return [{
+        id: 'prod_' + Date.now(),
+        nrPodzamowienia: existingOrder.nrWlasny,
+        towar: existingOrder.towar,
+        producent: existingOrder.zaladunek || '',
+        status: existingOrder.status || 'nowe',
+        dataOdbioru: existingOrder.dataOdbioru || '',
+        koszty: existingOrder.koszty || { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0 }
+      }];
+    }
+    // Nowe zamówienie - jeden pusty produkt
+    return [{
+      id: 'prod_' + Date.now(),
+      nrPodzamowienia: '',
+      towar: '',
+      producent: '',
+      status: 'nowe',
+      dataOdbioru: '',
+      koszty: { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0, vatRate: 23 }
+    }];
+  };
+
+  const [form, setForm] = useState(order ? {
+    ...order,
+    produkty: initProducts(order)
+  } : {
     nrWlasny: '',
     kraj: 'PL',
     status: 'nowe',
     dataZlecenia: new Date().toISOString().split('T')[0],
-    towar: '',
-    zaladunek: '',
+    towar: '', // Zachowaj dla kompatybilności wstecznej
+    zaladunek: '', // Zachowaj dla kompatybilności wstecznej
+    produkty: initProducts(null), // Nowa tablica produktów
     klient: { imie: '', adres: '', telefon: '', email: '', facebookUrl: '' },
     platnosci: { waluta: 'PLN', zaplacono: 0, metodaZaplaty: '', dataZaplaty: '', doZaplaty: 0, cenaCalkowita: 0 },
     koszty: { 
@@ -1434,6 +1467,71 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [suggestions, setSuggestions] = useState([]);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showProductSearchInOrder, setShowProductSearchInOrder] = useState(false);
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
+
+  // Generuj numer podzamówienia
+  const generateSubOrderNumber = (baseNr, index) => {
+    if (index === 0) return baseNr;
+    const suffix = String.fromCharCode(65 + index); // A, B, C...
+    return `${baseNr}-${suffix}`;
+  };
+
+  // Dodaj nowy produkt
+  const addProduct = () => {
+    const newProduct = {
+      id: 'prod_' + Date.now(),
+      nrPodzamowienia: generateSubOrderNumber(form.nrWlasny, form.produkty.length),
+      towar: '',
+      producent: '',
+      producentNazwa: '', // Dla "inny producent"
+      status: 'nowe',
+      dataOdbioru: '',
+      koszty: { waluta: 'PLN', zakupNetto: 0, zakupBrutto: 0, vatRate: 23 }
+    };
+    setForm({ ...form, produkty: [...form.produkty, newProduct] });
+    setActiveProductIndex(form.produkty.length);
+  };
+
+  // Usuń produkt
+  const removeProduct = (index) => {
+    if (form.produkty.length <= 1) {
+      alert('Zamówienie musi mieć przynajmniej jeden produkt');
+      return;
+    }
+    const newProducts = form.produkty.filter((_, i) => i !== index);
+    setForm({ ...form, produkty: newProducts });
+    if (activeProductIndex >= newProducts.length) {
+      setActiveProductIndex(newProducts.length - 1);
+    }
+  };
+
+  // Aktualizuj produkt
+  const updateProduct = (index, field, value) => {
+    const newProducts = [...form.produkty];
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      newProducts[index] = {
+        ...newProducts[index],
+        [parent]: { ...newProducts[index][parent], [child]: value }
+      };
+    } else {
+      newProducts[index] = { ...newProducts[index], [field]: value };
+    }
+    setForm({ ...form, produkty: newProducts });
+  };
+
+  // Aktualizuj numery podzamówień gdy zmienia się główny numer
+  useEffect(() => {
+    if (form.nrWlasny && form.produkty) {
+      const updatedProducts = form.produkty.map((p, idx) => ({
+        ...p,
+        nrPodzamowienia: generateSubOrderNumber(form.nrWlasny, idx)
+      }));
+      if (JSON.stringify(updatedProducts) !== JSON.stringify(form.produkty)) {
+        setForm(f => ({ ...f, produkty: updatedProducts }));
+      }
+    }
+  }, [form.nrWlasny]);
 
   // Funkcja generująca treść emaila z potwierdzeniem
   const generateConfirmationEmail = () => {
@@ -1677,9 +1775,39 @@ Zespół obsługi zamówień`;
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(form, currentUser);
+    
+    // Synchronizuj pola towar i zaladunek dla kompatybilności wstecznej
+    const formToSave = { ...form };
+    if (formToSave.produkty && formToSave.produkty.length > 0) {
+      // Połącz opisy wszystkich produktów
+      formToSave.towar = formToSave.produkty.map((p, idx) => {
+        const prodName = Object.values(producers).find(pr => pr.id === p.producent)?.name || p.producentNazwa || '';
+        const prefix = formToSave.produkty.length > 1 ? `[${p.nrPodzamowienia || idx + 1}] ` : '';
+        return `${prefix}${p.towar}${prodName ? ` (${prodName})` : ''}`;
+      }).join('\n\n');
+      
+      // Pierwszy producent jako główny (dla kompatybilności)
+      formToSave.zaladunek = formToSave.produkty[0]?.producent || '';
+      
+      // Oblicz sumę kosztów zakupu ze wszystkich produktów
+      let sumZakupNetto = 0;
+      let sumZakupBrutto = 0;
+      formToSave.produkty.forEach(p => {
+        if (p.koszty) {
+          sumZakupNetto += p.koszty.zakupNetto || 0;
+          sumZakupBrutto += p.koszty.zakupBrutto || 0;
+        }
+      });
+      formToSave.koszty = {
+        ...formToSave.koszty,
+        zakupNetto: sumZakupNetto,
+        zakupBrutto: sumZakupBrutto
+      };
+    }
+    
+    await onSave(formToSave, currentUser);
     setSaving(false);
-    onClose(); // ZAMKNIJ MODAL PO ZAPISIE
+    onClose();
   };
 
   return (
@@ -1719,13 +1847,6 @@ Zespół obsługi zamówień`;
           {!isContractor && (
             <div className="form-grid">
               <div className="form-group">
-                <label>PRODUCENT</label>
-                <select value={form.zaladunek} onChange={e => setForm({ ...form, zaladunek: e.target.value })}>
-                  <option value="">-- Wybierz producenta --</option>
-                  {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
                 <label>KIEROWCA</label>
                 <select value={form.przypisanyKierowca || ''} onChange={e => setForm({ ...form, przypisanyKierowca: e.target.value || null })}>
                   <option value="">-- Wybierz kierowcę --</option>
@@ -1735,9 +1856,178 @@ Zespół obsługi zamówień`;
             </div>
           )}
 
-          <div className="form-group full">
-            <label>TOWAR</label>
-            <textarea value={form.towar} onChange={e => setForm({ ...form, towar: e.target.value })} rows={3} placeholder="Szczegółowy opis zamówienia..." />
+          {/* SEKCJA PRODUKTÓW - obsługa wielu produktów/producentów */}
+          <div className="form-section products-section">
+            <div className="products-header">
+              <h3>📦 Produkty ({form.produkty?.length || 0})</h3>
+              {!isContractor && (
+                <button type="button" className="btn-add-product" onClick={addProduct}>
+                  ➕ Dodaj kolejny produkt
+                </button>
+              )}
+            </div>
+
+            {/* Zakładki produktów */}
+            {form.produkty && form.produkty.length > 1 && (
+              <div className="product-tabs">
+                {form.produkty.map((prod, idx) => {
+                  const prodStatus = getStatus(prod.status);
+                  const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
+                  return (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      className={`product-tab ${activeProductIndex === idx ? 'active' : ''}`}
+                      onClick={() => setActiveProductIndex(idx)}
+                    >
+                      <span className="tab-number">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
+                      <span className="tab-producer">{prodProducer?.name || prod.producentNazwa || '?'}</span>
+                      <span className="tab-status" style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}>
+                        {prodStatus?.icon}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Aktywny produkt */}
+            {form.produkty && form.produkty[activeProductIndex] && (
+              <div className="product-form-card">
+                <div className="product-form-header">
+                  <span className="product-number">
+                    {form.produkty[activeProductIndex].nrPodzamowienia || `Produkt ${activeProductIndex + 1}`}
+                  </span>
+                  {form.produkty.length > 1 && (
+                    <button 
+                      type="button" 
+                      className="btn-remove-product"
+                      onClick={() => removeProduct(activeProductIndex)}
+                    >
+                      🗑️ Usuń produkt
+                    </button>
+                  )}
+                </div>
+
+                {!isContractor && (
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>PRODUCENT</label>
+                      <select 
+                        value={form.produkty[activeProductIndex].producent} 
+                        onChange={e => {
+                          updateProduct(activeProductIndex, 'producent', e.target.value);
+                          if (e.target.value !== '_other') {
+                            updateProduct(activeProductIndex, 'producentNazwa', '');
+                          }
+                        }}
+                      >
+                        <option value="">-- Wybierz producenta --</option>
+                        {Object.values(producers).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        <option value="_other">➕ Inny producent...</option>
+                      </select>
+                    </div>
+                    {form.produkty[activeProductIndex].producent === '_other' && (
+                      <div className="form-group">
+                        <label>NAZWA PRODUCENTA</label>
+                        <input 
+                          value={form.produkty[activeProductIndex].producentNazwa || ''} 
+                          onChange={e => updateProduct(activeProductIndex, 'producentNazwa', e.target.value)}
+                          placeholder="Wpisz nazwę producenta..."
+                        />
+                      </div>
+                    )}
+                    <div className="form-group">
+                      <label>STATUS PRODUKTU</label>
+                      <select 
+                        value={form.produkty[activeProductIndex].status} 
+                        onChange={e => updateProduct(activeProductIndex, 'status', e.target.value)}
+                      >
+                        {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>DATA ODBIORU OD PRODUCENTA</label>
+                      <input 
+                        type="date" 
+                        value={form.produkty[activeProductIndex].dataOdbioru || ''} 
+                        onChange={e => updateProduct(activeProductIndex, 'dataOdbioru', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group full">
+                  <label>OPIS TOWARU</label>
+                  <textarea 
+                    value={form.produkty[activeProductIndex].towar || ''} 
+                    onChange={e => updateProduct(activeProductIndex, 'towar', e.target.value)} 
+                    rows={3} 
+                    placeholder="Szczegółowy opis produktu..."
+                  />
+                </div>
+
+                {/* Koszty zakupu tego produktu - tylko dla admina */}
+                {isAdmin && (
+                  <div className="product-costs">
+                    <h4>💰 Koszty zakupu tego produktu</h4>
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label>WALUTA ZAKUPU</label>
+                        <select 
+                          value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
+                          onChange={e => updateProduct(activeProductIndex, 'koszty.waluta', e.target.value)}
+                        >
+                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>ZAKUP NETTO</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={form.produkty[activeProductIndex].koszty?.zakupNetto || ''} 
+                          onChange={e => {
+                            const netto = parseFloat(e.target.value) || 0;
+                            const vatRate = form.produkty[activeProductIndex].koszty?.vatRate || 23;
+                            const brutto = netto * (1 + vatRate / 100);
+                            const newKoszty = { 
+                              ...form.produkty[activeProductIndex].koszty, 
+                              zakupNetto: netto, 
+                              zakupBrutto: Math.round(brutto * 100) / 100 
+                            };
+                            const newProducts = [...form.produkty];
+                            newProducts[activeProductIndex] = { ...newProducts[activeProductIndex], koszty: newKoszty };
+                            setForm({ ...form, produkty: newProducts });
+                          }}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>ZAKUP BRUTTO</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={form.produkty[activeProductIndex].koszty?.zakupBrutto || ''} 
+                          onChange={e => {
+                            const brutto = parseFloat(e.target.value) || 0;
+                            const vatRate = form.produkty[activeProductIndex].koszty?.vatRate || 23;
+                            const netto = brutto / (1 + vatRate / 100);
+                            const newKoszty = { 
+                              ...form.produkty[activeProductIndex].koszty, 
+                              zakupBrutto: brutto, 
+                              zakupNetto: Math.round(netto * 100) / 100 
+                            };
+                            const newProducts = [...form.produkty];
+                            newProducts[activeProductIndex] = { ...newProducts[activeProductIndex], koszty: newKoszty };
+                            setForm({ ...form, produkty: newProducts });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="form-section">
@@ -9901,20 +10191,25 @@ Zespół obsługi zamówień
   };
 
   const handleSaveUsers = async (newList) => {
+    const deletedIds = new Set(); // Śledź usunięte ID
+    
     // Znajdź użytkowników do usunięcia
     for (const old of users) {
       if (!newList.find(x => x.id === old.id) && old.username !== 'admin') {
         console.log('Usuwanie użytkownika:', old.id, old.name);
         try { 
           await deleteUser(old.id); 
+          deletedIds.add(old.id);
           console.log('Użytkownik usunięty:', old.id);
         } catch (err) {
           console.error('Błąd usuwania użytkownika:', err);
         }
       }
     }
-    // Dodaj nowych lub zaktualizuj istniejących
+    // Dodaj nowych lub zaktualizuj istniejących (ale nie odtwarzaj usuniętych!)
     for (const u of newList) {
+      if (deletedIds.has(u.id)) continue; // Pomiń usunięte
+      
       if (!u.id || String(u.id).startsWith('new_')) {
         const payload = { ...u };
         delete payload.id;
@@ -9937,6 +10232,7 @@ Zespół obsługi zamówień
   const handleSaveProducers = async (list) => {
     const currentIds = new Set(Object.keys(producers));
     const nextIds = new Set(list.map(p => p.id));
+    const deletedIds = new Set(); // Śledź usunięte ID
     
     // Usuń producentów których nie ma na nowej liście
     for (const id of currentIds) {
@@ -9944,14 +10240,17 @@ Zespół obsługi zamówień
         console.log('Usuwanie producenta:', id);
         try { 
           await deleteProducer(id); 
+          deletedIds.add(id);
           console.log('Producent usunięty:', id);
         } catch (err) {
           console.error('Błąd usuwania producenta:', err);
         }
       }
     }
-    // Dodaj lub zaktualizuj
+    // Dodaj lub zaktualizuj (ale nie odtwarzaj usuniętych!)
     for (const p of list) {
+      if (deletedIds.has(p.id)) continue; // Pomiń usunięte
+      
       if (producers[p.id]) {
         try { 
           await updateProducer(p.id, p); 
