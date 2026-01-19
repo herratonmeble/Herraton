@@ -1547,7 +1547,26 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
       }
       
       newProducts[index] = { ...newProducts[index], koszty: newKoszty };
-      return { ...prevForm, produkty: newProducts };
+      
+      // Automatycznie zsumuj koszty wszystkich produktów
+      let sumZakupNetto = 0;
+      let sumZakupBrutto = 0;
+      newProducts.forEach(p => {
+        if (p.koszty) {
+          sumZakupNetto += p.koszty.zakupNetto || 0;
+          sumZakupBrutto += p.koszty.zakupBrutto || 0;
+        }
+      });
+      
+      return { 
+        ...prevForm, 
+        produkty: newProducts,
+        koszty: {
+          ...prevForm.koszty,
+          zakupNetto: sumZakupNetto,
+          zakupBrutto: sumZakupBrutto
+        }
+      };
     });
   };
 
@@ -2203,6 +2222,34 @@ Zespół obsługi zamówień`;
             <div className="form-section costs">
               <h3>📊 Koszty i marża (widoczne tylko dla admina)</h3>
               
+              {/* Podsumowanie kosztów z produktów - jeśli są */}
+              {form.produkty && form.produkty.length > 0 && form.produkty.some(p => p.koszty?.zakupNetto > 0 || p.koszty?.zakupBrutto > 0) && (
+                <div className="products-costs-summary">
+                  <h4>📦 Koszty zakupu produktów</h4>
+                  <div className="products-costs-list">
+                    {form.produkty.map((p, idx) => {
+                      if (!p.koszty?.zakupNetto && !p.koszty?.zakupBrutto) return null;
+                      const prodProducer = Object.values(producers).find(pr => pr.id === p.producent);
+                      return (
+                        <div key={idx} className="product-cost-row">
+                          <span className="prod-name">{p.nrPodzamowienia || `#${idx + 1}`}: {prodProducer?.name || p.producentNazwa || '—'}</span>
+                          <span className="prod-cost">
+                            {formatCurrency(p.koszty?.zakupNetto || 0, p.koszty?.waluta || 'PLN')} netto
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <div className="product-cost-total">
+                      <span>SUMA:</span>
+                      <span>{formatCurrency(form.produkty.reduce((sum, p) => sum + (p.koszty?.zakupNetto || 0), 0), 'PLN')} netto</span>
+                    </div>
+                  </div>
+                  <p className="costs-sync-info">
+                    ℹ️ Koszty z produktów są automatycznie sumowane poniżej. Możesz też ręcznie wpisać koszty.
+                  </p>
+                </div>
+              )}
+              
               {/* Wiersz 1: Stawka VAT */}
               <div className="form-grid">
                 <div className="form-group">
@@ -2219,7 +2266,7 @@ Zespół obsługi zamówień`;
               {/* KOSZT TOWARU */}
               <div className="cost-section">
                 <div className="cost-section-header">
-                  <h4>🏭 Koszt towaru</h4>
+                  <h4>🏭 Koszt towaru {form.produkty?.length > 1 ? '(suma z produktów)' : ''}</h4>
                   {priceLists && priceLists.length > 0 && !isContractor && (
                     <button 
                       type="button" 
@@ -4609,11 +4656,67 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
     return depDate >= today;
   });
 
-  const myOrders = orders.filter(o => o.przypisanyKierowca === user.id);
-  const toPickup = myOrders.filter(o => ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(o.status));
-  const pickedUp = myOrders.filter(o => o.status === 'odebrane');
-  const inTransit = myOrders.filter(o => o.status === 'w_transporcie');
-  const delivered = myOrders.filter(o => o.status === 'dostarczone');
+  // NOWA LOGIKA: Kierowca widzi zamówienia/produkty przypisane do niego
+  // Zamówienie może mieć produkty przypisane do różnych kierowców
+  const getMyOrdersAndProducts = () => {
+    const result = [];
+    
+    orders.forEach(o => {
+      // Czy to zamówienie łączone z produktami?
+      if (o.produkty && o.produkty.length > 0) {
+        // Sprawdź czy którykolwiek produkt jest przypisany do tego kierowcy
+        const myProducts = o.produkty.filter(p => p.kierowca === user.id);
+        
+        // Lub jeśli zamówienie główne jest przypisane i produkty nie mają osobnych kierowców
+        const hasMainAssignment = o.przypisanyKierowca === user.id;
+        const productsWithoutDriver = o.produkty.filter(p => !p.kierowca);
+        
+        if (myProducts.length > 0 || (hasMainAssignment && productsWithoutDriver.length > 0)) {
+          // Dodaj zamówienie z flagą które produkty są "moje"
+          result.push({
+            ...o,
+            _myProductIndexes: o.produkty.map((p, idx) => {
+              if (p.kierowca === user.id) return idx;
+              if (!p.kierowca && hasMainAssignment) return idx;
+              return -1;
+            }).filter(idx => idx !== -1),
+            _isPartial: myProducts.length < o.produkty.length || (hasMainAssignment && myProducts.length === 0 && productsWithoutDriver.length < o.produkty.length)
+          });
+        }
+      } else {
+        // Stare zamówienie bez tablicy produktów - sprawdź główne przypisanie
+        if (o.przypisanyKierowca === user.id) {
+          result.push({ ...o, _myProductIndexes: [0], _isPartial: false });
+        }
+      }
+    });
+    
+    return result;
+  };
+
+  const myOrders = getMyOrdersAndProducts();
+  
+  // Funkcja sprawdzająca status dla kierowcy - bierze pod uwagę status produktów
+  const getEffectiveStatus = (order) => {
+    if (order.produkty && order.produkty.length > 0 && order._myProductIndexes) {
+      // Dla zamówień łączonych - weź najniższy status z "moich" produktów
+      const myProductStatuses = order._myProductIndexes.map(idx => order.produkty[idx]?.status || 'nowe');
+      // Priorytet statusów (od najwcześniejszego do najpóźniejszego)
+      const statusPriority = ['nowe', 'potwierdzone', 'w_produkcji', 'gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'];
+      return myProductStatuses.reduce((min, s) => {
+        return statusPriority.indexOf(s) < statusPriority.indexOf(min) ? s : min;
+      }, 'dostarczone');
+    }
+    return order.status;
+  };
+
+  const toPickup = myOrders.filter(o => {
+    const effectiveStatus = getEffectiveStatus(o);
+    return ['potwierdzone', 'w_produkcji', 'gotowe_do_odbioru'].includes(effectiveStatus);
+  });
+  const pickedUp = myOrders.filter(o => getEffectiveStatus(o) === 'odebrane');
+  const inTransit = myOrders.filter(o => getEffectiveStatus(o) === 'w_transporcie');
+  const delivered = myOrders.filter(o => getEffectiveStatus(o) === 'dostarczone');
   
   // Lista unikalnych producentów w zamówieniach kierowcy (do odbioru)
   const uniqueProducersInPickup = [...new Set(toPickup.map(o => o.zaladunek).filter(Boolean))];
@@ -4650,22 +4753,58 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
       default: return [];
     }
   };
-  const changeStatus = async (order, newStatus) => {
-    const oldStatusName = getStatus(order.status)?.name || order.status;
+
+  // Zmiana statusu - obsługuje zarówno całe zamówienie jak i pojedyncze produkty
+  const changeStatus = async (order, newStatus, productIndex = null) => {
     const statusName = getStatus(newStatus).name;
     
-    await onUpdateOrder(order.id, {
-      ...order,
-      status: newStatus,
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Status: ${statusName}` }]
-    });
+    // Jeśli to zamówienie łączone i mamy _myProductIndexes
+    if (order.produkty && order.produkty.length > 0 && order._myProductIndexes) {
+      const updatedProdukty = [...order.produkty];
+      
+      if (productIndex !== null) {
+        // Zmiana statusu konkretnego produktu
+        updatedProdukty[productIndex] = { ...updatedProdukty[productIndex], status: newStatus };
+      } else {
+        // Zmiana statusu wszystkich "moich" produktów
+        order._myProductIndexes.forEach(idx => {
+          if (idx >= 0 && idx < updatedProdukty.length) {
+            updatedProdukty[idx] = { ...updatedProdukty[idx], status: newStatus };
+          }
+        });
+      }
+      
+      // Sprawdź czy wszystkie produkty mają ten sam status - jeśli tak, zaktualizuj też główny
+      const allSameStatus = updatedProdukty.every(p => p.status === newStatus);
+      
+      await onUpdateOrder(order.id, {
+        ...order,
+        produkty: updatedProdukty,
+        status: allSameStatus ? newStatus : order.status,
+        historia: [...(order.historia || []), { 
+          data: new Date().toISOString(), 
+          uzytkownik: user.name, 
+          akcja: productIndex !== null 
+            ? `Produkt ${updatedProdukty[productIndex]?.nrPodzamowienia || productIndex + 1}: ${statusName}`
+            : `Status: ${statusName}` 
+        }]
+      });
+    } else {
+      // Stare zamówienie bez produktów
+      await onUpdateOrder(order.id, {
+        ...order,
+        status: newStatus,
+        historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Status: ${statusName}` }]
+      });
+    }
+    
     onAddNotification({ icon: '🔄', title: `Status: ${order.nrWlasny}`, message: `Kierowca ${user.name} zmienił status na: ${statusName}`, orderId: order.id });
     
     // Dla statusów "odebrane" i "w_transporcie" - zapytaj o email
     if ((newStatus === 'odebrane' || newStatus === 'w_transporcie') && order.klient?.email) {
       setShowStatusChangeEmail({
         order,
-        oldStatus: oldStatusName,
+        oldStatus: getStatus(order.status)?.name || order.status,
         newStatus: statusName,
         newStatusCode: newStatus
       });
@@ -5882,9 +6021,10 @@ ${t.team}
         ) : (
           <div className="driver-orders">
             {getTabOrders().map(order => {
-              const status = getStatus(order.status);
+              const status = getStatus(getEffectiveStatus(order));
               const producer = Object.values(producers).find(p => p.id === order.zaladunek);
               const country = getCountry(order.kraj);
+              const hasMultipleProducts = order.produkty && order.produkty.length > 1 && order._myProductIndexes;
 
               return (
                 <div key={order.id} className="driver-order-card">
@@ -5892,22 +6032,71 @@ ${t.team}
                     <div className="driver-order-title">
                       <span className="country-flag">{country?.flag}</span>
                       <span className="order-number">{order.nrWlasny}</span>
+                      {hasMultipleProducts && <span className="multi-badge">📦 {order._myProductIndexes.length}/{order.produkty.length}</span>}
+                      {order._isPartial && <span className="partial-badge">część</span>}
                     </div>
-                    <span className="status-badge" style={{ background: status.bgColor, color: status.color }}>
-                      {status.icon} {status.name}
-                    </span>
+                    {!hasMultipleProducts && (
+                      <span className="status-badge" style={{ background: status.bgColor, color: status.color }}>
+                        {status.icon} {status.name}
+                      </span>
+                    )}
                   </div>
 
-                  {producer && activeTab === 'pickup' && (
-                    <div className="driver-section producer-section">
-                      <div className="section-title">🏭 Producent do odbioru</div>
-                      <div className="section-name">{producer.name}</div>
-                      <div className="section-detail">📍 {producer.address || 'Brak adresu'}</div>
-                      <div className="section-contacts">
-                        {producer.phone && <a href={`tel:${producer.phone}`}>📞 {producer.phone}</a>}
-                        {producer.email && <a href={`mailto:${producer.email}`}>✉️ Email</a>}
-                      </div>
+                  {/* Jeśli zamówienie łączone - pokaż listę produktów z osobnymi statusami */}
+                  {hasMultipleProducts ? (
+                    <div className="driver-products-list">
+                      {order._myProductIndexes.map(idx => {
+                        const prod = order.produkty[idx];
+                        if (!prod) return null;
+                        const prodStatus = getStatus(prod.status);
+                        const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
+                        return (
+                          <div key={idx} className="driver-product-item">
+                            <div className="product-item-row">
+                              <span className="product-nr">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
+                              <select
+                                value={prod.status || 'nowe'}
+                                onChange={e => changeStatus(order, e.target.value, idx)}
+                                className="status-select mini"
+                                style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}
+                              >
+                                {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="product-desc">{prod.towar?.substring(0, 80) || '—'}{prod.towar?.length > 80 ? '...' : ''}</div>
+                            {(prodProducer || prod.producentNazwa) && activeTab === 'pickup' && (
+                              <div className="product-producer-mini">
+                                🏭 {prodProducer?.name || prod.producentNazwa}
+                                {prodProducer?.address && <span className="addr"> • 📍 {prodProducer.address}</span>}
+                                {prodProducer?.phone && <a href={`tel:${prodProducer.phone}`}> • 📞</a>}
+                              </div>
+                            )}
+                            {prod.dataOdbioru && <div className="product-date">📅 Odbiór: {formatDate(prod.dataOdbioru)}</div>}
+                          </div>
+                        );
+                      })}
                     </div>
+                  ) : (
+                    <>
+                      {producer && activeTab === 'pickup' && (
+                        <div className="driver-section producer-section">
+                          <div className="section-title">🏭 Producent do odbioru</div>
+                          <div className="section-name">{producer.name}</div>
+                          <div className="section-detail">📍 {producer.address || 'Brak adresu'}</div>
+                          <div className="section-contacts">
+                            {producer.phone && <a href={`tel:${producer.phone}`}>📞 {producer.phone}</a>}
+                            {producer.email && <a href={`mailto:${producer.email}`}>✉️ Email</a>}
+                          </div>
+                        </div>
+                      )}
+                      {/* Towar - dla zamówień nie-łączonych */}
+                      {order.towar && (
+                        <div className="driver-section product-section">
+                          <div className="section-title">📦 Towar</div>
+                          <div className="product-info-content">{order.towar}</div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className="driver-section client-section expandable">
@@ -5918,13 +6107,6 @@ ${t.team}
                       {order.klient?.telefon && <a href={`tel:${order.klient.telefon}`}>📞 {order.klient.telefon}</a>}
                       {order.klient?.facebookUrl && <a href={order.klient.facebookUrl} target="_blank" rel="noopener noreferrer">📘 Facebook</a>}
                     </div>
-                    {/* Towar dla tego klienta */}
-                    {order.towar && (
-                      <div className="client-product-info">
-                        <div className="product-info-header">📦 Towar do dostarczenia:</div>
-                        <div className="product-info-content">{order.towar}</div>
-                      </div>
-                    )}
                   </div>
 
                   {order.platnosci?.doZaplaty > 0 && (
