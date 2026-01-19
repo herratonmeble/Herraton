@@ -9,6 +9,7 @@ import {
   subscribeToLeads, addLead, updateLead, deleteLead,
   subscribeToMessages, addMessage, updateMessage,
   subscribeToPriceLists, addPriceList, deletePriceList,
+  subscribeToSettlements, addSettlement, updateSettlement, deleteSettlement,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -4022,7 +4023,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
 // PANEL KIEROWCY - POPRAWIONE ZDJĘCIA MOBILNE
 // ============================================
 
-const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification, onLogout, onUpdateUser }) => {
+const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification, onLogout, onUpdateUser, settlements = [], users = [] }) => {
   const [activeTab, setActiveTab] = useState('pickup');
   const [showNotes, setShowNotes] = useState(null);
   const [showSignature, setShowSignature] = useState(null);
@@ -4066,6 +4067,9 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
 
   // Filtr po producentach
   const [producerFilterDriver, setProducerFilterDriver] = useState('all');
+
+  // State dla rozliczeń kierowcy (tylko podgląd)
+  const [showSettlementsModal, setShowSettlementsModal] = useState(false);
 
   // Planowane wyjazdy z profilu użytkownika
   const plannedTrips = user.plannedTrips || [];
@@ -5378,6 +5382,9 @@ ${t.team}
             <button className="btn-transport-rates" onClick={() => setShowTransportRatesModal(true)}>
               💶 Stawki transportu
             </button>
+            <button className="btn-settlements" onClick={() => setShowSettlementsModal(true)}>
+              💰 Rozliczenia
+            </button>
           </div>
         </div>
 
@@ -6462,6 +6469,83 @@ ${t.team}
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => { setShowTransportRatesModal(false); setEditingRate(null); }}>Zamknij</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal rozliczeń kierowcy (tylko podgląd) */}
+      {showSettlementsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettlementsModal(false)}>
+          <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>💰 Moje rozliczenia</h2>
+              <button className="btn-close" onClick={() => setShowSettlementsModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const mySettlements = settlements.filter(s => s.driverId === user.id);
+                
+                if (mySettlements.length === 0) {
+                  return (
+                    <div className="empty-settlements">
+                      <p>📭 Brak rozliczeń</p>
+                      <p className="subtitle">Twoje rozliczenia pojawią się tutaj po utworzeniu przez administratora.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="settlements-list">
+                    {mySettlements.map(settlement => (
+                      <div key={settlement.id} className="settlement-card">
+                        <div className="settlement-header">
+                          <span className="settlement-date">📅 {formatDate(settlement.createdAt)}</span>
+                          <span className={`status-badge ${settlement.status}`}>
+                            {settlement.status === 'utworzone' ? '🆕 Oczekuje' : 
+                             settlement.status === 'rozliczone' ? '✅ Rozliczone' : settlement.status}
+                          </span>
+                        </div>
+                        <div className="settlement-details">
+                          <div className="settlement-row">
+                            <span>📦 Zamówień:</span>
+                            <span className="value">{settlement.ordersCount}</span>
+                          </div>
+                          <div className="settlement-row">
+                            <span>💵 Pobrano od klientów:</span>
+                            <span className="value">{(settlement.totalCollected || 0).toFixed(2)} zł</span>
+                          </div>
+                          <div className="settlement-row">
+                            <span>🚚 Twój koszt transportu:</span>
+                            <span className="value minus">- {(settlement.totalTransportCost || 0).toFixed(2)} zł</span>
+                          </div>
+                          <div className="settlement-row total">
+                            <span>💰 Do oddania:</span>
+                            <span className="value highlight">{(settlement.totalToReturn || 0).toFixed(2)} zł</span>
+                          </div>
+                        </div>
+                        {settlement.history && settlement.history.length > 0 && (
+                          <details className="settlement-history">
+                            <summary>📜 Historia</summary>
+                            <div className="history-list">
+                              {settlement.history.map((h, idx) => (
+                                <div key={idx} className="history-item">
+                                  <span>{formatDate(h.date)}</span>
+                                  <span>{h.action}</span>
+                                  <span>— {h.user}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowSettlementsModal(false)}>Zamknij</button>
             </div>
           </div>
         </div>
@@ -8592,6 +8676,539 @@ const Messenger = ({
 };
 
 // ============================================
+// PANEL ROZLICZEŃ TRANSPORTOWYCH
+// ============================================
+
+const SettlementsPanel = ({ 
+  settlements, 
+  orders, 
+  users, 
+  currentUser, 
+  onAddSettlement, 
+  onUpdateSettlement, 
+  onDeleteSettlement,
+  onUpdateOrder,
+  onClose,
+  isDriverView = false 
+}) => {
+  const [view, setView] = useState('list'); // list, create, edit
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [selectedDriver, setSelectedDriver] = useState('');
+  const [statusFilter, setStatusFilter] = useState('dostarczone');
+  const [editingSettlement, setEditingSettlement] = useState(null);
+  const [editNote, setEditNote] = useState('');
+
+  const drivers = users.filter(u => u.role === 'driver');
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Formatowanie daty
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Formatowanie waluty
+  const formatCurrency = (amount, currency = 'PLN') => {
+    const symbols = { PLN: 'zł', EUR: '€', GBP: '£', USD: '$', CHF: 'CHF', SEK: 'kr', NOK: 'kr', DKK: 'kr', CZK: 'Kč' };
+    return `${(amount || 0).toFixed(2)} ${symbols[currency] || currency}`;
+  };
+
+  // Zamówienia dostarczone bez rozliczenia dla wybranego kierowcy
+  const getUnsettledOrders = () => {
+    let filtered = orders.filter(o => {
+      // Tylko ze statusem "dostarczone" lub wybranym
+      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+      // Nie usunięte
+      if (o.usuniety) return false;
+      // Nierozliczone
+      if (o.rozliczone) return false;
+      // Dla wybranego kierowcy
+      if (selectedDriver && o.przypisanyKierowca !== selectedDriver) return false;
+      // Dla widoku kierowcy - tylko jego zamówienia
+      if (isDriverView && o.przypisanyKierowca !== currentUser.id) return false;
+      return true;
+    });
+    return filtered;
+  };
+
+  // Zamówienia już rozliczone dla wybranego kierowcy
+  const getSettledOrders = (driverId) => {
+    return orders.filter(o => 
+      o.rozliczone && 
+      !o.usuniety && 
+      (driverId ? o.przypisanyKierowca === driverId : true)
+    );
+  };
+
+  // Oblicz kwotę do oddania dla zamówienia
+  const calculateSettlementAmount = (order) => {
+    const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+    const transportCost = order.koszty?.transportNetto || 0;
+    return collected - transportCost;
+  };
+
+  // Suma dla wybranych zamówień
+  const calculateTotal = () => {
+    let totalCollected = 0;
+    let totalTransport = 0;
+    let totalToReturn = 0;
+
+    selectedOrders.forEach(orderId => {
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+        const transport = order.koszty?.transportNetto || 0;
+        totalCollected += collected;
+        totalTransport += transport;
+        totalToReturn += (collected - transport);
+      }
+    });
+
+    return { totalCollected, totalTransport, totalToReturn };
+  };
+
+  // Utwórz rozliczenie
+  const handleCreateSettlement = async () => {
+    if (selectedOrders.length === 0) {
+      alert('Wybierz przynajmniej jedno zamówienie!');
+      return;
+    }
+
+    const totals = calculateTotal();
+    const driverName = users.find(u => u.id === selectedDriver)?.name || 'Nieznany';
+
+    const settlement = {
+      driverId: selectedDriver,
+      driverName: driverName,
+      orderIds: selectedOrders,
+      ordersCount: selectedOrders.length,
+      totalCollected: totals.totalCollected,
+      totalTransportCost: totals.totalTransport,
+      totalToReturn: totals.totalToReturn,
+      currency: 'PLN', // Można rozszerzyć
+      status: 'utworzone',
+      createdAt: new Date().toISOString(),
+      createdBy: {
+        id: currentUser.id,
+        name: currentUser.name
+      },
+      history: [{
+        date: new Date().toISOString(),
+        action: 'Utworzono rozliczenie',
+        user: currentUser.name
+      }]
+    };
+
+    try {
+      await onAddSettlement(settlement);
+
+      // Oznacz zamówienia jako rozliczone
+      for (const orderId of selectedOrders) {
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+          await onUpdateOrder(orderId, {
+            ...order,
+            rozliczone: true,
+            dataRozliczenia: new Date().toISOString(),
+            rozliczenieId: settlement.id
+          });
+        }
+      }
+
+      setSelectedOrders([]);
+      setView('list');
+      alert('Rozliczenie zostało utworzone!');
+    } catch (error) {
+      console.error('Błąd tworzenia rozliczenia:', error);
+      alert('Błąd podczas tworzenia rozliczenia');
+    }
+  };
+
+  // Edytuj rozliczenie (tylko admin)
+  const handleEditSettlement = async () => {
+    if (!editingSettlement || !isAdmin) return;
+
+    const updatedSettlement = {
+      ...editingSettlement,
+      history: [
+        ...(editingSettlement.history || []),
+        {
+          date: new Date().toISOString(),
+          action: `Edycja: ${editNote}`,
+          user: currentUser.name
+        }
+      ],
+      lastEditedAt: new Date().toISOString(),
+      lastEditedBy: {
+        id: currentUser.id,
+        name: currentUser.name
+      }
+    };
+
+    try {
+      await onUpdateSettlement(editingSettlement.id, updatedSettlement);
+      setEditingSettlement(null);
+      setEditNote('');
+      alert('Rozliczenie zostało zaktualizowane!');
+    } catch (error) {
+      console.error('Błąd edycji rozliczenia:', error);
+    }
+  };
+
+  // Zamówienia kierowcy dla widoku kierowcy
+  const driverSettlements = isDriverView 
+    ? settlements.filter(s => s.driverId === currentUser.id)
+    : settlements;
+
+  // Filtrowane rozliczenia
+  const filteredSettlements = selectedDriver 
+    ? settlements.filter(s => s.driverId === selectedDriver)
+    : settlements;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large settlements-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>💰 Rozliczenia transportowe</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="modal-body">
+          {/* Nawigacja */}
+          <div className="settlements-nav">
+            <button 
+              className={`nav-btn ${view === 'list' ? 'active' : ''}`}
+              onClick={() => setView('list')}
+            >
+              📋 Lista rozliczeń
+            </button>
+            {!isDriverView && (
+              <button 
+                className={`nav-btn ${view === 'create' ? 'active' : ''}`}
+                onClick={() => setView('create')}
+              >
+                ➕ Nowe rozliczenie
+              </button>
+            )}
+          </div>
+
+          {/* WIDOK LISTY */}
+          {view === 'list' && (
+            <div className="settlements-list-view">
+              {/* Filtr kierowców */}
+              {!isDriverView && (
+                <div className="settlements-filter">
+                  <label>Kierowca:</label>
+                  <select value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
+                    <option value="">Wszyscy kierowcy</option>
+                    {drivers.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Lista rozliczeń */}
+              <div className="settlements-list">
+                {(isDriverView ? driverSettlements : filteredSettlements).length === 0 ? (
+                  <div className="empty-settlements">
+                    <p>📭 Brak rozliczeń</p>
+                  </div>
+                ) : (
+                  (isDriverView ? driverSettlements : filteredSettlements).map(settlement => (
+                    <div key={settlement.id} className="settlement-card">
+                      <div className="settlement-header">
+                        <div className="settlement-info">
+                          <span className="settlement-driver">🚚 {settlement.driverName}</span>
+                          <span className="settlement-date">📅 {formatDate(settlement.createdAt)}</span>
+                        </div>
+                        <div className="settlement-status">
+                          <span className={`status-badge ${settlement.status}`}>
+                            {settlement.status === 'utworzone' ? '🆕 Utworzone' : 
+                             settlement.status === 'zaakceptowane' ? '✅ Zaakceptowane' : 
+                             settlement.status === 'rozliczone' ? '💰 Rozliczone' : settlement.status}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="settlement-details">
+                        <div className="settlement-row">
+                          <span>📦 Zamówień:</span>
+                          <span className="value">{settlement.ordersCount}</span>
+                        </div>
+                        <div className="settlement-row">
+                          <span>💵 Pobrano od klientów:</span>
+                          <span className="value">{formatCurrency(settlement.totalCollected)}</span>
+                        </div>
+                        <div className="settlement-row">
+                          <span>🚚 Koszt transportu:</span>
+                          <span className="value minus">- {formatCurrency(settlement.totalTransportCost)}</span>
+                        </div>
+                        <div className="settlement-row total">
+                          <span>💰 Do oddania:</span>
+                          <span className="value highlight">{formatCurrency(settlement.totalToReturn)}</span>
+                        </div>
+                      </div>
+
+                      <div className="settlement-meta">
+                        <span>Utworzył: {settlement.createdBy?.name}</span>
+                        {settlement.lastEditedAt && (
+                          <span>Ostatnia edycja: {formatDate(settlement.lastEditedAt)} przez {settlement.lastEditedBy?.name}</span>
+                        )}
+                      </div>
+
+                      {/* Historia */}
+                      {settlement.history && settlement.history.length > 0 && (
+                        <details className="settlement-history">
+                          <summary>📜 Historia ({settlement.history.length})</summary>
+                          <div className="history-list">
+                            {settlement.history.map((h, idx) => (
+                              <div key={idx} className="history-item">
+                                <span className="history-date">{formatDate(h.date)}</span>
+                                <span className="history-action">{h.action}</span>
+                                <span className="history-user">— {h.user}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Akcje (tylko admin) */}
+                      {isAdmin && (
+                        <div className="settlement-actions">
+                          <button 
+                            className="btn-edit-settlement"
+                            onClick={() => {
+                              setEditingSettlement(settlement);
+                              setView('edit');
+                            }}
+                          >
+                            ✏️ Edytuj
+                          </button>
+                          {settlement.status === 'utworzone' && (
+                            <button 
+                              className="btn-accept-settlement"
+                              onClick={async () => {
+                                await onUpdateSettlement(settlement.id, {
+                                  ...settlement,
+                                  status: 'rozliczone',
+                                  history: [
+                                    ...(settlement.history || []),
+                                    { date: new Date().toISOString(), action: 'Oznaczono jako rozliczone', user: currentUser.name }
+                                  ]
+                                });
+                              }}
+                            >
+                              ✅ Oznacz jako rozliczone
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* WIDOK TWORZENIA ROZLICZENIA */}
+          {view === 'create' && !isDriverView && (
+            <div className="settlements-create-view">
+              <div className="create-settlement-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Kierowca *</label>
+                    <select 
+                      value={selectedDriver} 
+                      onChange={e => {
+                        setSelectedDriver(e.target.value);
+                        setSelectedOrders([]);
+                      }}
+                    >
+                      <option value="">-- Wybierz kierowcę --</option>
+                      {drivers.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Status zamówień</label>
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                      <option value="dostarczone">Dostarczone</option>
+                      <option value="w_transporcie">W transporcie</option>
+                      <option value="all">Wszystkie</option>
+                    </select>
+                  </div>
+                </div>
+
+                {selectedDriver && (
+                  <>
+                    <h4>📦 Zamówienia do rozliczenia ({getUnsettledOrders().length})</h4>
+                    
+                    {getUnsettledOrders().length === 0 ? (
+                      <div className="no-orders-info">
+                        <p>Brak nierozliczonych zamówień dla tego kierowcy</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="select-all-row">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={selectedOrders.length === getUnsettledOrders().length && selectedOrders.length > 0}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setSelectedOrders(getUnsettledOrders().map(o => o.id));
+                                } else {
+                                  setSelectedOrders([]);
+                                }
+                              }}
+                            />
+                            Zaznacz wszystkie
+                          </label>
+                        </div>
+
+                        <div className="orders-to-settle">
+                          {getUnsettledOrders().map(order => {
+                            const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+                            const transport = order.koszty?.transportNetto || 0;
+                            const toReturn = collected - transport;
+                            const isSelected = selectedOrders.includes(order.id);
+
+                            return (
+                              <div 
+                                key={order.id} 
+                                className={`order-to-settle ${isSelected ? 'selected' : ''}`}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedOrders(prev => prev.filter(id => id !== order.id));
+                                  } else {
+                                    setSelectedOrders(prev => [...prev, order.id]);
+                                  }
+                                }}
+                              >
+                                <div className="order-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}}
+                                  />
+                                </div>
+                                <div className="order-info">
+                                  <div className="order-number">{order.nrWlasny}</div>
+                                  <div className="order-client">{order.klient?.imie || '—'}</div>
+                                  <div className="order-date">{formatDate(order.dataZlecenia)}</div>
+                                </div>
+                                <div className="order-amounts">
+                                  <div className="amount-row">
+                                    <span>Pobrano:</span>
+                                    <span>{formatCurrency(collected, order.platnosci?.waluta)}</span>
+                                  </div>
+                                  <div className="amount-row">
+                                    <span>Transport:</span>
+                                    <span>- {formatCurrency(transport, order.koszty?.transportWaluta)}</span>
+                                  </div>
+                                  <div className="amount-row total">
+                                    <span>Do oddania:</span>
+                                    <span className={toReturn >= 0 ? 'positive' : 'negative'}>
+                                      {formatCurrency(toReturn)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Podsumowanie */}
+                        {selectedOrders.length > 0 && (
+                          <div className="settlement-summary">
+                            <h4>📊 Podsumowanie rozliczenia</h4>
+                            <div className="summary-grid">
+                              <div className="summary-item">
+                                <span className="label">Zaznaczonych zamówień:</span>
+                                <span className="value">{selectedOrders.length}</span>
+                              </div>
+                              <div className="summary-item">
+                                <span className="label">Suma pobranych:</span>
+                                <span className="value">{formatCurrency(calculateTotal().totalCollected)}</span>
+                              </div>
+                              <div className="summary-item">
+                                <span className="label">Suma kosztów transportu:</span>
+                                <span className="value minus">- {formatCurrency(calculateTotal().totalTransport)}</span>
+                              </div>
+                              <div className="summary-item total">
+                                <span className="label">DO ODDANIA:</span>
+                                <span className="value highlight">{formatCurrency(calculateTotal().totalToReturn)}</span>
+                              </div>
+                            </div>
+                            <button className="btn-primary btn-create-settlement" onClick={handleCreateSettlement}>
+                              💰 Utwórz rozliczenie
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* WIDOK EDYCJI (tylko admin) */}
+          {view === 'edit' && editingSettlement && isAdmin && (
+            <div className="settlements-edit-view">
+              <h3>✏️ Edycja rozliczenia</h3>
+              <div className="edit-settlement-info">
+                <p><strong>Kierowca:</strong> {editingSettlement.driverName}</p>
+                <p><strong>Data:</strong> {formatDate(editingSettlement.createdAt)}</p>
+                <p><strong>Kwota do oddania:</strong> {formatCurrency(editingSettlement.totalToReturn)}</p>
+              </div>
+              <div className="form-group">
+                <label>Powód edycji / Notatka *</label>
+                <textarea
+                  value={editNote}
+                  onChange={e => setEditNote(e.target.value)}
+                  placeholder="Opisz co zostało zmienione..."
+                  rows={3}
+                />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select 
+                  value={editingSettlement.status} 
+                  onChange={e => setEditingSettlement({...editingSettlement, status: e.target.value})}
+                >
+                  <option value="utworzone">Utworzone</option>
+                  <option value="zaakceptowane">Zaakceptowane</option>
+                  <option value="rozliczone">Rozliczone</option>
+                </select>
+              </div>
+              <div className="edit-actions">
+                <button className="btn-secondary" onClick={() => { setEditingSettlement(null); setView('list'); }}>
+                  Anuluj
+                </button>
+                <button 
+                  className="btn-primary" 
+                  onClick={handleEditSettlement}
+                  disabled={!editNote.trim()}
+                >
+                  💾 Zapisz zmiany
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // GŁÓWNA APLIKACJA
 // ============================================
 
@@ -8646,6 +9263,10 @@ const App = () => {
   
   // Status change notification state
   const [statusChangeModal, setStatusChangeModal] = useState(null); // { orderId, oldStatus, newStatus, order }
+  
+  // Rozliczenia transportowe
+  const [settlements, setSettlements] = useState([]);
+  const [showSettlementsPanel, setShowSettlementsPanel] = useState(false);
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -8718,6 +9339,7 @@ const App = () => {
     const unsubLeads = subscribeToLeads(setLeads);
     const unsubMessages = subscribeToMessages ? subscribeToMessages(setMessages) : () => {};
     const unsubPriceLists = subscribeToPriceLists ? subscribeToPriceLists(setPriceLists) : () => {};
+    const unsubSettlements = subscribeToSettlements ? subscribeToSettlements(setSettlements) : () => {};
 
     const savedUser = localStorage.getItem('herratonUser');
     if (savedUser) {
@@ -8736,6 +9358,7 @@ const App = () => {
       unsubLeads();
       unsubMessages();
       unsubPriceLists();
+      unsubSettlements();
       clearInterval(ratesInterval);
     };
   }, []);
@@ -9253,6 +9876,8 @@ Zespół obsługi zamówień
           setUser(updatedUser);
           localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
         }}
+        settlements={settlements}
+        users={users}
       />
     );
   }
@@ -9317,6 +9942,9 @@ Zespół obsługi zamówień
                   <div className="settings-menu">
                     <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
                       📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
+                      💰 Rozliczenia transportowe
                     </button>
                     <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
                       👥 Użytkownicy
@@ -9687,6 +10315,22 @@ Zespół obsługi zamówień
       )}
 
       {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+
+      {/* Panel rozliczeń transportowych */}
+      {showSettlementsPanel && (
+        <SettlementsPanel
+          settlements={settlements}
+          orders={orders}
+          users={users}
+          currentUser={user}
+          onAddSettlement={addSettlement}
+          onUpdateSettlement={updateSettlement}
+          onDeleteSettlement={deleteSettlement}
+          onUpdateOrder={updateOrder}
+          onClose={() => setShowSettlementsPanel(false)}
+          isDriverView={false}
+        />
+      )}
 
       {/* Menedżer cenników */}
       {showPriceListManager && (
