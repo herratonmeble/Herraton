@@ -40,6 +40,7 @@ const complaintsCollection = collection(db, 'complaints');
 const leadsCollection = collection(db, 'leads');
 const priceListsCollection = collection(db, 'priceLists');
 const messagesCollection = collection(db, 'messages');
+const settlementsCollection = collection(db, 'settlements');
 
 // ============================================
 // ZAMÓWIENIA
@@ -395,6 +396,53 @@ export const updateMessage = async (id, data) => {
     await setDoc(doc(db, 'messages', id), data, { merge: true });
   } catch (error) {
     console.error('Error updating message:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// ROZLICZENIA TRANSPORTOWE
+// ============================================
+
+export const subscribeToSettlements = (callback) => {
+  const q = query(settlementsCollection, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const settlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(settlements);
+  }, (error) => {
+    console.error('Error subscribing to settlements:', error);
+    callback([]);
+  });
+};
+
+export const addSettlement = async (settlement) => {
+  try {
+    const data = {
+      ...settlement,
+      createdAt: settlement.createdAt || new Date().toISOString()
+    };
+    const docRef = await addDoc(settlementsCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding settlement:', error);
+    throw error;
+  }
+};
+
+export const updateSettlement = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'settlements', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating settlement:', error);
+    throw error;
+  }
+};
+
+export const deleteSettlement = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'settlements', id));
+  } catch (error) {
+    console.error('Error deleting settlement:', error);
     throw error;
   }
 };
