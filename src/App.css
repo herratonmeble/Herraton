@@ -104,7 +104,7 @@ input.unpaid { background: #FEE2E2; color: #DC2626; font-weight: 700; }
 
 /* ORDERS */
 .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
-.order-card { background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+.order-card { background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; cursor: pointer; transition: all 0.2s; display: block; }
 .order-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); transform: translateY(-2px); }
 .order-card-header { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: #FAFBFC; border-bottom: 1px solid #F1F5F9; }
 .order-card-title { display: flex; align-items: center; gap: 10px; }
@@ -112,11 +112,11 @@ input.unpaid { background: #FEE2E2; color: #DC2626; font-weight: 700; }
 .urgency-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
 .urgency-badge.small { padding: 2px 6px; font-size: 9px; }
 .status-select { padding: 6px 10px; border-radius: 8px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; }
-.order-card-body { padding: 16px; }
+.order-card-body { padding: 16px; display: block; }
 .order-product { font-size: 14px; color: #1E293B; font-weight: 500; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.order-client { background: #F8FAFC; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid #E2E8F0; }
-.order-client .client-name { font-size: 13px; font-weight: 600; color: #1E293B; }
-.order-client .client-address { font-size: 12px; color: #64748B; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.order-client { background: #F8FAFC; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid #E2E8F0; display: block; }
+.order-client .client-name { font-size: 13px; font-weight: 600; color: #1E293B; display: block; }
+.order-client .client-address { font-size: 12px; color: #64748B; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .order-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .tag { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
 .tag-producer { background: #EEF2FF; color: #6366F1; }
@@ -5257,6 +5257,6108 @@ input.margin-negative {
 .protocol-language-select:focus {
   outline: none;
   border-color: #10B981;
+}
+
+/* ============================================
+   DRIVER STATUS FILTER
+   ============================================ */
+.driver-status-filter {
+  background: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.driver-status-filter .filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.driver-status-filter .filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.driver-status-filter .filter-btn {
+  padding: 8px 14px;
+  background: #F1F5F9;
+  color: #64748B;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.driver-status-filter .filter-btn:hover {
+  background: #E2E8F0;
+}
+
+.driver-status-filter .filter-btn.active {
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: white;
+}
+
+/* Settings Menu Divider */
+.settings-menu-divider {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 8px 0;
+}
+
+/* ============================================
+   IMPROVED MOBILE RESPONSIVENESS
+   ============================================ */
+
+/* Główny header - mobile */
+@media (max-width: 768px) {
+  .header {
+    padding: 10px 12px;
+  }
+  
+  .header-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .header-brand {
+    gap: 8px;
+  }
+  
+  .header-logo {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    border-radius: 8px;
+  }
+  
+  .header-title {
+    font-size: 16px;
+  }
+  
+  .header-subtitle {
+    font-size: 10px;
+  }
+  
+  .header-nav {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .btn-header,
+  .btn-logout,
+  .settings-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+  
+  .user-info {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  .notification-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  
+  /* Settings dropdown mobile */
+  .settings-dropdown {
+    position: relative;
+  }
+  
+  .settings-menu {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: 60px !important;
+    width: auto !important;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .settings-menu button {
+    padding: 14px 16px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Top bar i wyszukiwarka - mobile */
+@media (max-width: 768px) {
+  .top-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .top-left,
+  .top-right {
+    width: 100%;
+  }
+  
+  .top-left {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .top-left button {
+    flex: 1;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 12px 14px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Filtry statusów - mobile */
+@media (max-width: 768px) {
+  .filters {
+    padding: 12px;
+  }
+  
+  .filter-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  
+  .status-filter-btn {
+    padding: 8px 4px !important;
+    font-size: 10px !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  
+  .status-filter-btn .sf-icon {
+    font-size: 16px !important;
+  }
+  
+  .status-filter-btn .sf-count {
+    font-size: 14px !important;
+  }
+  
+  .status-filter-btn .sf-label {
+    font-size: 9px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  
+  .extra-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .extra-filters select {
+    width: 100%;
+  }
+}
+
+/* Karty zamówień - mobile */
+@media (max-width: 768px) {
+  .orders-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .order-card {
+    padding: 12px;
+  }
+  
+  .order-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .order-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  
+  .order-actions button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Panel kierowcy - mobile */
+@media (max-width: 768px) {
+  .driver-panel .main {
+    padding: 12px;
+  }
+  
+  .driver-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  .driver-stats .stat-card {
+    padding: 12px !important;
+  }
+  
+  .driver-stats .stat-value {
+    font-size: 24px !important;
+  }
+  
+  .driver-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 0 !important;
+  }
+  
+  .driver-tab {
+    padding: 10px 8px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  
+  .driver-tab .tab-count {
+    font-size: 18px !important;
+  }
+  
+  .driver-tab .tab-label {
+    font-size: 10px !important;
+    white-space: nowrap;
+  }
+  
+  .driver-status-filter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .driver-status-filter .filter-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  .driver-status-filter .filter-btn {
+    padding: 10px 8px;
+    font-size: 11px;
+    text-align: center;
+  }
+  
+  .driver-order-card {
+    padding: 12px;
+  }
+  
+  .driver-order-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .driver-order-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .driver-order-actions button {
+    width: 100%;
+    padding: 12px !important;
+    font-size: 13px !important;
+  }
+  
+  .btn-driver {
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Modale - mobile */
+@media (max-width: 768px) {
+  .modal-content {
+    margin: 10px;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 14px 16px;
+  }
+  
+  .modal-header h2 {
+    font-size: 16px;
+  }
+  
+  .modal-body {
+    padding: 16px;
+  }
+  
+  .modal-footer {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .modal-footer button {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px !important;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .form-group.span-2 {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Tabele i listy - mobile */
+@media (max-width: 768px) {
+  .complaints-table,
+  .leads-table,
+  .users-table {
+    font-size: 12px;
+  }
+  
+  .complaints-table th,
+  .complaints-table td,
+  .leads-table th,
+  .leads-table td {
+    padding: 8px 6px !important;
+  }
+  
+  .complaints-table th:nth-child(n+4),
+  .complaints-table td:nth-child(n+4) {
+    display: none;
+  }
+}
+
+/* Messenger - mobile */
+@media (max-width: 768px) {
+  .messenger-panel {
+    width: 100% !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: 60px !important;
+    border-radius: 0 !important;
+  }
+  
+  .chat-list {
+    max-height: 200px;
+  }
+  
+  .messages-container {
+    max-height: calc(100vh - 350px);
+  }
+}
+
+/* Podpis cyfrowy - mobile */
+@media (max-width: 768px) {
+  .signature-canvas {
+    height: 150px !important;
+  }
+  
+  .signature-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .signature-actions button {
+    width: 100%;
+  }
+}
+
+/* Statystyki - mobile */
+@media (max-width: 768px) {
+  .statistics-modal .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .chart-container {
+    height: 200px !important;
+  }
+}
+
+/* Fix dla zachodzących na siebie tekstów */
+@media (max-width: 480px) {
+  .status-badge,
+  .priority-badge {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  
+  .order-number {
+    font-size: 14px !important;
+  }
+  
+  .order-client {
+    font-size: 12px !important;
+  }
+  
+  .country-flag {
+    font-size: 16px !important;
+  }
+  
+  /* Bardzo małe ekrany - zakładki kierowcy */
+  .driver-tabs {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .driver-tab .tab-label {
+    font-size: 9px !important;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .modal-content {
+    max-height: 95vh;
+  }
+  
+  .driver-tabs {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* Smooth scrolling na mobile */
+@media (max-width: 768px) {
+  .main,
+  .modal-body,
+  .driver-orders {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Touch targets - minimum 44px */
+@media (max-width: 768px) {
+  button,
+  .clickable,
+  select,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+  }
+  
+  .btn-icon,
+  .btn-delete {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ============================================
+   FIXES - MOBILE MENU CENTERED + LEADS SLIDER
+   ============================================ */
+
+/* Menu Ustawienia - na środku ekranu mobile */
+@media (max-width: 768px) {
+  .settings-dropdown {
+    position: static !important;
+  }
+  
+  .settings-menu {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: calc(100% - 40px) !important;
+    max-width: 320px !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+    z-index: 1000 !important;
+    background: white !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.25) !important;
+    padding: 8px !important;
+  }
+  
+  .settings-menu::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: -1;
+  }
+  
+  .settings-menu button {
+    padding: 16px 20px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    margin: 4px 0 !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+  
+  .settings-menu button:active {
+    background: #E2E8F0 !important;
+  }
+}
+
+/* Leads/Zainteresowani - horizontal scroll dla akcji */
+.leads-table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.leads-table table {
+  min-width: 800px;
+}
+
+/* Lead row actions - slider na mobile */
+@media (max-width: 768px) {
+  .leads-table {
+    font-size: 12px;
+  }
+  
+  .leads-table th,
+  .leads-table td {
+    padding: 10px 8px !important;
+    white-space: nowrap;
+  }
+  
+  /* Akcje w scrollowalnym kontenerze */
+  .lead-actions,
+  .leads-table td:last-child {
+    position: sticky;
+    right: 0;
+    background: white;
+    box-shadow: -4px 0 8px rgba(0,0,0,0.1);
+  }
+  
+  .lead-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 0;
+    max-width: 150px;
+  }
+  
+  .lead-actions button {
+    flex-shrink: 0;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Top bar - desktop: szukaj obok przycisku */
+@media (min-width: 769px) {
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .top-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+  
+  .search-input {
+    flex: 1;
+    max-width: 400px;
+    padding: 12px 16px;
+    border: 2px solid #E2E8F0;
+    border-radius: 12px;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  
+  .search-input:focus {
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    outline: none;
+  }
+}
+
+/* Top bar - mobile */
+@media (max-width: 768px) {
+  .top-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .top-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .top-left .btn-primary {
+    width: 100%;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #E2E8F0;
+    border-radius: 12px;
+    font-size: 16px; /* Zapobiega zoom na iOS */
+  }
+}
+
+/* Complaints table - podobne do leads */
+.complaints-table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.complaints-table table {
+  min-width: 700px;
+}
+
+@media (max-width: 768px) {
+  .complaints-table th,
+  .complaints-table td {
+    padding: 10px 8px !important;
+    white-space: nowrap;
+  }
+  
+  .complaint-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  
+  .complaint-actions button {
+    flex-shrink: 0;
+    min-width: 36px;
+    height: 36px;
+  }
+}
+
+/* Fix dla nakładających się tekstów w kartach */
+@media (max-width: 480px) {
+  .order-card {
+    padding: 10px !important;
+  }
+  
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .order-title {
+    width: 100%;
+  }
+  
+  .order-meta {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .order-info {
+    font-size: 11px !important;
+  }
+  
+  .order-client {
+    font-size: 13px !important;
+    word-break: break-word;
+  }
+  
+  .order-address {
+    font-size: 11px !important;
+    word-break: break-word;
+  }
+}
+
+/* Users table scroll */
+.users-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .user-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 12px;
+  }
+  
+  .user-info {
+    grid-column: 1 / -1;
+  }
+  
+  .user-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+}
+
+/* ============================================
+   DISCOUNT EDIT STYLES
+   ============================================ */
+.existing-discount-info {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #F59E0B;
+}
+
+.existing-discount-info h4 {
+  margin: 0 0 12px 0;
+  color: #B45309;
+  font-size: 14px;
+}
+
+.existing-discount-info p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #78350F;
+}
+
+.discount-order-info {
+  background: #F1F5F9;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.discount-order-info p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.discount-summary {
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.discount-summary strong {
+  color: #059669;
+  font-size: 18px;
+}
+
+.btn-delete {
+  padding: 10px 16px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.btn-delete:hover {
+  background: #FECACA;
+}
+
+/* Info o rabacie w karcie kierowcy */
+.discount-info-card {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.discount-badge {
+  background: #F59E0B;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.discount-reason {
+  font-size: 12px;
+  color: #78350F;
+}
+
+/* Info o zaliczce dla kierowcy */
+.payment-advance-info {
+  background: #DBEAFE;
+  color: #1E40AF;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 8px 0;
+  border-left: 3px solid #3B82F6;
+}
+
+.payment-advance-info strong {
+  color: #1E3A8A;
+}
+
+/* ============================================
+   RABAT W MARŻY - STYLE
+   ============================================ */
+.discount-item {
+  background: #FEF3C7 !important;
+  border-left: 3px solid #F59E0B;
+}
+
+.discount-value {
+  color: #B45309 !important;
+}
+
+.discount-info {
+  display: block;
+  font-size: 10px;
+  color: #92400E;
+  margin-top: 2px;
+}
+
+.discount-note {
+  font-size: 10px;
+  color: #F59E0B;
+  margin-left: 4px;
+}
+
+.margin-badge .discount-note {
+  display: block;
+  font-size: 9px;
+}
+
+/* ============================================
+   RABAT - INFORMACJE O PŁATNOŚCI
+   ============================================ */
+.payment-discount-info {
+  font-size: 11px;
+  display: block;
+  margin-top: 4px;
+}
+
+.original-amount {
+  color: #6B7280;
+  text-decoration: line-through;
+}
+
+.discount-applied {
+  color: #059669;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+/* Karta rabatów w statystykach */
+.summary-card.discount {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-left: 4px solid #F59E0B;
+}
+
+.summary-card.discount .summary-icon {
+  background: #F59E0B;
+}
+
+/* ============================================
+   PRZYCISKI DRUKUJ/POBIERZ W POTWIERDZENIU
+   ============================================ */
+.delivery-actions-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-print {
+  background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-print:hover {
+  background: linear-gradient(135deg, #4B5563 0%, #374151 100%);
+  transform: translateY(-1px);
+}
+
+.btn-download {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-download:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+}
+
+.delivery-confirmation-modal .modal-footer {
+  padding: 16px 24px;
+  background: #F9FAFB;
+  border-radius: 0 0 12px 12px;
+}
+
+@media (max-width: 600px) {
+  .delivery-actions-footer {
+    flex-direction: column;
+  }
+  
+  .delivery-actions-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ============================================
+   CENNIKI - STYLE
+   ============================================ */
+.pricelist-modal {
+  max-width: 1000px;
+}
+
+.pricelist-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  border-bottom: 1px solid #E5E7EB;
+  margin-bottom: 16px;
+}
+
+.pricelist-tabs .tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+
+.pricelist-tabs .tab-btn:hover {
+  color: #4F46E5;
+}
+
+.pricelist-tabs .tab-btn.active {
+  color: #4F46E5;
+  border-bottom-color: #4F46E5;
+}
+
+/* Lista cenników */
+.pricelist-filters {
+  margin-bottom: 16px;
+}
+
+.pricelist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.pricelist-card {
+  background: #F9FAFB;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pricelist-card:hover {
+  border-color: #6366F1;
+  background: #F5F3FF;
+}
+
+.pricelist-card.selected {
+  border-color: #4F46E5;
+  background: #EEF2FF;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.pricelist-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.pricelist-card-header h3 {
+  font-size: 16px;
+  color: #1E1B4B;
+  margin: 0;
+}
+
+.pricelist-card-body p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #4B5563;
+}
+
+/* Podgląd cennika */
+.pricelist-preview {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.pricelist-preview h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.products-table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.products-table th {
+  background: #F3F4F6;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  border-bottom: 2px solid #E5E7EB;
+}
+
+.products-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.products-table tr:hover {
+  background: #F9FAFB;
+}
+
+.price-cell {
+  text-align: right;
+  font-family: monospace;
+  color: #059669;
+  font-weight: 500;
+}
+
+.table-info {
+  text-align: center;
+  padding: 12px;
+  color: #6B7280;
+  font-size: 12px;
+}
+
+/* Import cennika */
+.import-instructions {
+  background: #EEF2FF;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.import-instructions h3 {
+  margin: 0 0 12px 0;
+  color: #1E1B4B;
+}
+
+.import-instructions ul {
+  margin: 12px 0 0 20px;
+  color: #4B5563;
+}
+
+.import-instructions li {
+  margin: 6px 0;
+}
+
+.example-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.example-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.example-table th {
+  background: #6366F1;
+  color: white;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.example-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.import-form {
+  background: #F9FAFB;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.btn-upload {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: 2px dashed #4338CA;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+}
+
+.btn-upload:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.import-preview {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.import-preview h4 {
+  color: #059669;
+  margin-bottom: 12px;
+}
+
+.preview-table-container {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Wyszukiwarka produktów */
+.product-search-modal .modal-body {
+  min-height: 400px;
+}
+
+.search-filters {
+  margin-bottom: 16px;
+}
+
+.search-input-large {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 2px solid #E5E7EB;
+  border-radius: 10px;
+}
+
+.search-input-large:focus {
+  border-color: #6366F1;
+  outline: none;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.filter-row select {
+  flex: 1;
+  padding: 10px;
+}
+
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.product-result {
+  padding: 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.product-result:hover {
+  border-color: #6366F1;
+  background: #F5F3FF;
+}
+
+.product-result-main {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.product-name {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.product-producer {
+  color: #6B7280;
+  font-size: 13px;
+}
+
+.product-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.price-tag {
+  background: #F3F4F6;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #4B5563;
+}
+
+.price-tag.selected {
+  background: #D1FAE5;
+  color: #065F46;
+  font-weight: 600;
+}
+
+.no-results, .hint {
+  text-align: center;
+  padding: 40px;
+  color: #6B7280;
+}
+
+/* Przycisk wyszukiwania w formularzu */
+.towar-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.towar-input-row textarea {
+  width: 100%;
+}
+
+.btn-search-product {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  align-self: flex-start;
+  transition: all 0.2s;
+}
+
+.btn-search-product:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  transform: translateY(-1px);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6B7280;
+}
+
+.empty-state p:first-child {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .pricelist-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filter-row {
+    flex-direction: column;
+  }
+}
+
+/* Przycisk wyszukiwania przy kosztach */
+.cost-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cost-section-header h4 {
+  margin: 0;
+}
+
+.btn-search-product-small {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-search-product-small:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+@media (max-width: 600px) {
+  .cost-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .btn-search-product-small {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ============================================
+   PLANOWANE WYJAZDY KIEROWCÓW - PROFESJONALNY DESIGN
+   ============================================ */
+
+/* === SLIDER W PANELU ADMINA/PRACOWNIKA === */
+.drivers-trips-slider {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 
+    0 20px 40px rgba(15, 23, 42, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.drivers-trips-slider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+
+.trips-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.trips-slider-title {
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
+}
+
+.trips-slider-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.trips-slider-content {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 0 12px 0;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-slider-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.trips-slider-content::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+}
+
+.trips-slider-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  border-radius: 4px;
+}
+
+.trips-slider-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #818CF8, #A78BFA);
+}
+
+/* Karta kierowcy w sliderze */
+.driver-trip-card-extended {
+  background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 340px;
+  scroll-snap-align: start;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.driver-trip-card-extended::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366F1, #8B5CF6, #EC4899);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.driver-trip-card-extended:hover {
+  background: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.driver-trip-card-extended:hover::before {
+  opacity: 1;
+}
+
+.driver-trip-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.driver-avatar {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.driver-trip-name span:last-child {
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.driver-trip-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trip-schedule-item {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: all 0.2s;
+}
+
+.trip-schedule-item:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.trip-schedule-item.today {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  position: relative;
+}
+
+.trip-schedule-item.today::before {
+  content: '🔴';
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  font-size: 14px;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.trip-schedule-item.tomorrow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.trip-schedule-pickup,
+.trip-schedule-departure,
+.trip-schedule-dest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.trip-schedule-pickup:last-child,
+.trip-schedule-departure:last-child,
+.trip-schedule-dest:last-child {
+  margin-bottom: 0;
+}
+
+.schedule-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  min-width: 75px;
+  font-weight: 500;
+}
+
+.schedule-value {
+  font-size: 13px;
+  color: rgba(255,255,255,0.9);
+  font-weight: 500;
+}
+
+.schedule-value.highlight {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.more-trips {
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  text-align: center;
+  padding: 8px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* === SEKCJA WYJAZDÓW W PANELU KIEROWCY === */
+.driver-trips-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(30, 27, 75, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.driver-trips-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.trips-info {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.next-trip-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.trip-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+}
+
+.trip-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trip-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  font-weight: 500;
+  min-width: 70px;
+}
+
+.trip-dates {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.trip-date-main {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.trip-dest {
+  font-size: 13px;
+  color: #A5B4FC;
+  font-weight: 500;
+  padding: 4px 10px;
+  background: rgba(165, 180, 252, 0.15);
+  border-radius: 6px;
+}
+
+.no-trip-badge {
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-manage-trips {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.btn-manage-trips:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+}
+
+.btn-manage-trips:active {
+  transform: translateY(0);
+}
+
+/* === MODAL ZARZĄDZANIA WYJAZDAMI === */
+.trips-modal .modal-body {
+  padding: 24px;
+}
+
+.trips-modal .add-trip-form {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.trips-modal .add-trip-form h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E1B4B;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trip-form-section {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.section-label {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.date-range-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.date-separator {
+  padding-bottom: 12px;
+  color: #94A3B8;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* Lista wyjazdów */
+.trips-list {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.trips-list h3 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E1B4B;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.trips-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.trips-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.trips-items::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 3px;
+}
+
+.trips-items::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+.trip-item-extended {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.trip-item-extended:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.trip-item-extended.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+  position: relative;
+}
+
+.trip-item-extended.today::before {
+  content: 'DZIŚ!';
+  position: absolute;
+  top: -10px;
+  right: 16px;
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.trip-item-extended.past {
+  opacity: 0.5;
+  background: #F9FAFB;
+  border-color: #E5E7EB;
+}
+
+.trip-item-info-extended {
+  flex: 1;
+}
+
+.trip-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.trip-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.trip-info-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin: 10px 0;
+  border: 1px solid #C7D2FE;
+}
+
+.trip-info-label {
+  font-size: 12px;
+  color: #6B7280;
+  min-width: 75px;
+  font-weight: 600;
+}
+
+.trip-info-value {
+  font-weight: 600;
+  color: #1F2937;
+  font-size: 14px;
+}
+
+.trip-info-value.note {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+  font-size: 13px;
+}
+
+.btn-delete-small {
+  background: linear-gradient(135deg, #FEE2E2, #FECACA);
+  border: 1px solid #FECACA;
+  color: #DC2626;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-delete-small:hover {
+  background: linear-gradient(135deg, #FECACA, #FCA5A5);
+  transform: scale(1.05);
+}
+
+.empty-trips {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9CA3AF;
+}
+
+.empty-trips p {
+  font-size: 14px;
+}
+
+/* === INFO O TOWARZE W SEKCJI KLIENTA - PANEL KIEROWCY === */
+.client-product-info {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px dashed #E5E7EB;
+}
+
+.product-info-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6366F1;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.product-info-content {
+  font-size: 13px;
+  color: #374151;
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  padding: 14px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #E2E8F0;
+}
+
+/* === PRZYCISK WYSZUKIWANIA PRZY KOSZTACH === */
+.cost-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.cost-section-header h4 {
+  margin: 0;
+}
+
+.btn-search-product-small {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.btn-search-product-small:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+}
+
+/* === RESPONSYWNOŚĆ === */
+@media (max-width: 768px) {
+  .drivers-trips-slider {
+    padding: 16px;
+    border-radius: 16px;
+    margin: 0 -8px 16px -8px;
+  }
+  
+  .trips-slider-title {
+    font-size: 14px;
+  }
+  
+  .driver-trip-card-extended {
+    min-width: 280px;
+    padding: 16px;
+  }
+  
+  .driver-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+  
+  .driver-trips-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  .next-trip-badge {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .trip-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  .btn-manage-trips {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .date-range-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .date-separator {
+    text-align: center;
+    padding: 8px 0;
+  }
+  
+  .cost-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .btn-search-product-small {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .trip-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .trip-info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .trip-info-row.highlight {
+    padding: 8px 12px;
+  }
+}
+
+/* ============================================
+   STAWKI TRANSPORTOWE - PANEL KIEROWCY
+   ============================================ */
+
+/* Przycisk stawek transportowych w panelu kierowcy */
+.btn-transport-rates {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-transport-rates:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.btn-transport-rates:active {
+  transform: translateY(0);
+}
+
+/* Modal stawek transportu */
+.transport-rates-modal .modal-content {
+  max-width: 600px;
+}
+
+.transport-rates-modal .modal-header {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  padding: 20px 24px;
+  border-radius: 16px 16px 0 0;
+}
+
+.transport-rates-modal .modal-header h2 {
+  color: white;
+  margin: 0;
+}
+
+.transport-rates-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+/* Formularz dodawania stawki */
+.add-rate-form {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+  border: 1px solid #BBF7D0;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.add-rate-form h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Lista stawek */
+.rates-list {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.rates-list h3 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E1B4B;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.rates-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.rate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: all 0.2s;
+}
+
+.rate-item:hover {
+  border-color: #10B981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.rate-item-info {
+  flex: 1;
+}
+
+.rate-item-name {
+  font-weight: 700;
+  color: #1F2937;
+  font-size: 15px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rate-item-details {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.rate-item-price {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.rate-item-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.btn-edit-rate,
+.btn-delete-rate {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-edit-rate {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.btn-edit-rate:hover {
+  background: #E0E7FF;
+}
+
+.btn-delete-rate {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.btn-delete-rate:hover {
+  background: #FECACA;
+}
+
+.empty-rates {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9CA3AF;
+}
+
+/* ============================================
+   STAWKI KIEROWCY W FORMULARZU ZAMÓWIENIA
+   ============================================ */
+
+.driver-rates-hint {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+  border: 2px solid #86EFAC;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.rates-hint-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rates-hint-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rate-quick-btn {
+  background: white;
+  border: 2px solid #86EFAC;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.rate-quick-btn:hover {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  border-color: #10B981;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+.rate-quick-btn:hover .rate-name,
+.rate-quick-btn:hover .rate-price {
+  color: white;
+}
+
+.rate-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  transition: color 0.2s;
+}
+
+.rate-price {
+  font-size: 16px;
+  font-weight: 800;
+  color: #059669;
+  transition: color 0.2s;
+}
+
+/* ============================================
+   POPRAWKI DO SLIDERA WYJAZDÓW - PANEL ADMIN/PRACOWNIK
+   ============================================ */
+
+/* Upewnij się że slider jest widoczny */
+.drivers-trips-slider {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%) !important;
+  border-radius: 20px !important;
+  padding: 24px !important;
+  margin-bottom: 24px !important;
+  box-shadow: 
+    0 20px 40px rgba(15, 23, 42, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+
+.trips-slider-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 20px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.trips-slider-title {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.trips-slider-content {
+  display: flex !important;
+  gap: 16px !important;
+  overflow-x: auto !important;
+  padding: 4px 0 12px 0 !important;
+}
+
+.driver-trip-card-extended {
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 16px !important;
+  padding: 20px !important;
+  min-width: 340px !important;
+  flex-shrink: 0 !important;
+}
+
+.driver-trip-card-extended:hover {
+  background: rgba(255,255,255,0.12) !important;
+  transform: translateY(-4px) !important;
+}
+
+.driver-trip-name {
+  color: white !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.driver-trip-name span {
+  color: white !important;
+}
+
+.driver-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%) !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+}
+
+.trip-schedule-item {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 10px !important;
+}
+
+.trip-schedule-item.today {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+}
+
+.trip-schedule-item.tomorrow {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.schedule-label {
+  color: rgba(255,255,255,0.6) !important;
+  font-size: 12px !important;
+  min-width: 75px !important;
+}
+
+.schedule-value {
+  color: rgba(255,255,255,0.95) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.schedule-value.highlight {
+  color: #A5B4FC !important;
+  font-weight: 700 !important;
+}
+
+.more-trips {
+  color: rgba(255,255,255,0.5) !important;
+  font-size: 12px !important;
+  text-align: center !important;
+  padding: 8px !important;
+}
+
+/* ============================================
+   POPRAWKI DO SEKCJI WYJAZDÓW - PANEL KIEROWCY
+   ============================================ */
+
+.driver-trips-section {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%) !important;
+  border-radius: 16px !important;
+  padding: 20px 24px !important;
+  margin-bottom: 20px !important;
+  box-shadow: 0 10px 30px rgba(30, 27, 75, 0.3) !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+.trips-info {
+  flex: 1 !important;
+  min-width: 200px !important;
+}
+
+.next-trip-badge {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+
+.trip-icon {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%) !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4) !important;
+}
+
+.trip-details {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.trip-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.trip-label {
+  font-size: 12px !important;
+  color: rgba(255,255,255,0.6) !important;
+  font-weight: 500 !important;
+}
+
+.trip-dates {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: white !important;
+}
+
+.trip-date-main {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #86EFAC !important;
+}
+
+.trip-dest {
+  font-size: 13px !important;
+  color: #A5B4FC !important;
+  font-weight: 500 !important;
+  padding: 4px 10px !important;
+  background: rgba(165, 180, 252, 0.15) !important;
+  border-radius: 6px !important;
+}
+
+.no-trip-badge {
+  color: rgba(255,255,255,0.6) !important;
+  font-size: 14px !important;
+}
+
+.btn-manage-trips {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%) !important;
+  color: white !important;
+  border: none !important;
+  padding: 14px 24px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3) !important;
+  white-space: nowrap !important;
+  transition: all 0.3s !important;
+}
+
+.btn-manage-trips:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4) !important;
+}
+
+/* ============================================
+   RESPONSYWNOŚĆ
+   ============================================ */
+
+@media (max-width: 768px) {
+  .drivers-trips-slider {
+    padding: 16px !important;
+    margin: 0 -8px 16px -8px !important;
+    border-radius: 12px !important;
+  }
+  
+  .driver-trip-card-extended {
+    min-width: 280px !important;
+    padding: 16px !important;
+  }
+  
+  .driver-trips-section {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .btn-manage-trips,
+  .btn-transport-rates {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  
+  .rate-quick-btn {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 120px;
+  }
+}
+
+/* Kontener przycisków w sekcji wyjazdów kierowcy */
+.trips-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .trips-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+  
+  .trips-buttons button {
+    width: 100%;
+  }
+}
+
+/* ============================================
+   MODAL STAWEK TRANSPORTOWYCH - POPRAWIONE
+   ============================================ */
+
+.rates-modal .modal-header {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+}
+
+.rates-modal .modal-header h2 {
+  color: white;
+}
+
+.rates-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.rate-form-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+/* Lista stawek - wewnętrzne elementy */
+.rate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: all 0.2s;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rate-item:hover {
+  border-color: #10B981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.rate-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.rate-item-info .rate-name {
+  font-weight: 700;
+  color: #1F2937;
+  font-size: 15px;
+}
+
+.rate-item-info .rate-country {
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.rate-item-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.rate-price-netto {
+  font-size: 16px;
+  font-weight: 700;
+  color: #059669;
+}
+
+.rate-price-brutto {
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.rate-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit-small {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  border: 1px solid #C7D2FE;
+  color: #6366F1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-edit-small:hover {
+  background: #E0E7FF;
+  transform: scale(1.05);
+}
+
+/* ============================================
+   KOMPAKTOWY SLIDER WYJAZDÓW - PANEL ADMIN/PRACOWNIK
+   ============================================ */
+
+.drivers-trips-slider-compact {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 
+    0 10px 30px rgba(15, 23, 42, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.trips-slider-header-compact {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trips-slider-header-compact .trips-slider-title {
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trips-slider-header-compact .trips-slider-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+    transform: scale(1.1);
+  }
+}
+
+.trips-slider-content-compact {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  border-radius: 3px;
+}
+
+/* Karta kierowcy - kompaktowa */
+.driver-trip-card-compact {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 300px;
+  max-width: 320px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.driver-trip-card-compact:hover {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.driver-trip-card-compact.today {
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.driver-trip-card-compact.today::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #EF4444, #F97316);
+  border-radius: 14px 14px 0 0;
+}
+
+.driver-trip-card-compact.tomorrow {
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Nagłówek karty */
+.card-compact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.driver-name-compact {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.more-badge {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+/* Ciało karty */
+.card-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compact-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.compact-row span:first-child {
+  font-size: 14px;
+  min-width: 20px;
+}
+
+.compact-row.departure {
+  background: rgba(99, 102, 241, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.departure-date {
+  font-weight: 700;
+  color: white;
+}
+
+.compact-dest {
+  color: #A5B4FC;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.compact-row.note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.note-text {
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* Stopka karty */
+.card-compact-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.view-more {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.driver-trip-card-compact:hover .view-more {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Modal szczegółów wyjazdów kierowcy */
+.driver-trips-detail-modal .modal-content {
+  max-width: 500px;
+}
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.driver-trip-detail-item {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.driver-trip-detail-item.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+}
+
+.driver-trip-detail-item.tomorrow {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FED7AA 100%);
+  border-color: #FB923C;
+}
+
+.driver-trip-detail-item.past {
+  opacity: 0.5;
+  background: #F9FAFB;
+}
+
+.detail-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.detail-item-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item-row .label {
+  color: #6B7280;
+  min-width: 80px;
+  font-weight: 500;
+}
+
+.detail-item-row .value {
+  color: #1F2937;
+  font-weight: 600;
+}
+
+.detail-item-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+
+.detail-item-row.highlight .value {
+  color: #4F46E5;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .drivers-trips-slider-compact {
+    padding: 16px;
+    margin: 0 -8px 16px -8px;
+    border-radius: 12px;
+  }
+  
+  .driver-trip-card-compact {
+    min-width: 260px;
+    padding: 14px;
+  }
+}
+
+/* ============================================
+   MODAL SZCZEGÓŁÓW WYJAZDÓW KIEROWCY
+   ============================================ */
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  color: white;
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+  margin: 0;
+}
+
+.driver-trips-detail-modal .modal-header .btn-close {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.trip-detail-card {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.trip-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.trip-detail-card.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+  position: relative;
+}
+
+.trip-detail-card.tomorrow {
+  background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+  border-color: #FB923C;
+}
+
+.trip-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.trip-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.trip-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.trip-badge.today {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+}
+
+.trip-badge.tomorrow {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+}
+
+.trip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.detail-label {
+  color: #6B7280;
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #1F2937;
+  font-weight: 600;
+}
+
+.detail-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin: 4px 0;
+  border: 1px solid #C7D2FE;
+}
+
+.detail-row.highlight .detail-value {
+  color: #4F46E5;
+  font-weight: 700;
+}
+
+.detail-row.note-row .detail-value {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+}
+
+/* Puste wyjazdy */
+.empty-trips {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9CA3AF;
+}
+
+.empty-trips p {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* ============================================
+   SLIDER WYJAZDÓW KIEROWCÓW - KOMPAKTOWY (ADMIN/PRACOWNIK)
+   ============================================ */
+
+.drivers-trips-slider-compact {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #3730A3 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 
+    0 10px 40px rgba(30, 27, 75, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.drivers-trips-slider-compact::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.trips-slider-header-compact {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.trips-slider-header-compact .trips-slider-title {
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trips-slider-header-compact .trips-slider-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.trips-slider-content-compact {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Karta kierowcy - kompaktowa */
+.driver-trip-card-compact {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 280px;
+  max-width: 320px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.driver-trip-card-compact:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.driver-trip-card-compact.today {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.15) 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: glow-red 2s infinite;
+}
+
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.2); }
+}
+
+.driver-trip-card-compact.tomorrow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.card-compact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.driver-name-compact {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.more-badge {
+  background: rgba(99, 102, 241, 0.3);
+  color: #A5B4FC;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.card-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.compact-row span:first-child {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+.compact-row.departure {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.departure-date {
+  font-weight: 700;
+  color: white;
+}
+
+.compact-dest {
+  color: #A5B4FC;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.compact-row.note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.note-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.card-compact-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.view-more {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .drivers-trips-slider-compact {
+    padding: 16px;
+    margin: 0 -8px 16px -8px;
+    border-radius: 12px;
+  }
+  
+  .driver-trip-card-compact {
+    min-width: 260px;
+    padding: 14px;
+  }
+  
+  .trips-slider-header-compact .trips-slider-title {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .driver-trip-card-compact {
+    min-width: 240px;
+  }
+}
+
+/* ============================================
+   MODAL SZCZEGÓŁÓW WYJAZDÓW KIEROWCY
+   ============================================ */
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-trips-detail-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trip-detail-card {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.trip-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.trip-detail-card.today {
+  background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+  border-color: #FECACA;
+}
+
+.trip-detail-card.tomorrow {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-color: #FDE68A;
+}
+
+.trip-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.trip-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.trip-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.trip-badge.today {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+}
+
+.trip-badge.tomorrow {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+}
+
+.trip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin: 4px 0;
+  border: 1px solid #C7D2FE;
+}
+
+.detail-label {
+  font-size: 13px;
+  color: #6B7280;
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.detail-value.note {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+}
+
+.note-row {
+  background: #F9FAFB;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+/* ============================================
+   PANEL ROZLICZEŃ TRANSPORTOWYCH
+   ============================================ */
+
+.settlements-modal .modal-header {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.settlements-modal .modal-header h2 {
+  color: white;
+}
+
+.settlements-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.settlements-nav {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settlements-nav .nav-btn {
+  padding: 12px 20px;
+  background: #F1F5F9;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.settlements-nav .nav-btn.active {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: white;
+}
+
+.settlements-nav .nav-btn:hover:not(.active) {
+  background: #E2E8F0;
+}
+
+.settlements-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.settlements-filter label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.settlements-filter select {
+  padding: 10px 14px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+/* Lista rozliczeń */
+.settlements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-settlements {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748B;
+}
+
+.empty-settlements p {
+  margin: 0;
+  font-size: 18px;
+}
+
+.empty-settlements .subtitle {
+  font-size: 14px;
+  color: #94A3B8;
+  margin-top: 8px;
+}
+
+.settlement-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1px solid #FDE68A;
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+
+.settlement-card:hover {
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);
+}
+
+.settlement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.settlement-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.settlement-driver {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.settlement-date {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.settlement-status .status-badge {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.utworzone {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.status-badge.zaakceptowane {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.status-badge.rozliczone {
+  background: #10B981;
+  color: white;
+}
+
+.settlement-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settlement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+}
+
+.settlement-row .value {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.settlement-row .value.minus {
+  color: #DC2626;
+}
+
+.settlement-row.total {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  margin-top: 8px;
+}
+
+.settlement-row.total span {
+  color: white;
+}
+
+.settlement-row.total .value.highlight {
+  font-size: 18px;
+  font-weight: 800;
+  color: #86EFAC;
+}
+
+.settlement-meta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0,0,0,0.1);
+  font-size: 12px;
+  color: #64748B;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settlement-history {
+  margin-top: 12px;
+}
+
+.settlement-history summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366F1;
+  padding: 8px;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+}
+
+.history-list {
+  margin-top: 8px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.history-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-date {
+  color: #64748B;
+  min-width: 80px;
+}
+
+.history-action {
+  flex: 1;
+  color: #1E1B4B;
+}
+
+.history-user {
+  color: #94A3B8;
+  font-style: italic;
+}
+
+.settlement-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.btn-edit-settlement,
+.btn-accept-settlement {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-edit-settlement {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.btn-edit-settlement:hover {
+  background: #E0E7FF;
+}
+
+.btn-accept-settlement {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-accept-settlement:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Tworzenie rozliczenia */
+.create-settlement-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.select-all-row {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+}
+
+.select-all-row label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.orders-to-settle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.order-to-settle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #F8FAFC;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-to-settle:hover {
+  border-color: #F59E0B;
+}
+
+.order-to-settle.selected {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-color: #F59E0B;
+}
+
+.order-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.order-checkbox input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.order-info {
+  flex: 1;
+}
+
+.order-info .order-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.order-info .order-client {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.order-info .order-date {
+  color: #94A3B8;
+  font-size: 12px;
+}
+
+.order-amounts {
+  min-width: 180px;
+  text-align: right;
+}
+
+.order-amounts .amount-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+.order-amounts .amount-row.total {
+  font-weight: 700;
+  padding-top: 6px;
+  margin-top: 4px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.order-amounts .positive {
+  color: #059669;
+}
+
+.order-amounts .negative {
+  color: #DC2626;
+}
+
+.no-orders-info {
+  text-align: center;
+  padding: 40px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  color: #64748B;
+}
+
+/* Podsumowanie */
+.settlement-summary {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 24px;
+  color: white;
+}
+
+.settlement-summary h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+
+.summary-item .label {
+  color: rgba(255,255,255,0.8);
+}
+
+.summary-item .value {
+  font-weight: 600;
+}
+
+.summary-item .value.minus {
+  color: #FCA5A5;
+}
+
+.summary-item.total {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  margin-top: 8px;
+}
+
+.summary-item.total .value.highlight {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.btn-create-settlement {
+  width: 100%;
+  margin-top: 20px;
+  padding: 16px;
+  font-size: 16px;
+}
+
+/* Edycja rozliczenia */
+.settlements-edit-view {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.edit-settlement-info {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.edit-settlement-info p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.edit-actions button {
+  flex: 1;
+}
+
+/* Przycisk rozliczeń w panelu kierowcy */
+.btn-settlements {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-settlements:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+/* Modal rozliczeń kierowcy */
+.driver-settlements-modal .modal-header {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.driver-settlements-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-settlements-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .settlements-nav {
+    flex-direction: column;
+  }
+  
+  .settlements-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .settlements-filter select {
+    min-width: 100%;
+  }
+  
+  .create-settlement-form .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-to-settle {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .order-amounts {
+    text-align: left;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #E2E8F0;
+  }
+  
+  .settlement-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .settlement-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* ============================================
+   MENU ROZWIJANE KIEROWCY
+   ============================================ */
+
+.driver-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.driver-settings-dropdown {
+  position: relative;
+}
+
+.btn-driver-menu {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-driver-menu:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.driver-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  min-width: 220px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.driver-menu-dropdown button {
+  width: 100%;
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1E1B4B;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.driver-menu-dropdown button:hover {
+  background: #F1F5F9;
+}
+
+.driver-menu-dropdown button:not(:last-child) {
+  border-bottom: 1px solid #E2E8F0;
+}
+
+/* ============================================
+   ROZLICZENIA - NOWE STYLE
+   ============================================ */
+
+.settlements-modal .modal-body {
+  padding: 20px;
+}
+
+.btn-back {
+  background: #F1F5F9;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #E2E8F0;
+  color: #1E1B4B;
+}
+
+.settlement-detail-view {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.settlement-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.settlement-detail-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.settlement-detail-meta {
+  display: flex;
+  gap: 20px;
+  color: #64748B;
+  font-size: 13px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settlement-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.summary-box .label {
+  display: block;
+  font-size: 12px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.summary-box .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.summary-box.minus .value {
+  color: #DC2626;
+}
+
+.summary-box.total {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.summary-box.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.summary-box.total .value {
+  color: #86EFAC;
+  font-size: 24px;
+}
+
+.settlement-orders-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  color: #1E1B4B;
+}
+
+.settlement-orders-grid {
+  display: grid;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.settlement-order-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.settlement-order-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.settlement-order-card .order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+.settlement-order-card .order-card-header .order-nr {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.settlement-order-card .order-card-header .order-date {
+  color: #64748B;
+  font-size: 12px;
+}
+
+.settlement-order-card .order-card-client {
+  margin-bottom: 8px;
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+
+.settlement-order-card .order-card-client strong {
+  display: block;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.settlement-order-card .order-card-client small {
+  color: #94A3B8;
+  font-size: 12px;
+}
+
+.settlement-order-card .order-card-product {
+  font-size: 12px;
+  color: #64748B;
+  background: #E2E8F0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.settlement-order-card .order-card-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  padding-top: 10px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.settlement-order-card .order-card-amounts .diff strong.positive {
+  color: #059669;
+}
+
+.settlement-order-card .order-card-amounts .diff strong.negative {
+  color: #DC2626;
+}
+
+.settlement-history-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.settlement-history-section h4 {
+  margin: 0 0 12px 0;
+}
+
+.settlement-detail-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.btn-accept, .btn-edit, .btn-delete {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-accept {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+}
+
+.btn-edit {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.btn-delete {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.btn-accept:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+.btn-edit:hover { background: #E0E7FF; }
+.btn-delete:hover { background: #FECACA; }
+
+/* Lista rozliczeń - karty */
+.settlement-card.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settlement-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.click-hint {
+  font-size: 11px;
+  color: #94A3B8;
+  text-align: right;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+/* Tworzenie rozliczenia */
+.create-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.settlements-create-view h4 {
+  margin: 20px 0 12px 0;
+  color: #1E1B4B;
+}
+
+.no-orders-info {
+  text-align: center;
+  padding: 40px;
+  background: #F0FDF4;
+  border-radius: 12px;
+  color: #059669;
+}
+
+.no-orders-info .hint {
+  font-size: 13px;
+  color: #64748B;
+  margin-top: 8px;
+}
+
+.orders-to-settle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.order-to-settle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-to-settle:hover {
+  border-color: #F59E0B;
+}
+
+.order-to-settle.selected {
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border-color: #F59E0B;
+}
+
+.order-to-settle .order-info {
+  flex: 1;
+}
+
+.order-to-settle .order-info .nr {
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.order-to-settle .order-info .client {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.order-to-settle .order-amounts {
+  text-align: right;
+  font-size: 13px;
+}
+
+.order-to-settle .order-amounts .diff .positive { color: #059669; font-weight: 700; }
+.order-to-settle .order-amounts .diff .negative { color: #DC2626; font-weight: 700; }
+
+.settlement-summary {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  color: white;
+}
+
+.settlement-summary h4 {
+  margin: 0 0 16px 0;
+  color: white;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.summary-row.total {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.btn-create {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  font-size: 15px;
+}
+
+/* Edycja */
+.settlements-edit-view {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.edit-info {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.edit-actions button {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .settlement-detail-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .create-form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .settlement-detail-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .settlement-detail-actions {
+    flex-direction: column;
+  }
+  
+  .driver-menu-dropdown {
+    right: -50px;
+  }
+}
+
+/* ============================================
+   ROZLICZENIA KIEROWCY - PEŁNY WIDOK
+   ============================================ */
+
+.driver-settlements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.driver-settlement-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 2px solid #FDE68A;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.driver-settlement-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.2);
+  border-color: #F59E0B;
+}
+
+.driver-settlement-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.driver-settlement-card .card-date {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.driver-settlement-card .card-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.driver-settlement-card .summary-item {
+  text-align: center;
+  padding: 10px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+}
+
+.driver-settlement-card .summary-item .label {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+  margin-bottom: 4px;
+}
+
+.driver-settlement-card .summary-item .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.driver-settlement-card .summary-item .value.minus {
+  color: #DC2626;
+}
+
+.driver-settlement-card .summary-item.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.driver-settlement-card .summary-item.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.driver-settlement-card .summary-item.total .value {
+  color: #86EFAC;
+  font-size: 18px;
+}
+
+.driver-settlement-card .card-footer {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0,0,0,0.1);
+}
+
+.driver-settlement-card .click-hint {
+  font-size: 12px;
+  color: #64748B;
+  text-align: center;
+  display: block;
+}
+
+/* Szczegóły rozliczenia kierowcy */
+.driver-settlement-detail {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.detail-header-row {
+  margin-bottom: 20px;
+}
+
+.detail-header-row h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.driver-settlement-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.driver-settlement-summary .summary-card {
+  padding: 20px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.driver-settlement-summary .summary-card.collected {
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  border: 1px solid #A7F3D0;
+}
+
+.driver-settlement-summary .summary-card.transport {
+  background: linear-gradient(135deg, #FEF2F2, #FEE2E2);
+  border: 1px solid #FECACA;
+}
+
+.driver-settlement-summary .summary-card.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.driver-settlement-summary .summary-card .label {
+  display: block;
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.driver-settlement-summary .summary-card.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.driver-settlement-summary .summary-card .amount {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1E1B4B;
+}
+
+.driver-settlement-summary .summary-card.transport .amount {
+  color: #DC2626;
+}
+
+.driver-settlement-summary .summary-card.total .amount {
+  color: #86EFAC;
+  font-size: 28px;
+}
+
+/* Lista zamówień */
+.driver-settlement-orders h4 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  color: #1E1B4B;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.driver-settlement-orders .orders-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.driver-settlement-orders .order-detail-card {
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.driver-settlement-orders .order-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.driver-settlement-orders .order-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.driver-settlement-orders .order-detail-header .order-number {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1E1B4B;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.driver-settlement-orders .order-detail-header .order-date {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.driver-settlement-orders .order-detail-client {
+  margin-bottom: 10px;
+}
+
+.driver-settlement-orders .order-detail-client .client-name {
+  font-weight: 600;
+  color: #1E1B4B;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.driver-settlement-orders .order-detail-client .client-address {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.driver-settlement-orders .order-detail-product {
+  font-size: 12px;
+  color: #475569;
+  background: #E2E8F0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.driver-settlement-orders .order-detail-amounts {
+  padding-top: 12px;
+  border-top: 1px dashed #CBD5E1;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line .value {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line .value.transport {
+  color: #DC2626;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line.result {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #CBD5E1;
+  font-weight: 600;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line .value.positive {
+  color: #059669;
+  font-size: 15px;
+}
+
+.driver-settlement-orders .order-detail-amounts .amount-line .value.negative {
+  color: #DC2626;
+  font-size: 15px;
+}
+
+/* Historia */
+.driver-settlement-history {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.driver-settlement-history h4 {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  color: #64748B;
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.history-entry .history-date {
+  color: #6366F1;
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.history-entry .history-action {
+  flex: 1;
+  color: #1E1B4B;
+}
+
+.history-entry .history-user {
+  color: #94A3B8;
+  font-style: italic;
+}
+
+/* Empty state */
+.empty-settlements .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .driver-settlement-card .card-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .driver-settlement-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .history-entry {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* ============================================
+   ROZLICZENIA - OBSŁUGA WIELU WALUT
+   ============================================ */
+
+.currency-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.currency-total-card {
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  border: 2px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.currency-total-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.currency-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.currency-flag {
+  font-size: 24px;
+}
+
+.currency-code {
+  font-weight: 800;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.currency-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.currency-row .value {
+  font-weight: 600;
+}
+
+.currency-row .value.minus {
+  color: #DC2626;
+}
+
+.currency-row.total {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 2px solid #E2E8F0;
+  font-weight: 700;
+}
+
+.currency-row.total .value.positive {
+  color: #059669;
+  font-size: 18px;
+}
+
+.currency-row.total .value.negative {
+  color: #DC2626;
+  font-size: 18px;
+}
+
+/* Preview walut na liście */
+.settlement-currency-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.currency-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+  border-radius: 10px;
+  color: white;
+}
+
+.currency-badge .currency {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.currency-badge .amount {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.currency-badge .amount.positive {
+  color: #86EFAC;
+}
+
+.currency-badge .amount.negative {
+  color: #FCA5A5;
+}
+
+/* Rabat w szczegółach zamówienia */
+.order-discount-info {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border: 1px solid #F59E0B;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.order-discount-info .discount-badge {
+  font-weight: 700;
+  color: #92400E;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.order-discount-info .discount-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #78350F;
+}
+
+.order-discount-info .original-price {
+  text-decoration: line-through;
+  color: #92400E;
+}
+
+.order-discount-info .discount-amount {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+/* Rabat w tworzeniu rozliczenia */
+.order-discount-badge {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  color: #92400E;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+/* Sekcja rabatu w szczegółach */
+.order-discount-section {
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 2px solid #F59E0B;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 12px 0;
+}
+
+.order-discount-section .discount-header {
+  font-weight: 700;
+  color: #92400E;
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #F59E0B;
+}
+
+.order-discount-section .discount-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-discount-section .discount-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.order-discount-section .discount-row .strikethrough {
+  text-decoration: line-through;
+  color: #92400E;
+}
+
+.order-discount-section .discount-row.highlight {
+  padding: 6px 10px;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 6px;
+}
+
+.order-discount-section .discount-row .discount-amount {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+.order-discount-section .discount-reason,
+.order-discount-section .discount-by {
+  font-size: 12px;
+  color: #78350F;
+  font-style: italic;
+}
+
+/* Podsumowanie walut na karcie kierowcy */
+.card-currency-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.currency-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+}
+
+.currency-summary-item.total {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+}
+
+.currency-summary-item .currency-label {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.currency-summary-item.total .currency-label {
+  color: rgba(255,255,255,0.8);
+}
+
+.currency-summary-item .currency-value {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1E1B4B;
+}
+
+.currency-summary-item .currency-value.positive {
+  color: #059669;
+}
+
+.currency-summary-item .currency-value.negative {
+  color: #DC2626;
+}
+
+.currency-summary-item.total .currency-value {
+  color: #86EFAC;
+  font-size: 18px;
+}
+
+.card-orders-count {
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+/* Driver currency summary */
+.driver-currency-summary {
+  margin-bottom: 24px;
+}
+
+.driver-currency-summary h4 {
+  margin: 0 0 12px 0;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+/* Podsumowanie na dole formularza tworzenia */
+.settlement-summary .currency-totals-grid {
+  margin-bottom: 16px;
+}
+
+.settlement-summary .currency-total-card {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.settlement-summary .currency-header {
+  border-color: rgba(255,255,255,0.2);
+}
+
+.settlement-summary .currency-code {
+  color: white;
+}
+
+.settlement-summary .currency-row {
+  color: rgba(255,255,255,0.8);
+}
+
+.settlement-summary .currency-row .value {
+  color: white;
+}
+
+.settlement-summary .currency-row.total {
+  border-color: rgba(255,255,255,0.3);
+}
+
+@media (max-width: 768px) {
+  .currency-totals-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .settlement-currency-preview {
+    flex-direction: column;
+  }
+  
+  .currency-badge {
+    justify-content: space-between;
+  }
+}
+
+/* ============================================
+   PRODUKTY W ZAMÓWIENIU - WIELE PRODUCENTÓW
+   ============================================ */
+
+.products-section {
+  background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+  border: 1px solid #BBF7D0;
+  border-radius: 14px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.products-header h3 {
+  margin: 0;
+  color: #166534;
+  font-size: 16px;
+}
+
+.btn-add-product {
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-product:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+/* Zakładki produktów */
+.product-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #BBF7D0;
+}
+
+.product-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.product-tab:hover {
+  border-color: #22C55E;
+  background: #F0FDF4;
+}
+
+.product-tab.active {
+  background: #22C55E;
+  border-color: #16A34A;
+  color: white;
+}
+
+.product-tab .tab-number {
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.product-tab .tab-producer {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-tab .tab-status {
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.product-tab.active .tab-number,
+.product-tab.active .tab-producer {
+  color: white;
+}
+
+/* Karta formularza produktu */
+.product-form-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  border: 1px solid #E5E7EB;
+}
+
+.product-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.product-number {
+  font-weight: 700;
+  font-size: 14px;
+  color: #166534;
+}
+
+.btn-remove-product {
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-product:hover {
+  background: #DC2626;
+  color: white;
+}
+
+/* Grid 2 i 3 kolumny */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* Koszty produktu */
+.product-costs {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #E5E7EB;
+}
+
+.product-costs h4 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #6B7280;
+  font-weight: 600;
+}
+
+/* Podsumowanie produktów */
+.products-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid #BBF7D0;
+}
+
+.products-summary strong {
+  color: #166534;
+}
+
+.products-summary span {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+/* Responsywność */
+@media (max-width: 600px) {
+  .products-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  
+  .btn-add-product {
+    text-align: center;
+  }
+  
+  .product-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .product-tab {
+    flex-shrink: 0;
+  }
+  
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  
+  .product-form-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
+
+/* Lista produktów na karcie zamówienia */
+.multi-product-badge {
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.order-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.order-product-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.product-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.product-item-nr {
+  font-weight: 700;
+  font-size: 11px;
+  font-family: monospace;
+  color: #166534;
+  background: #DCFCE7;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.product-item-desc {
+  font-size: 12px;
+  color: #374151;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.product-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mini-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.mini-tag.producer {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.mini-tag.driver {
+  background: #EDE9FE;
+  color: #7C3AED;
+}
+
+.mini-tag.date {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.status-select.small {
+  padding: 4px 8px;
+  font-size: 10px;
+  border-radius: 6px;
+}
+
+/* Podsumowanie produktów */
+.products-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid #BBF7D0;
+}
+
+.products-summary strong {
+  color: #166534;
+}
+
+.products-summary span {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+/* ============================================
+   PRODUKTY W PANELU KIEROWCY
+   ============================================ */
+
+.multi-badge {
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
+}
+
+.partial-badge {
+  background: #FEF3C7;
+  color: #B45309;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+
+.driver-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.driver-product-item {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.product-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.product-nr {
+  font-weight: 700;
+  font-size: 12px;
+  font-family: monospace;
+  color: #166534;
+  background: #DCFCE7;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.product-desc {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.product-producer-mini {
+  font-size: 11px;
+  color: #6B7280;
+  margin-top: 6px;
+}
+
+.product-producer-mini .addr {
+  color: #9CA3AF;
+}
+
+.product-producer-mini a {
+  color: #2563EB;
+  text-decoration: none;
+}
+
+.product-date {
+  font-size: 11px;
+  color: #B45309;
+  margin-top: 4px;
+}
+
+.status-select.mini {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  min-width: 120px;
+}
+
+.driver-section.product-section {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+}
+
+.driver-section.product-section .section-title {
+  color: #166534;
+}
+
+.driver-section.product-section .product-info-content {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ============================================
+   PODSUMOWANIE KOSZTÓW PRODUKTÓW
+   ============================================ */
+
+.products-costs-summary {
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.products-costs-summary h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #92400E;
+}
+
+.products-costs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: white;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.product-cost-row .prod-name {
+  color: #374151;
+  font-weight: 500;
+}
+
+.product-cost-row .prod-cost {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.product-cost-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #FDE68A;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400E;
+  margin-top: 6px;
+}
+
+.costs-sync-info {
+  font-size: 11px;
+  color: #92400E;
+  margin: 10px 0 0;
+  opacity: 0.8;
+}
+
+/* ============================================
+   POWIĘKSZONY MODAL ZAMÓWIENIA
+   ============================================ */
+
+.modal-content.modal-form {
+  max-width: 900px;
+  width: 95%;
+  max-height: 92vh;
+}
+
+/* ============================================
+   NOWA SEKCJA FINANSÓW PRODUKTU
+   ============================================ */
+
+.product-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E5E7EB;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.product-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-email-producer {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-email-producer:hover {
+  background: #4F46E5;
+  color: white;
+}
+
+.product-financials {
+  margin-top: 16px;
+  padding: 16px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+
+.product-financials h4 {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  color: #1E1B4B;
+}
+
+.finance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #E2E8F0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.finance-row:last-child {
+  border-bottom: none;
+}
+
+.finance-row.highlight {
+  background: #DCFCE7;
+  margin: 8px -16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #86EFAC;
+}
+
+.finance-row.highlight-warning {
+  background: #FEF3C7;
+  margin: 8px -16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #FCD34D;
+}
+
+.finance-label {
+  font-size: 13px;
+  color: #64748B;
+  min-width: 150px;
+}
+
+.finance-row.highlight .finance-label,
+.finance-row.highlight-warning .finance-label {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.finance-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.currency-select {
+  padding: 6px 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 12px;
+  width: 60px;
+}
+
+.finance-input {
+  padding: 6px 10px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 13px;
+  width: 90px;
+  text-align: right;
+}
+
+.finance-input.large {
+  width: 120px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.finance-separator {
+  color: #9CA3AF;
+  font-size: 12px;
+}
+
+/* Podsumowanie produktów */
+.products-totals {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%);
+  border-radius: 12px;
+  border: 1px solid #C7D2FE;
+}
+
+.products-totals h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #1E1B4B;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.total-item span {
+  color: #64748B;
+}
+
+.total-item strong {
+  color: #1E1B4B;
+}
+
+.total-item.highlight {
+  background: #DCFCE7;
+  border: 1px solid #86EFAC;
+}
+
+.total-item.highlight strong {
+  color: #166534;
+}
+
+.total-item.warning {
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+}
+
+.total-item.warning strong {
+  color: #92400E;
+}
+
+.btn-sync-totals {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #4F46E5, #6366F1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sync-totals:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* Modal email do producenta */
+.modal-email-producer {
+  max-width: 600px;
+}
+
+.producer-contact-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.producer-contact-info span {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.email-type-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.email-type-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #E2E8F0;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.email-type-btn:hover {
+  border-color: #4F46E5;
+}
+
+.email-type-btn.active {
+  background: #4F46E5;
+  border-color: #4F46E5;
+  color: white;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .modal-content.modal-form {
+    max-width: 100%;
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .finance-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .finance-inputs {
+    width: 100%;
+  }
+  
+  .totals-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .product-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 /* ============================================
    NOWY MODAL ZAMÓWIENIA - PEŁNY EKRAN
