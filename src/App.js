@@ -1586,6 +1586,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   };
 
   // Aktualizuj koszty produktu z przeliczaniem netto/brutto
+  // eslint-disable-next-line no-unused-vars
   const updateProductCost = (index, field, value) => {
     setForm(prevForm => {
       const newProducts = [...prevForm.produkty];
@@ -1801,6 +1802,7 @@ Zespół obsługi zamówień`;
   };
   
   // Aktualizacja kosztów z auto-przeliczaniem netto↔brutto
+  // eslint-disable-next-line no-unused-vars
   const updateKoszty = (field, value) => {
     const koszty = { ...form.koszty };
     const vatMultiplier = 1 + (koszty.vatRate || 23) / 100;
@@ -1842,6 +1844,7 @@ Zespół obsługi zamówień`;
   };
 
   // Wyliczenie marży - ZAWSZE W PLN
+  // eslint-disable-next-line no-unused-vars
   const calcMarza = () => {
     const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
     const vatRate = form.koszty?.vatRate || 23;
