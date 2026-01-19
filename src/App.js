@@ -6498,13 +6498,18 @@ ${t.team}
   );
 };
 
-// Komponent modala rozliczeń dla kierowcy
+// Komponent modala rozliczeń dla kierowcy - z obsługą wielu walut i rabatów
 const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
   const [viewingSettlement, setViewingSettlement] = useState(null);
 
   const formatCurrency = (amount, currency = 'PLN') => {
     const symbols = { PLN: 'zł', EUR: '€', GBP: '£', USD: '$', CHF: 'CHF' };
     return `${(amount || 0).toFixed(2)} ${symbols[currency] || currency}`;
+  };
+
+  const getCurrencySymbol = (currency) => {
+    const symbols = { PLN: 'zł', EUR: '€', GBP: '£', USD: '$', CHF: 'CHF' };
+    return symbols[currency] || currency;
   };
 
   // Widok szczegółów rozliczenia
@@ -6531,20 +6536,53 @@ const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
                 </div>
               </div>
 
-              {/* Podsumowanie kwot */}
-              <div className="driver-settlement-summary">
-                <div className="summary-card collected">
-                  <span className="label">💵 Pobrano od klientów</span>
-                  <span className="amount">{formatCurrency(viewingSettlement.totalCollected, viewingSettlement.currency)}</span>
-                </div>
-                <div className="summary-card transport">
-                  <span className="label">🚚 Twój koszt transportu</span>
-                  <span className="amount">- {formatCurrency(viewingSettlement.totalTransportCost, viewingSettlement.currency)}</span>
-                </div>
-                <div className="summary-card total">
-                  <span className="label">💰 DO ODDANIA</span>
-                  <span className="amount">{formatCurrency(viewingSettlement.totalToReturn, viewingSettlement.currency)}</span>
-                </div>
+              {/* Podsumowanie po walutach */}
+              <div className="driver-currency-summary">
+                <h4>💰 Do oddania</h4>
+                {viewingSettlement.totalsByCurrency ? (
+                  <div className="currency-totals-grid">
+                    {Object.entries(viewingSettlement.totalsByCurrency).map(([currency, values]) => (
+                      <div key={currency} className="currency-total-card">
+                        <div className="currency-header">
+                          <span className="currency-flag">
+                            {currency === 'EUR' ? '🇪🇺' : currency === 'GBP' ? '🇬🇧' : currency === 'PLN' ? '🇵🇱' : '💱'}
+                          </span>
+                          <span className="currency-code">{currency}</span>
+                        </div>
+                        <div className="currency-row">
+                          <span>Pobrano:</span>
+                          <span className="value">{formatCurrency(values.collected, currency)}</span>
+                        </div>
+                        <div className="currency-row">
+                          <span>Transport:</span>
+                          <span className="value minus">- {formatCurrency(values.transport, currency)}</span>
+                        </div>
+                        <div className="currency-row total">
+                          <span>Do oddania:</span>
+                          <span className={`value ${values.toReturn >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(values.toReturn, currency)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Stary format - jedna waluta
+                  <div className="driver-settlement-summary">
+                    <div className="summary-card collected">
+                      <span className="label">💵 Pobrano od klientów</span>
+                      <span className="amount">{formatCurrency(viewingSettlement.totalCollected, viewingSettlement.currency)}</span>
+                    </div>
+                    <div className="summary-card transport">
+                      <span className="label">🚚 Twój koszt transportu</span>
+                      <span className="amount">- {formatCurrency(viewingSettlement.totalTransportCost, viewingSettlement.currency)}</span>
+                    </div>
+                    <div className="summary-card total">
+                      <span className="label">💰 DO ODDANIA</span>
+                      <span className="amount">{formatCurrency(viewingSettlement.totalToReturn, viewingSettlement.currency)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Lista zamówień */}
@@ -6566,21 +6604,49 @@ const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
                           📦 {order.towar.substring(0, 80)}{order.towar.length > 80 ? '...' : ''}
                         </div>
                       )}
+
+                      {/* Informacja o rabacie */}
+                      {order.hasDiscount && (
+                        <div className="order-discount-section">
+                          <div className="discount-header">🏷️ RABAT UDZIELONY</div>
+                          <div className="discount-details">
+                            <div className="discount-row">
+                              <span>Cena oryginalna:</span>
+                              <span className="strikethrough">{formatCurrency(order.originalPrice, order.walutaPobrano)}</span>
+                            </div>
+                            <div className="discount-row highlight">
+                              <span>Rabat:</span>
+                              <span className="discount-amount">-{formatCurrency(order.discountAmount, order.walutaPobrano)}</span>
+                            </div>
+                            <div className="discount-reason">
+                              <span>Powód:</span> {order.discountReason}
+                            </div>
+                            {order.discountBy && (
+                              <div className="discount-by">
+                                <span>Udzielony przez:</span> {order.discountBy}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="order-detail-amounts">
                         <div className="amount-line">
                           <span>Pobrano od klienta:</span>
-                          <span className="value">{formatCurrency(order.pobrano, viewingSettlement.currency)}</span>
+                          <span className="value">{formatCurrency(order.pobrano, order.walutaPobrano || viewingSettlement.currency)}</span>
                         </div>
                         <div className="amount-line">
                           <span>Twój transport:</span>
-                          <span className="value transport">- {formatCurrency(order.transport, viewingSettlement.currency)}</span>
+                          <span className="value transport">- {formatCurrency(order.transport, order.walutaTransport || viewingSettlement.currency)}</span>
                         </div>
-                        <div className="amount-line result">
-                          <span>Do oddania z tego zamówienia:</span>
-                          <span className={`value ${(order.pobrano - order.transport) >= 0 ? 'positive' : 'negative'}`}>
-                            {formatCurrency(order.pobrano - order.transport, viewingSettlement.currency)}
-                          </span>
-                        </div>
+                        {(order.walutaPobrano === order.walutaTransport || !order.walutaPobrano) && (
+                          <div className="amount-line result">
+                            <span>Do oddania:</span>
+                            <span className={`value ${(order.pobrano - order.transport) >= 0 ? 'positive' : 'negative'}`}>
+                              {formatCurrency(order.pobrano - order.transport, order.walutaPobrano || viewingSettlement.currency)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -6641,24 +6707,30 @@ const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
                       {settlement.status === 'utworzone' ? '🆕 Oczekuje' : '✅ Rozliczone'}
                     </span>
                   </div>
-                  <div className="card-summary">
-                    <div className="summary-item">
-                      <span className="label">📦 Zamówień</span>
-                      <span className="value">{settlement.ordersCount}</span>
-                    </div>
-                    <div className="summary-item">
-                      <span className="label">💵 Pobrano</span>
-                      <span className="value">{formatCurrency(settlement.totalCollected, settlement.currency)}</span>
-                    </div>
-                    <div className="summary-item">
-                      <span className="label">🚚 Transport</span>
-                      <span className="value minus">- {formatCurrency(settlement.totalTransportCost, settlement.currency)}</span>
-                    </div>
-                    <div className="summary-item total">
-                      <span className="label">💰 Do oddania</span>
-                      <span className="value">{formatCurrency(settlement.totalToReturn, settlement.currency)}</span>
-                    </div>
+                  
+                  <div className="card-orders-count">
+                    📦 {settlement.ordersCount} zamówień
                   </div>
+
+                  {/* Podsumowanie po walutach */}
+                  <div className="card-currency-summary">
+                    {settlement.totalsByCurrency ? (
+                      Object.entries(settlement.totalsByCurrency).map(([currency, values]) => (
+                        <div key={currency} className="currency-summary-item">
+                          <span className="currency-label">{getCurrencySymbol(currency)} Do oddania:</span>
+                          <span className={`currency-value ${values.toReturn >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(values.toReturn, currency)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="currency-summary-item total">
+                        <span className="currency-label">💰 Do oddania:</span>
+                        <span className="currency-value">{formatCurrency(settlement.totalToReturn, settlement.currency)}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="card-footer">
                     <span className="click-hint">Kliknij aby zobaczyć szczegóły zamówień →</span>
                   </div>
@@ -8797,6 +8869,7 @@ const Messenger = ({
 };
 
 
+
 // ============================================
 // PANEL ROZLICZEŃ TRANSPORTOWYCH
 // ============================================
@@ -8821,14 +8894,13 @@ const SettlementsPanel = ({
   onClose,
   isDriverView = false 
 }) => {
-  const [view, setView] = useState('list'); // list, create, detail, edit
+  const [view, setView] = useState('list');
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [selectedDriver, setSelectedDriver] = useState('');
   const [statusFilter, setStatusFilter] = useState('dostarczone');
   const [editingSettlement, setEditingSettlement] = useState(null);
   const [editNote, setEditNote] = useState('');
   const [viewingSettlement, setViewingSettlement] = useState(null);
-  const [settlementCurrency, setSettlementCurrency] = useState('PLN');
 
   const drivers = users.filter(u => u.role === 'driver');
   const isAdmin = currentUser?.role === 'admin';
@@ -8843,6 +8915,11 @@ const SettlementsPanel = ({
     return `${(amount || 0).toFixed(2)} ${curr?.symbol || currency}`;
   };
 
+  const getCurrencySymbol = (currency) => {
+    const curr = SETTLEMENT_CURRENCIES.find(c => c.code === currency);
+    return curr?.symbol || currency;
+  };
+
   const getUnsettledOrders = () => {
     return orders.filter(o => {
       if (statusFilter !== 'all' && o.status !== statusFilter) return false;
@@ -8854,19 +8931,45 @@ const SettlementsPanel = ({
     });
   };
 
-  const calculateTotal = () => {
-    let totalCollected = 0;
-    let totalTransport = 0;
+  // Grupowanie po walutach
+  const calculateTotalsByCurrency = () => {
+    const totals = {};
 
     selectedOrders.forEach(orderId => {
       const order = orders.find(o => o.id === orderId);
-      if (order) {
-        totalCollected += order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
-        totalTransport += order.koszty?.transportNetto || 0;
+      if (!order) return;
+
+      // Waluta pobrania
+      const collectedCurrency = order.platnosci?.waluta || 'PLN';
+      const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+      
+      // Waluta transportu
+      const transportCurrency = order.koszty?.transportWaluta || 'PLN';
+      const transport = order.koszty?.transportNetto || 0;
+
+      // Inicjalizuj waluty jeśli nie istnieją
+      if (!totals[collectedCurrency]) {
+        totals[collectedCurrency] = { collected: 0, transport: 0, toReturn: 0 };
+      }
+      if (!totals[transportCurrency] && transportCurrency !== collectedCurrency) {
+        totals[transportCurrency] = { collected: 0, transport: 0, toReturn: 0 };
+      }
+
+      // Dodaj pobranie
+      totals[collectedCurrency].collected += collected;
+
+      // Dodaj transport (odejmij od waluty transportu)
+      if (totals[transportCurrency]) {
+        totals[transportCurrency].transport += transport;
       }
     });
 
-    return { totalCollected, totalTransport, totalToReturn: totalCollected - totalTransport };
+    // Oblicz do oddania dla każdej waluty
+    Object.keys(totals).forEach(currency => {
+      totals[currency].toReturn = totals[currency].collected - totals[currency].transport;
+    });
+
+    return totals;
   };
 
   const handleCreateSettlement = async () => {
@@ -8875,22 +8978,39 @@ const SettlementsPanel = ({
       return;
     }
 
-    const totals = calculateTotal();
     const driverName = users.find(u => u.id === selectedDriver)?.name || 'Nieznany';
+    const totalsByCurrency = calculateTotalsByCurrency();
 
+    // Szczegóły zamówień z rabatami
     const orderDetails = selectedOrders.map(orderId => {
       const order = orders.find(o => o.id === orderId);
+      if (!order) return null;
+
+      const originalPrice = order.platnosci?.cenaCalkowita || order.platnosci?.doZaplaty || 0;
+      const actuallyCollected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+      const discount = order.rabatPrzyDostawie;
+
       return {
         orderId,
-        nrWlasny: order?.nrWlasny || '',
-        klient: order?.klient?.imie || '',
-        adres: order?.klient?.adres || '',
-        dataDostawy: order?.dataDostawy || order?.szacowanaDostwa || '',
-        pobrano: order?.platnosci?.faktyczniePobrano || order?.platnosci?.doZaplaty || 0,
-        transport: order?.koszty?.transportNetto || 0,
-        towar: order?.towar || ''
+        nrWlasny: order.nrWlasny || '',
+        klient: order.klient?.imie || '',
+        adres: order.klient?.adres || '',
+        dataDostawy: order.dataDostawy || order.szacowanaDostwa || '',
+        towar: order.towar || '',
+        // Kwoty z walutami
+        originalPrice,
+        pobrano: actuallyCollected,
+        walutaPobrano: order.platnosci?.waluta || 'PLN',
+        transport: order.koszty?.transportNetto || 0,
+        walutaTransport: order.koszty?.transportWaluta || 'PLN',
+        // Rabat
+        hasDiscount: !!(discount && discount.kwota > 0),
+        discountAmount: discount?.kwota || 0,
+        discountReason: discount?.powod || '',
+        discountBy: discount?.kierowca || '',
+        discountDate: discount?.data || ''
       };
-    });
+    }).filter(Boolean);
 
     const settlement = {
       driverId: selectedDriver,
@@ -8898,10 +9018,7 @@ const SettlementsPanel = ({
       orderIds: selectedOrders,
       orderDetails,
       ordersCount: selectedOrders.length,
-      totalCollected: totals.totalCollected,
-      totalTransportCost: totals.totalTransport,
-      totalToReturn: totals.totalToReturn,
-      currency: settlementCurrency,
+      totalsByCurrency, // Nowe - sumy pogrupowane po walutach
       status: 'utworzone',
       createdAt: new Date().toISOString(),
       createdBy: { id: currentUser.id, name: currentUser.name },
@@ -8932,7 +9049,11 @@ const SettlementsPanel = ({
   const handleDeleteSettlement = async (settlement) => {
     if (!isAdmin) return;
     
-    if (!window.confirm(`Usunąć rozliczenie?\n\nKierowca: ${settlement.driverName}\nKwota: ${formatCurrency(settlement.totalToReturn, settlement.currency)}`)) {
+    const currencySummary = settlement.totalsByCurrency 
+      ? Object.entries(settlement.totalsByCurrency).map(([c, v]) => `${formatCurrency(v.toReturn, c)}`).join(', ')
+      : 'brak danych';
+
+    if (!window.confirm(`Usunąć rozliczenie?\n\nKierowca: ${settlement.driverName}\nDo oddania: ${currencySummary}`)) {
       return;
     }
 
@@ -8969,6 +9090,44 @@ const SettlementsPanel = ({
   const filteredSettlements = isDriverView 
     ? settlements.filter(s => s.driverId === currentUser.id)
     : (selectedDriver ? settlements.filter(s => s.driverId === selectedDriver) : settlements);
+
+  // Komponent wyświetlający sumy pogrupowane po walutach
+  const CurrencyTotals = ({ totals, showDetails = true }) => {
+    if (!totals || Object.keys(totals).length === 0) {
+      return <div className="no-totals">Brak danych</div>;
+    }
+
+    return (
+      <div className="currency-totals-grid">
+        {Object.entries(totals).map(([currency, values]) => (
+          <div key={currency} className="currency-total-card">
+            <div className="currency-header">
+              <span className="currency-flag">{currency === 'EUR' ? '🇪🇺' : currency === 'GBP' ? '🇬🇧' : currency === 'PLN' ? '🇵🇱' : currency === 'USD' ? '🇺🇸' : '💱'}</span>
+              <span className="currency-code">{currency}</span>
+            </div>
+            {showDetails && (
+              <>
+                <div className="currency-row">
+                  <span>Pobrano:</span>
+                  <span className="value">{formatCurrency(values.collected, currency)}</span>
+                </div>
+                <div className="currency-row">
+                  <span>Transport:</span>
+                  <span className="value minus">- {formatCurrency(values.transport, currency)}</span>
+                </div>
+              </>
+            )}
+            <div className="currency-row total">
+              <span>Do oddania:</span>
+              <span className={`value ${values.toReturn >= 0 ? 'positive' : 'negative'}`}>
+                {formatCurrency(values.toReturn, currency)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -9010,21 +9169,13 @@ const SettlementsPanel = ({
                 <span>👤 {viewingSettlement.createdBy?.name}</span>
               </div>
 
-              <div className="settlement-detail-summary">
-                <div className="summary-box">
-                  <span className="label">💵 Pobrano</span>
-                  <span className="value">{formatCurrency(viewingSettlement.totalCollected, viewingSettlement.currency)}</span>
-                </div>
-                <div className="summary-box minus">
-                  <span className="label">🚚 Transport</span>
-                  <span className="value">- {formatCurrency(viewingSettlement.totalTransportCost, viewingSettlement.currency)}</span>
-                </div>
-                <div className="summary-box total">
-                  <span className="label">💰 DO ODDANIA</span>
-                  <span className="value">{formatCurrency(viewingSettlement.totalToReturn, viewingSettlement.currency)}</span>
-                </div>
+              {/* Podsumowanie po walutach */}
+              <div className="settlement-currency-summary">
+                <h4>💰 Podsumowanie do oddania</h4>
+                <CurrencyTotals totals={viewingSettlement.totalsByCurrency} />
               </div>
 
+              {/* Lista zamówień */}
               <div className="settlement-orders-section">
                 <h4>📦 Zamówienia ({viewingSettlement.ordersCount})</h4>
                 <div className="settlement-orders-grid">
@@ -9039,16 +9190,54 @@ const SettlementsPanel = ({
                         <small>{od.adres?.substring(0, 40)}{od.adres?.length > 40 ? '...' : ''}</small>
                       </div>
                       {od.towar && <div className="order-card-product">📦 {od.towar.substring(0, 50)}{od.towar.length > 50 ? '...' : ''}</div>}
+                      
+                      {/* Rabat */}
+                      {od.hasDiscount && (
+                        <div className="order-discount-info">
+                          <div className="discount-badge">🏷️ RABAT</div>
+                          <div className="discount-details">
+                            <span className="original-price">
+                              Cena oryginalna: {formatCurrency(od.originalPrice, od.walutaPobrano)}
+                            </span>
+                            <span className="discount-amount">
+                              Rabat: -{formatCurrency(od.discountAmount, od.walutaPobrano)}
+                            </span>
+                            <span className="discount-reason">
+                              Powód: {od.discountReason}
+                            </span>
+                            {od.discountBy && (
+                              <span className="discount-by">
+                                Udzielony przez: {od.discountBy}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="order-card-amounts">
-                        <span>Pobrano: <strong>{formatCurrency(od.pobrano, viewingSettlement.currency)}</strong></span>
-                        <span>Transport: <strong>- {formatCurrency(od.transport, viewingSettlement.currency)}</strong></span>
-                        <span className="diff">= <strong className={od.pobrano - od.transport >= 0 ? 'positive' : 'negative'}>{formatCurrency(od.pobrano - od.transport, viewingSettlement.currency)}</strong></span>
+                        <div className="amount-row">
+                          <span>Pobrano:</span>
+                          <span>{formatCurrency(od.pobrano, od.walutaPobrano)}</span>
+                        </div>
+                        <div className="amount-row">
+                          <span>Transport:</span>
+                          <span className="minus">- {formatCurrency(od.transport, od.walutaTransport)}</span>
+                        </div>
+                        {od.walutaPobrano === od.walutaTransport && (
+                          <div className="amount-row result">
+                            <span>=</span>
+                            <span className={od.pobrano - od.transport >= 0 ? 'positive' : 'negative'}>
+                              {formatCurrency(od.pobrano - od.transport, od.walutaPobrano)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* Historia */}
               {viewingSettlement.history?.length > 0 && (
                 <div className="settlement-history-section">
                   <h4>📜 Historia</h4>
@@ -9064,6 +9253,7 @@ const SettlementsPanel = ({
                 </div>
               )}
 
+              {/* Akcje admina */}
               {isAdmin && (
                 <div className="settlement-detail-actions">
                   {viewingSettlement.status === 'utworzone' && (
@@ -9114,11 +9304,25 @@ const SettlementsPanel = ({
                           {s.status === 'utworzone' ? '🆕 Oczekuje' : '✅ Rozliczone'}
                         </span>
                       </div>
-                      <div className="settlement-amounts">
-                        <span>Pobrano: {formatCurrency(s.totalCollected, s.currency)}</span>
-                        <span>Transport: - {formatCurrency(s.totalTransportCost, s.currency)}</span>
-                        <span className="total">Do oddania: <strong>{formatCurrency(s.totalToReturn, s.currency)}</strong></span>
+                      
+                      {/* Podsumowanie po walutach */}
+                      <div className="settlement-currency-preview">
+                        {s.totalsByCurrency ? (
+                          Object.entries(s.totalsByCurrency).map(([currency, values]) => (
+                            <div key={currency} className="currency-badge">
+                              <span className="currency">{getCurrencySymbol(currency)}</span>
+                              <span className={`amount ${values.toReturn >= 0 ? 'positive' : 'negative'}`}>
+                                {values.toReturn >= 0 ? '+' : ''}{values.toReturn.toFixed(2)}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="legacy-amount">
+                            Do oddania: {formatCurrency(s.totalToReturn, s.currency)}
+                          </span>
+                        )}
                       </div>
+
                       <div className="click-hint">Kliknij aby zobaczyć szczegóły →</div>
                     </div>
                   ))
@@ -9139,17 +9343,11 @@ const SettlementsPanel = ({
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Status</label>
+                  <label>Status zamówień</label>
                   <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                     <option value="dostarczone">Dostarczone</option>
                     <option value="w_transporcie">W transporcie</option>
                     <option value="all">Wszystkie</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Waluta</label>
-                  <select value={settlementCurrency} onChange={e => setSettlementCurrency(e.target.value)}>
-                    {SETTLEMENT_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
                   </select>
                 </div>
               </div>
@@ -9177,7 +9375,10 @@ const SettlementsPanel = ({
                       <div className="orders-to-settle">
                         {getUnsettledOrders().map(order => {
                           const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+                          const collectedCurrency = order.platnosci?.waluta || 'PLN';
                           const transport = order.koszty?.transportNetto || 0;
+                          const transportCurrency = order.koszty?.transportWaluta || 'PLN';
+                          const discount = order.rabatPrzyDostawie;
                           const isSelected = selectedOrders.includes(order.id);
 
                           return (
@@ -9188,25 +9389,29 @@ const SettlementsPanel = ({
                                 <div className="nr">{order.nrWlasny}</div>
                                 <div className="client">{order.klient?.imie || '—'}</div>
                                 <small>{formatDate(order.dataDostawy || order.szacowanaDostwa)}</small>
+                                {discount?.kwota > 0 && (
+                                  <div className="order-discount-badge">
+                                    🏷️ Rabat: -{formatCurrency(discount.kwota, collectedCurrency)} ({discount.powod})
+                                  </div>
+                                )}
                               </div>
                               <div className="order-amounts">
-                                <div>Pobrano: {formatCurrency(collected)}</div>
-                                <div>Transport: - {formatCurrency(transport)}</div>
-                                <div className="diff">= <span className={collected - transport >= 0 ? 'positive' : 'negative'}>{formatCurrency(collected - transport)}</span></div>
+                                <div>Pobrano: <strong>{formatCurrency(collected, collectedCurrency)}</strong></div>
+                                <div>Transport: <strong className="minus">- {formatCurrency(transport, transportCurrency)}</strong></div>
                               </div>
                             </div>
                           );
                         })}
                       </div>
 
+                      {/* Podsumowanie */}
                       {selectedOrders.length > 0 && (
                         <div className="settlement-summary">
-                          <h4>📊 Podsumowanie</h4>
-                          <div className="summary-row"><span>Zamówień:</span><span>{selectedOrders.length}</span></div>
-                          <div className="summary-row"><span>Pobrano:</span><span>{formatCurrency(calculateTotal().totalCollected, settlementCurrency)}</span></div>
-                          <div className="summary-row"><span>Transport:</span><span>- {formatCurrency(calculateTotal().totalTransport, settlementCurrency)}</span></div>
-                          <div className="summary-row total"><span>DO ODDANIA:</span><span>{formatCurrency(calculateTotal().totalToReturn, settlementCurrency)}</span></div>
-                          <button className="btn-primary btn-create" onClick={handleCreateSettlement}>💰 Utwórz rozliczenie</button>
+                          <h4>📊 Podsumowanie ({selectedOrders.length} zamówień)</h4>
+                          <CurrencyTotals totals={calculateTotalsByCurrency()} />
+                          <button className="btn-primary btn-create" onClick={handleCreateSettlement}>
+                            💰 Utwórz rozliczenie
+                          </button>
                         </div>
                       )}
                     </>
@@ -9223,7 +9428,7 @@ const SettlementsPanel = ({
               <h3>✏️ Edycja rozliczenia</h3>
               <div className="edit-info">
                 <p><strong>Kierowca:</strong> {editingSettlement.driverName}</p>
-                <p><strong>Kwota:</strong> {formatCurrency(editingSettlement.totalToReturn, editingSettlement.currency)}</p>
+                <p><strong>Zamówień:</strong> {editingSettlement.ordersCount}</p>
               </div>
               <div className="form-group">
                 <label>Notatka *</label>
