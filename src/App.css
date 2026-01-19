@@ -8853,3 +8853,572 @@ input.margin-negative {
   padding: 8px 12px;
   border-radius: 8px;
 }
+
+/* ============================================
+   PANEL ROZLICZEŃ TRANSPORTOWYCH
+   ============================================ */
+
+.settlements-modal .modal-header {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.settlements-modal .modal-header h2 {
+  color: white;
+}
+
+.settlements-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.settlements-nav {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settlements-nav .nav-btn {
+  padding: 12px 20px;
+  background: #F1F5F9;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.settlements-nav .nav-btn.active {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: white;
+}
+
+.settlements-nav .nav-btn:hover:not(.active) {
+  background: #E2E8F0;
+}
+
+.settlements-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.settlements-filter label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.settlements-filter select {
+  padding: 10px 14px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+/* Lista rozliczeń */
+.settlements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-settlements {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748B;
+}
+
+.empty-settlements p {
+  margin: 0;
+  font-size: 18px;
+}
+
+.empty-settlements .subtitle {
+  font-size: 14px;
+  color: #94A3B8;
+  margin-top: 8px;
+}
+
+.settlement-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1px solid #FDE68A;
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+
+.settlement-card:hover {
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);
+}
+
+.settlement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.settlement-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.settlement-driver {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.settlement-date {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.settlement-status .status-badge {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.utworzone {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.status-badge.zaakceptowane {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.status-badge.rozliczone {
+  background: #10B981;
+  color: white;
+}
+
+.settlement-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settlement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+}
+
+.settlement-row .value {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.settlement-row .value.minus {
+  color: #DC2626;
+}
+
+.settlement-row.total {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  margin-top: 8px;
+}
+
+.settlement-row.total span {
+  color: white;
+}
+
+.settlement-row.total .value.highlight {
+  font-size: 18px;
+  font-weight: 800;
+  color: #86EFAC;
+}
+
+.settlement-meta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0,0,0,0.1);
+  font-size: 12px;
+  color: #64748B;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settlement-history {
+  margin-top: 12px;
+}
+
+.settlement-history summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366F1;
+  padding: 8px;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+}
+
+.history-list {
+  margin-top: 8px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.history-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-date {
+  color: #64748B;
+  min-width: 80px;
+}
+
+.history-action {
+  flex: 1;
+  color: #1E1B4B;
+}
+
+.history-user {
+  color: #94A3B8;
+  font-style: italic;
+}
+
+.settlement-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.btn-edit-settlement,
+.btn-accept-settlement {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-edit-settlement {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.btn-edit-settlement:hover {
+  background: #E0E7FF;
+}
+
+.btn-accept-settlement {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-accept-settlement:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Tworzenie rozliczenia */
+.create-settlement-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.select-all-row {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+}
+
+.select-all-row label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.orders-to-settle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.order-to-settle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #F8FAFC;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-to-settle:hover {
+  border-color: #F59E0B;
+}
+
+.order-to-settle.selected {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-color: #F59E0B;
+}
+
+.order-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.order-checkbox input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.order-info {
+  flex: 1;
+}
+
+.order-info .order-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.order-info .order-client {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.order-info .order-date {
+  color: #94A3B8;
+  font-size: 12px;
+}
+
+.order-amounts {
+  min-width: 180px;
+  text-align: right;
+}
+
+.order-amounts .amount-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+.order-amounts .amount-row.total {
+  font-weight: 700;
+  padding-top: 6px;
+  margin-top: 4px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.order-amounts .positive {
+  color: #059669;
+}
+
+.order-amounts .negative {
+  color: #DC2626;
+}
+
+.no-orders-info {
+  text-align: center;
+  padding: 40px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  color: #64748B;
+}
+
+/* Podsumowanie */
+.settlement-summary {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 24px;
+  color: white;
+}
+
+.settlement-summary h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+
+.summary-item .label {
+  color: rgba(255,255,255,0.8);
+}
+
+.summary-item .value {
+  font-weight: 600;
+}
+
+.summary-item .value.minus {
+  color: #FCA5A5;
+}
+
+.summary-item.total {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  margin-top: 8px;
+}
+
+.summary-item.total .value.highlight {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.btn-create-settlement {
+  width: 100%;
+  margin-top: 20px;
+  padding: 16px;
+  font-size: 16px;
+}
+
+/* Edycja rozliczenia */
+.settlements-edit-view {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.edit-settlement-info {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.edit-settlement-info p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.edit-actions button {
+  flex: 1;
+}
+
+/* Przycisk rozliczeń w panelu kierowcy */
+.btn-settlements {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-settlements:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+/* Modal rozliczeń kierowcy */
+.driver-settlements-modal .modal-header {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.driver-settlements-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-settlements-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .settlements-nav {
+    flex-direction: column;
+  }
+  
+  .settlements-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .settlements-filter select {
+    min-width: 100%;
+  }
+  
+  .create-settlement-form .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-to-settle {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .order-amounts {
+    text-align: left;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #E2E8F0;
+  }
+  
+  .settlement-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .settlement-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
