@@ -8053,3 +8053,803 @@ input.margin-negative {
   background: #E0E7FF;
   transform: scale(1.05);
 }
+
+/* ============================================
+   KOMPAKTOWY SLIDER WYJAZDÓW - PANEL ADMIN/PRACOWNIK
+   ============================================ */
+
+.drivers-trips-slider-compact {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 
+    0 10px 30px rgba(15, 23, 42, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.trips-slider-header-compact {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trips-slider-header-compact .trips-slider-title {
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trips-slider-header-compact .trips-slider-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+    transform: scale(1.1);
+  }
+}
+
+.trips-slider-content-compact {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  border-radius: 3px;
+}
+
+/* Karta kierowcy - kompaktowa */
+.driver-trip-card-compact {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 300px;
+  max-width: 320px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.driver-trip-card-compact:hover {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.driver-trip-card-compact.today {
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.driver-trip-card-compact.today::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #EF4444, #F97316);
+  border-radius: 14px 14px 0 0;
+}
+
+.driver-trip-card-compact.tomorrow {
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Nagłówek karty */
+.card-compact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.driver-name-compact {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.more-badge {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+/* Ciało karty */
+.card-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compact-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.compact-row span:first-child {
+  font-size: 14px;
+  min-width: 20px;
+}
+
+.compact-row.departure {
+  background: rgba(99, 102, 241, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.departure-date {
+  font-weight: 700;
+  color: white;
+}
+
+.compact-dest {
+  color: #A5B4FC;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.compact-row.note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.note-text {
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* Stopka karty */
+.card-compact-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.view-more {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.driver-trip-card-compact:hover .view-more {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Modal szczegółów wyjazdów kierowcy */
+.driver-trips-detail-modal .modal-content {
+  max-width: 500px;
+}
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.driver-trip-detail-item {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.driver-trip-detail-item.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+}
+
+.driver-trip-detail-item.tomorrow {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FED7AA 100%);
+  border-color: #FB923C;
+}
+
+.driver-trip-detail-item.past {
+  opacity: 0.5;
+  background: #F9FAFB;
+}
+
+.detail-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.detail-item-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item-row .label {
+  color: #6B7280;
+  min-width: 80px;
+  font-weight: 500;
+}
+
+.detail-item-row .value {
+  color: #1F2937;
+  font-weight: 600;
+}
+
+.detail-item-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+
+.detail-item-row.highlight .value {
+  color: #4F46E5;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .drivers-trips-slider-compact {
+    padding: 16px;
+    margin: 0 -8px 16px -8px;
+    border-radius: 12px;
+  }
+  
+  .driver-trip-card-compact {
+    min-width: 260px;
+    padding: 14px;
+  }
+}
+
+/* ============================================
+   MODAL SZCZEGÓŁÓW WYJAZDÓW KIEROWCY
+   ============================================ */
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  color: white;
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+  margin: 0;
+}
+
+.driver-trips-detail-modal .modal-header .btn-close {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.trip-detail-card {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.trip-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.trip-detail-card.today {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+  position: relative;
+}
+
+.trip-detail-card.tomorrow {
+  background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+  border-color: #FB923C;
+}
+
+.trip-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.trip-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.trip-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.trip-badge.today {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+}
+
+.trip-badge.tomorrow {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+}
+
+.trip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.detail-label {
+  color: #6B7280;
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #1F2937;
+  font-weight: 600;
+}
+
+.detail-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin: 4px 0;
+  border: 1px solid #C7D2FE;
+}
+
+.detail-row.highlight .detail-value {
+  color: #4F46E5;
+  font-weight: 700;
+}
+
+.detail-row.note-row .detail-value {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+}
+
+/* Puste wyjazdy */
+.empty-trips {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9CA3AF;
+}
+
+.empty-trips p {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* ============================================
+   SLIDER WYJAZDÓW KIEROWCÓW - KOMPAKTOWY (ADMIN/PRACOWNIK)
+   ============================================ */
+
+.drivers-trips-slider-compact {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #3730A3 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 
+    0 10px 40px rgba(30, 27, 75, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.drivers-trips-slider-compact::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.trips-slider-header-compact {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.trips-slider-header-compact .trips-slider-title {
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trips-slider-header-compact .trips-slider-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.trips-slider-content-compact {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.trips-slider-content-compact::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Karta kierowcy - kompaktowa */
+.driver-trip-card-compact {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 280px;
+  max-width: 320px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.driver-trip-card-compact:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.driver-trip-card-compact.today {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.15) 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: glow-red 2s infinite;
+}
+
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.2); }
+}
+
+.driver-trip-card-compact.tomorrow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.card-compact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.driver-name-compact {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.more-badge {
+  background: rgba(99, 102, 241, 0.3);
+  color: #A5B4FC;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.card-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.compact-row span:first-child {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+.compact-row.departure {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.departure-date {
+  font-weight: 700;
+  color: white;
+}
+
+.compact-dest {
+  color: #A5B4FC;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.compact-row.note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.note-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.card-compact-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.view-more {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .drivers-trips-slider-compact {
+    padding: 16px;
+    margin: 0 -8px 16px -8px;
+    border-radius: 12px;
+  }
+  
+  .driver-trip-card-compact {
+    min-width: 260px;
+    padding: 14px;
+  }
+  
+  .trips-slider-header-compact .trips-slider-title {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .driver-trip-card-compact {
+    min-width: 240px;
+  }
+}
+
+/* ============================================
+   MODAL SZCZEGÓŁÓW WYJAZDÓW KIEROWCY
+   ============================================ */
+
+.driver-trips-detail-modal .modal-header {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.driver-trips-detail-modal .modal-header h2 {
+  color: white;
+}
+
+.driver-trips-detail-modal .modal-header .btn-close {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.trips-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trip-detail-card {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.trip-detail-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.trip-detail-card.today {
+  background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+  border-color: #FECACA;
+}
+
+.trip-detail-card.tomorrow {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-color: #FDE68A;
+}
+
+.trip-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.trip-number {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.trip-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.trip-badge.today {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+}
+
+.trip-badge.tomorrow {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+}
+
+.trip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-row.highlight {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin: 4px 0;
+  border: 1px solid #C7D2FE;
+}
+
+.detail-label {
+  font-size: 13px;
+  color: #6B7280;
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.detail-value.note {
+  font-weight: 400;
+  font-style: italic;
+  color: #6B7280;
+}
+
+.note-row {
+  background: #F9FAFB;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
