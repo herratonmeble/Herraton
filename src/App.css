@@ -9422,3 +9422,477 @@ input.margin-negative {
     gap: 4px;
   }
 }
+
+/* ============================================
+   MENU ROZWIJANE KIEROWCY
+   ============================================ */
+
+.driver-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.driver-settings-dropdown {
+  position: relative;
+}
+
+.btn-driver-menu {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-driver-menu:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.driver-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  min-width: 220px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.driver-menu-dropdown button {
+  width: 100%;
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1E1B4B;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.driver-menu-dropdown button:hover {
+  background: #F1F5F9;
+}
+
+.driver-menu-dropdown button:not(:last-child) {
+  border-bottom: 1px solid #E2E8F0;
+}
+
+/* ============================================
+   ROZLICZENIA - NOWE STYLE
+   ============================================ */
+
+.settlements-modal .modal-body {
+  padding: 20px;
+}
+
+.btn-back {
+  background: #F1F5F9;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #E2E8F0;
+  color: #1E1B4B;
+}
+
+.settlement-detail-view {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.settlement-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.settlement-detail-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1E1B4B;
+}
+
+.settlement-detail-meta {
+  display: flex;
+  gap: 20px;
+  color: #64748B;
+  font-size: 13px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settlement-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.summary-box .label {
+  display: block;
+  font-size: 12px;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.summary-box .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.summary-box.minus .value {
+  color: #DC2626;
+}
+
+.summary-box.total {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+}
+
+.summary-box.total .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.summary-box.total .value {
+  color: #86EFAC;
+  font-size: 24px;
+}
+
+.settlement-orders-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  color: #1E1B4B;
+}
+
+.settlement-orders-grid {
+  display: grid;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.settlement-order-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.settlement-order-card:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.order-card-header .order-nr {
+  font-weight: 700;
+  color: #1E1B4B;
+  font-size: 15px;
+}
+
+.order-card-header .order-date {
+  color: #64748B;
+  font-size: 12px;
+}
+
+.order-card-client {
+  margin-bottom: 8px;
+}
+
+.order-card-client strong {
+  display: block;
+  color: #1E1B4B;
+  font-size: 14px;
+}
+
+.order-card-client small {
+  color: #94A3B8;
+  font-size: 12px;
+}
+
+.order-card-product {
+  font-size: 12px;
+  color: #64748B;
+  background: #E2E8F0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.order-card-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  padding-top: 10px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.order-card-amounts .diff strong.positive {
+  color: #059669;
+}
+
+.order-card-amounts .diff strong.negative {
+  color: #DC2626;
+}
+
+.settlement-history-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.settlement-history-section h4 {
+  margin: 0 0 12px 0;
+}
+
+.settlement-detail-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.btn-accept, .btn-edit, .btn-delete {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-accept {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+}
+
+.btn-edit {
+  background: #EEF2FF;
+  color: #6366F1;
+}
+
+.btn-delete {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.btn-accept:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+.btn-edit:hover { background: #E0E7FF; }
+.btn-delete:hover { background: #FECACA; }
+
+/* Lista rozliczeń - karty */
+.settlement-card.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settlement-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.click-hint {
+  font-size: 11px;
+  color: #94A3B8;
+  text-align: right;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+/* Tworzenie rozliczenia */
+.create-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.settlements-create-view h4 {
+  margin: 20px 0 12px 0;
+  color: #1E1B4B;
+}
+
+.no-orders-info {
+  text-align: center;
+  padding: 40px;
+  background: #F0FDF4;
+  border-radius: 12px;
+  color: #059669;
+}
+
+.no-orders-info .hint {
+  font-size: 13px;
+  color: #64748B;
+  margin-top: 8px;
+}
+
+.orders-to-settle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.order-to-settle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-to-settle:hover {
+  border-color: #F59E0B;
+}
+
+.order-to-settle.selected {
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border-color: #F59E0B;
+}
+
+.order-to-settle .order-info {
+  flex: 1;
+}
+
+.order-to-settle .order-info .nr {
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.order-to-settle .order-info .client {
+  color: #64748B;
+  font-size: 13px;
+}
+
+.order-to-settle .order-amounts {
+  text-align: right;
+  font-size: 13px;
+}
+
+.order-to-settle .order-amounts .diff .positive { color: #059669; font-weight: 700; }
+.order-to-settle .order-amounts .diff .negative { color: #DC2626; font-weight: 700; }
+
+.settlement-summary {
+  background: linear-gradient(135deg, #1E1B4B, #312E81);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  color: white;
+}
+
+.settlement-summary h4 {
+  margin: 0 0 16px 0;
+  color: white;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.summary-row.total {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.btn-create {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  font-size: 15px;
+}
+
+/* Edycja */
+.settlements-edit-view {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.edit-info {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.edit-actions button {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .settlement-detail-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .create-form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .settlement-detail-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .settlement-detail-actions {
+    flex-direction: column;
+  }
+  
+  .driver-menu-dropdown {
+    right: -50px;
+  }
+}
