@@ -9612,40 +9612,46 @@ input.margin-negative {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
-.order-card-header {
+.settlement-order-card .order-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  padding: 0;
+  background: transparent;
+  border-bottom: none;
 }
 
-.order-card-header .order-nr {
+.settlement-order-card .order-card-header .order-nr {
   font-weight: 700;
   color: #1E1B4B;
   font-size: 15px;
 }
 
-.order-card-header .order-date {
+.settlement-order-card .order-card-header .order-date {
   color: #64748B;
   font-size: 12px;
 }
 
-.order-card-client {
+.settlement-order-card .order-card-client {
   margin-bottom: 8px;
+  background: transparent;
+  padding: 0;
+  border: none;
 }
 
-.order-card-client strong {
+.settlement-order-card .order-card-client strong {
   display: block;
   color: #1E1B4B;
   font-size: 14px;
 }
 
-.order-card-client small {
+.settlement-order-card .order-card-client small {
   color: #94A3B8;
   font-size: 12px;
 }
 
-.order-card-product {
+.settlement-order-card .order-card-product {
   font-size: 12px;
   color: #64748B;
   background: #E2E8F0;
@@ -9654,7 +9660,7 @@ input.margin-negative {
   margin-bottom: 10px;
 }
 
-.order-card-amounts {
+.settlement-order-card .order-card-amounts {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -9663,11 +9669,11 @@ input.margin-negative {
   border-top: 1px dashed #E2E8F0;
 }
 
-.order-card-amounts .diff strong.positive {
+.settlement-order-card .order-card-amounts .diff strong.positive {
   color: #059669;
 }
 
-.order-card-amounts .diff strong.negative {
+.settlement-order-card .order-card-amounts .diff strong.negative {
   color: #DC2626;
 }
 
