@@ -10901,3 +10901,173 @@ input.margin-negative {
   font-weight: 600;
   color: #1E1B4B;
 }
+
+/* ============================================
+   PRODUKTY W PANELU KIEROWCY
+   ============================================ */
+
+.multi-badge {
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
+}
+
+.partial-badge {
+  background: #FEF3C7;
+  color: #B45309;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+
+.driver-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.driver-product-item {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.product-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.product-nr {
+  font-weight: 700;
+  font-size: 12px;
+  font-family: monospace;
+  color: #166534;
+  background: #DCFCE7;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.product-desc {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.product-producer-mini {
+  font-size: 11px;
+  color: #6B7280;
+  margin-top: 6px;
+}
+
+.product-producer-mini .addr {
+  color: #9CA3AF;
+}
+
+.product-producer-mini a {
+  color: #2563EB;
+  text-decoration: none;
+}
+
+.product-date {
+  font-size: 11px;
+  color: #B45309;
+  margin-top: 4px;
+}
+
+.status-select.mini {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  min-width: 120px;
+}
+
+.driver-section.product-section {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+}
+
+.driver-section.product-section .section-title {
+  color: #166534;
+}
+
+.driver-section.product-section .product-info-content {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ============================================
+   PODSUMOWANIE KOSZTÓW PRODUKTÓW
+   ============================================ */
+
+.products-costs-summary {
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.products-costs-summary h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #92400E;
+}
+
+.products-costs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: white;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.product-cost-row .prod-name {
+  color: #374151;
+  font-weight: 500;
+}
+
+.product-cost-row .prod-cost {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.product-cost-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #FDE68A;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400E;
+  margin-top: 6px;
+}
+
+.costs-sync-info {
+  font-size: 11px;
+  color: #92400E;
+  margin: 10px 0 0;
+  opacity: 0.8;
+}
