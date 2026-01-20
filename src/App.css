@@ -12825,3 +12825,111 @@ input.margin-negative {
 .btn-email {
   position: relative;
 }
+
+/* Nagłówek rabatu z przyciskami admina */
+.discount-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Przyciski edycji/usunięcia rabatu */
+.discount-admin-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit-discount,
+.btn-delete-discount {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-edit-discount {
+  background: #EEF2FF;
+  color: #4F46E5;
+}
+
+.btn-edit-discount:hover {
+  background: #4F46E5;
+  color: white;
+}
+
+.btn-delete-discount {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.btn-delete-discount:hover {
+  background: #DC2626;
+  color: white;
+}
+
+/* Info o edycji rabatu */
+.discount-edited {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 5px;
+}
+
+/* Modal edycji rabatu */
+.discount-edit-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.discount-edit-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.discount-edit-modal h3 {
+  margin: 0 0 20px 0;
+  color: #1E293B;
+}
+
+.discount-edit-modal .form-group {
+  margin-bottom: 16px;
+}
+
+.discount-edit-modal .form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.discount-edit-modal .form-group input,
+.discount-edit-modal .form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.discount-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
