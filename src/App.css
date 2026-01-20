@@ -12626,3 +12626,63 @@ input.margin-negative {
   background: linear-gradient(135deg, #CCFBF1, #99F6E4);
   border-style: solid;
 }
+
+/* Rabat w protokole kierowcy */
+.protocol-discount-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.protocol-discount-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 10px;
+  background: #FEF3C7;
+  border-radius: 8px;
+}
+
+.protocol-discount-info .discount-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #DC2626;
+}
+
+.protocol-discount-info .discount-reason {
+  flex: 1;
+  font-size: 13px;
+  color: #92400E;
+}
+
+.protocol-discount-info .discount-date {
+  font-size: 11px;
+  color: #78716C;
+}
+
+/* Przycisk pobrania protokołu */
+.protocol-actions {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.btn-download-protocol {
+  width: 100%;
+  padding: 10px 15px;
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-download-protocol:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
