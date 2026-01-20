@@ -12771,3 +12771,57 @@ input.margin-negative {
   padding-top: 15px;
   border-top: 1px dashed #E5E7EB;
 }
+
+/* Dropdown wyboru producenta przy emailu */
+.email-btn-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.producer-email-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  min-width: 180px;
+  z-index: 100;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.producer-email-dropdown .dropdown-header {
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #64748B;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  font-weight: 600;
+}
+
+.producer-email-dropdown .dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1E293B;
+  transition: background 0.15s;
+}
+
+.producer-email-dropdown .dropdown-item:hover {
+  background: #EEF2FF;
+}
+
+.producer-email-dropdown .dropdown-item:not(:last-child) {
+  border-bottom: 1px solid #F1F5F9;
+}
+
+/* Przycisk email z wieloma producentami */
+.btn-email {
+  position: relative;
+}
