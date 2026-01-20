@@ -4967,7 +4967,20 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   </button>
                 ))}
               </div>
-              <button className="btn-primary" onClick={openNewForm}>➕ Nowa reklamacja</button>
+              <div style={{display: 'flex', gap: '10px'}}>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => {
+                    const publicLink = `${window.location.origin}/reklamacja/nowy`;
+                    navigator.clipboard.writeText(publicLink);
+                    alert(`✅ Skopiowano link do schowka!\n\n${publicLink}\n\nMożesz go umieścić na swojej stronie internetowej.`);
+                  }}
+                  title="Skopiuj uniwersalny link do formularza reklamacji"
+                >
+                  🔗 Link publiczny
+                </button>
+                <button className="btn-primary" onClick={openNewForm}>➕ Nowa reklamacja</button>
+              </div>
             </div>
 
             {filteredComplaints.length === 0 ? (
@@ -12100,9 +12113,18 @@ const PublicComplaintForm = ({ token }) => {
   const [expectations, setExpectations] = useState('');
   const [photos, setPhotos] = useState([]);
   
+  // Dane klienta (dla formularza uniwersalnego bez tokenu)
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [manualOrderNumber, setManualOrderNumber] = useState('');
+  
   // Wiadomości
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Czy to formularz uniwersalny (bez tokenu)
+  const isUniversalForm = !token || token === 'nowy';
   
   // Helper do formatowania daty
   const formatDateTime = (dateStr) => {
@@ -12126,6 +12148,12 @@ const PublicComplaintForm = ({ token }) => {
   // Wczytaj dane zamówienia i reklamacji
   useEffect(() => {
     const loadData = async () => {
+      // Formularz uniwersalny (bez tokenu lub token='nowy')
+      if (!token || token === 'nowy') {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const { collection, query, where, getDocs, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('./firebase');
@@ -12136,6 +12164,28 @@ const PublicComplaintForm = ({ token }) => {
         const orderSnapshot = await getDocs(orderQuery);
         
         if (orderSnapshot.empty) {
+          // Może to jest token reklamacji (klient wraca do istniejącej reklamacji)
+          const complaintsRef = collection(db, 'complaints');
+          const complaintQuery = query(complaintsRef, where('complaintToken', '==', token));
+          const complaintSnapshot = await getDocs(complaintQuery);
+          
+          if (!complaintSnapshot.empty) {
+            const complaintDoc = complaintSnapshot.docs[0];
+            setComplaintData({ id: complaintDoc.id, ...complaintDoc.data() });
+            
+            // Nasłuchuj na zmiany
+            onSnapshot(complaintQuery, (snapshot) => {
+              if (!snapshot.empty) {
+                const doc = snapshot.docs[0];
+                setComplaintData({ id: doc.id, ...doc.data() });
+              }
+            });
+            
+            setView('tracking');
+            setLoading(false);
+            return;
+          }
+          
           setError('Nieprawidłowy lub wygasły link do reklamacji.');
           setLoading(false);
           return;
@@ -12233,6 +12283,18 @@ const PublicComplaintForm = ({ token }) => {
       return;
     }
     
+    // Walidacja dla formularza uniwersalnego
+    if (isUniversalForm) {
+      if (!clientName.trim()) {
+        alert('Proszę podać imię i nazwisko.');
+        return;
+      }
+      if (!clientEmail.trim()) {
+        alert('Proszę podać adres email.');
+        return;
+      }
+    }
+    
     setSubmitting(true);
     
     try {
@@ -12246,14 +12308,19 @@ const PublicComplaintForm = ({ token }) => {
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const complaintNumber = `RK/${year}/${month}/${random}`;
       
+      // Generuj token do śledzenia (dla formularza uniwersalnego lub użyj istniejącego)
+      const trackingToken = isUniversalForm 
+        ? `public_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        : token;
+      
       const complaint = {
         numer: complaintNumber,
-        complaintToken: token, // Zapisz token żeby później można było śledzić
-        orderId: orderData.id,
-        nrZamowienia: orderData.nrWlasny,
-        klient: orderData.klient?.imie || 'Klient',
-        klientEmail: orderData.klient?.email || '',
-        klientTelefon: orderData.klient?.telefon || '',
+        complaintToken: trackingToken, // Zapisz token żeby później można było śledzić
+        orderId: orderData?.id || null,
+        nrZamowienia: orderData?.nrWlasny || manualOrderNumber || 'Brak',
+        klient: orderData?.klient?.imie || clientName || 'Klient',
+        klientEmail: orderData?.klient?.email || clientEmail || '',
+        klientTelefon: orderData?.klient?.telefon || clientPhone || '',
         typ: complaintType,
         opis: description,
         oczekiwaniaKlienta: expectations,
@@ -12261,30 +12328,113 @@ const PublicComplaintForm = ({ token }) => {
         status: 'nowa',
         priorytet: 'normalny',
         dataUtworzenia: new Date().toISOString(),
-        zrodlo: 'formularz_klienta',
+        zrodlo: isUniversalForm ? 'formularz_publiczny' : 'formularz_klienta',
         utworzonePrzez: {
           id: 'klient',
-          nazwa: orderData.klient?.imie || 'Klient',
+          nazwa: orderData?.klient?.imie || clientName || 'Klient',
           rola: 'klient',
           rolaLabel: 'Klient'
         },
         wiadomosci: [{
           id: Date.now().toString(),
           autor: 'klient',
-          autorNazwa: orderData.klient?.imie || 'Klient',
+          autorNazwa: orderData?.klient?.imie || clientName || 'Klient',
           tresc: description,
           data: new Date().toISOString(),
           zdjecia: photos
         }],
         historia: [{
           data: new Date().toISOString(),
-          uzytkownik: orderData.klient?.imie || 'Klient',
+          uzytkownik: orderData?.klient?.imie || clientName || 'Klient',
           akcja: 'Reklamacja zgłoszona przez formularz online'
         }]
       };
       
       const docRef = await addDoc(collection(db, 'complaints'), complaint);
       setComplaintData({ id: docRef.id, ...complaint });
+      
+      // Wyślij email z potwierdzeniem i linkiem do śledzenia
+      const customerEmail = orderData?.klient?.email || clientEmail;
+      const customerName = orderData?.klient?.imie || clientName || 'Kliencie';
+      const trackingLink = `${window.location.origin}/reklamacja/${trackingToken}`;
+      
+      if (customerEmail) {
+        const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 50px; margin-bottom: 10px;">✅</div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">Reklamacja przyjęta!</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 18px;">${complaintNumber}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">Szanowna/y <strong>${customerName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px; line-height: 1.6;">
+                Dziękujemy za zgłoszenie reklamacji. Twoje zgłoszenie zostało zarejestrowane w naszym systemie i zostanie rozpatrzone najszybciej jak to możliwe.
+              </p>
+              
+              <div style="background: #F0FDF4; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #86EFAC;">
+                <p style="margin: 0 0 10px 0; color: #166534; font-weight: 600;">📋 Szczegóły reklamacji:</p>
+                <p style="margin: 5px 0; color: #166534;">Numer: <strong>${complaintNumber}</strong></p>
+                <p style="margin: 5px 0; color: #166534;">Zamówienie: <strong>${complaint.nrZamowienia}</strong></p>
+                <p style="margin: 5px 0; color: #166534;">Status: <strong>Nowa</strong></p>
+              </div>
+              
+              <p style="margin: 20px 0; color: #374151; font-size: 15px; text-align: center;">
+                <strong>📧 Pod poniższym linkiem możesz śledzić status swojej reklamacji oraz komunikować się z naszym zespołem:</strong>
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${trackingLink}" style="display: inline-block; background: linear-gradient(135deg, #6366F1, #4F46E5); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">🔍 ŚLEDŹ REKLAMACJĘ</a>
+              </div>
+              
+              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                <p style="margin: 0; color: #92400E; font-size: 14px;">
+                  💡 <strong>Zachowaj ten email!</strong> Link powyżej pozwoli Ci w każdej chwili sprawdzić status reklamacji i odpowiedzieć na nasze wiadomości.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px 30px 30px 30px;">
+              <p style="margin: 0; color: #6B7280; font-size: 14px;">Pozdrawiamy,<br><strong>Zespół Obsługi Klienta</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System obsługi reklamacji</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+        // Wyślij email
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: customerEmail,
+            toName: customerName,
+            subject: `Potwierdzenie reklamacji ${complaintNumber}`,
+            textContent: `Dziękujemy za zgłoszenie reklamacji ${complaintNumber}. Śledź status pod linkiem: ${trackingLink}`,
+            htmlContent: htmlEmail
+          })
+        }).catch(err => console.error('Błąd wysyłania emaila:', err));
+      }
+      
       setView('tracking');
       
     } catch (err) {
@@ -12565,29 +12715,99 @@ const PublicComplaintForm = ({ token }) => {
         <div style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)', padding: '30px', textAlign: 'center', color: 'white'}}>
           <div style={{fontSize: '48px', marginBottom: '10px'}}>📋</div>
           <h1 style={{margin: '0 0 10px 0', fontSize: '24px'}}>Formularz Reklamacji</h1>
-          <p style={{margin: 0, opacity: 0.9}}>Zamówienie: <strong>{orderData.nrWlasny}</strong></p>
+          {!isUniversalForm && orderData && (
+            <p style={{margin: 0, opacity: 0.9}}>Zamówienie: <strong>{orderData.nrWlasny}</strong></p>
+          )}
+          {isUniversalForm && (
+            <p style={{margin: 0, opacity: 0.9}}>Zgłoś problem z zamówieniem</p>
+          )}
         </div>
         
-        {/* Info o zamówieniu */}
-        <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
-            <div>
-              <span style={{color: '#6B7280', fontSize: '13px'}}>👤 Klient</span>
-              <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.imie}</p>
-            </div>
-            <div>
-              <span style={{color: '#6B7280', fontSize: '13px'}}>📧 Email</span>
-              <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.email}</p>
-            </div>
-            <div style={{gridColumn: '1 / -1'}}>
-              <span style={{color: '#6B7280', fontSize: '13px'}}>📦 Towar</span>
-              <p style={{margin: '5px 0 0 0', fontWeight: '500', fontSize: '14px', whiteSpace: 'pre-wrap'}}>{orderData.towar || '-'}</p>
+        {/* Info o zamówieniu (tylko dla tokenu) */}
+        {!isUniversalForm && orderData && (
+          <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+              <div>
+                <span style={{color: '#6B7280', fontSize: '13px'}}>👤 Klient</span>
+                <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.imie}</p>
+              </div>
+              <div>
+                <span style={{color: '#6B7280', fontSize: '13px'}}>📧 Email</span>
+                <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.email}</p>
+              </div>
+              <div style={{gridColumn: '1 / -1'}}>
+                <span style={{color: '#6B7280', fontSize: '13px'}}>📦 Towar</span>
+                <p style={{margin: '5px 0 0 0', fontWeight: '500', fontSize: '14px', whiteSpace: 'pre-wrap'}}>{orderData.towar || '-'}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
         
         {/* Formularz */}
         <form onSubmit={handleSubmit} style={{padding: '25px'}}>
+          
+          {/* Dane klienta - tylko dla formularza uniwersalnego */}
+          {isUniversalForm && (
+            <div style={{marginBottom: '25px', padding: '20px', background: '#F0F9FF', borderRadius: '12px', border: '1px solid #BAE6FD'}}>
+              <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#0369A1'}}>👤 Twoje dane</h3>
+              <div style={{display: 'grid', gap: '15px'}}>
+                <div>
+                  <label style={{display: 'block', fontWeight: '500', marginBottom: '6px', color: '#374151', fontSize: '14px'}}>
+                    Imię i nazwisko *
+                  </label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={e => setClientName(e.target.value)}
+                    placeholder="Jan Kowalski"
+                    required
+                    style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '8px', fontSize: '15px', boxSizing: 'border-box'}}
+                  />
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                  <div>
+                    <label style={{display: 'block', fontWeight: '500', marginBottom: '6px', color: '#374151', fontSize: '14px'}}>
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={clientEmail}
+                      onChange={e => setClientEmail(e.target.value)}
+                      placeholder="jan@example.com"
+                      required
+                      style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '8px', fontSize: '15px', boxSizing: 'border-box'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', fontWeight: '500', marginBottom: '6px', color: '#374151', fontSize: '14px'}}>
+                      Telefon
+                    </label>
+                    <input
+                      type="tel"
+                      value={clientPhone}
+                      onChange={e => setClientPhone(e.target.value)}
+                      placeholder="+48 123 456 789"
+                      style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '8px', fontSize: '15px', boxSizing: 'border-box'}}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{display: 'block', fontWeight: '500', marginBottom: '6px', color: '#374151', fontSize: '14px'}}>
+                    Numer zamówienia
+                  </label>
+                  <input
+                    type="text"
+                    value={manualOrderNumber}
+                    onChange={e => setManualOrderNumber(e.target.value)}
+                    placeholder="np. 1/01/26/PL lub numer faktury"
+                    style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '8px', fontSize: '15px', boxSizing: 'border-box'}}
+                  />
+                  <p style={{margin: '5px 0 0 0', fontSize: '12px', color: '#6B7280'}}>Podaj numer zamówienia lub faktury jeśli go znasz</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Typ reklamacji */}
           <div style={{marginBottom: '25px'}}>
             <label style={{display: 'block', fontWeight: '600', marginBottom: '12px', color: '#374151'}}>
