@@ -9795,32 +9795,104 @@ const SettlementsPanel = ({
     return curr?.symbol || currency;
   };
 
-  const getUnsettledOrders = () => {
-    return orders.filter(o => {
-      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-      if (o.usuniety) return false;
-      if (o.rozliczone) return false;
-      if (selectedDriver && o.przypisanyKierowca !== selectedDriver) return false;
-      if (isDriverView && o.przypisanyKierowca !== currentUser.id) return false;
-      return true;
+  // Funkcja do wyciągania produktów do rozliczenia (dla zamówień łączonych)
+  const getUnsettledItems = () => {
+    const items = [];
+    
+    orders.forEach(order => {
+      if (order.usuniety) return;
+      
+      // Sprawdź czy zamówienie ma produkty (łączone)
+      if (order.produkty && order.produkty.length > 0) {
+        order.produkty.forEach((produkt, idx) => {
+          // Sprawdź czy produkt jest dostarczony i nierozliczony
+          if (produkt.status !== 'dostarczone') return;
+          if (produkt.rozliczone) return;
+          
+          const produktDriverId = produkt.kierowca;
+          if (!produktDriverId) return;
+          
+          // Filtr kierowcy
+          if (selectedDriver && produktDriverId !== selectedDriver) return;
+          if (isDriverView && produktDriverId !== currentUser.id) return;
+          
+          items.push({
+            id: `${order.id}_${idx}`,
+            orderId: order.id,
+            produktIndex: idx,
+            nrWlasny: order.nrWlasny,
+            nrPodzamowienia: produkt.nrPodzamowienia || `${order.nrWlasny}-${String.fromCharCode(65 + idx)}`,
+            towar: produkt.towar,
+            kierowcaId: produktDriverId,
+            klient: order.klient,
+            dataDostawy: produkt.dataDostawy || order.dataDostawy,
+            // Kwoty
+            doPobrania: produkt.doPobrania || 0,
+            waluta: order.platnosci?.waluta || 'PLN',
+            transportNetto: produkt.koszty?.transportNetto || 0,
+            transportWaluta: produkt.koszty?.transportWaluta || 'PLN',
+            // Flagi
+            isProdukt: true,
+            rozliczone: produkt.rozliczone || false
+          });
+        });
+      } else {
+        // Stare zamówienie (bez produktów)
+        if (statusFilter !== 'all' && order.status !== statusFilter) return;
+        if (order.status !== 'dostarczone') return;
+        if (order.rozliczone) return;
+        if (selectedDriver && order.przypisanyKierowca !== selectedDriver) return;
+        if (isDriverView && order.przypisanyKierowca !== currentUser.id) return;
+        
+        items.push({
+          id: order.id,
+          orderId: order.id,
+          produktIndex: null,
+          nrWlasny: order.nrWlasny,
+          nrPodzamowienia: null,
+          towar: order.towar,
+          kierowcaId: order.przypisanyKierowca,
+          klient: order.klient,
+          dataDostawy: order.dataDostawy,
+          // Kwoty
+          doPobrania: order.platnosci?.doZaplaty || 0,
+          waluta: order.platnosci?.waluta || 'PLN',
+          transportNetto: order.koszty?.transportNetto || 0,
+          transportWaluta: order.koszty?.transportWaluta || 'PLN',
+          // Flagi
+          isProdukt: false,
+          rozliczone: order.rozliczone || false
+        });
+      }
     });
+    
+    return items;
   };
 
-  // Grupowanie po walutach
+  const getUnsettledOrders = () => {
+    // Dla kompatybilności wstecznej - zwraca unikalne zamówienia
+    const items = getUnsettledItems();
+    const uniqueOrderIds = [...new Set(items.map(i => i.orderId))];
+    return uniqueOrderIds.map(id => orders.find(o => o.id === id)).filter(Boolean);
+  };
+
+  // Grupowanie po walutach - obsługuje produkty z zamówień łączonych
   const calculateTotalsByCurrency = () => {
     const totals = {};
+    const items = getUnsettledItems();
 
-    selectedOrders.forEach(orderId => {
-      const order = orders.find(o => o.id === orderId);
-      if (!order) return;
+    selectedOrders.forEach(itemId => {
+      // Znajdź item (może być produktem lub całym zamówieniem)
+      const item = items.find(i => i.id === itemId);
+      if (!item) return;
 
       // Waluta pobrania
-      const collectedCurrency = order.platnosci?.waluta || 'PLN';
-      const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
+      const collectedCurrency = item.waluta || 'PLN';
+      const collected = item.doPobrania || 0;
       
       // Waluta transportu
-      const transportCurrency = order.koszty?.transportWaluta || 'PLN';
-      const transport = order.koszty?.transportNetto || 0;
+      const transportCurrency = item.transportWaluta || 'PLN';
+      const transport = item.transportNetto || 0;
 
       // Inicjalizuj waluty jeśli nie istnieją
       if (!totals[collectedCurrency]) {
@@ -9849,51 +9921,45 @@ const SettlementsPanel = ({
 
   const handleCreateSettlement = async () => {
     if (selectedOrders.length === 0) {
-      alert('Wybierz przynajmniej jedno zamówienie!');
+      alert('Wybierz przynajmniej jedno zamówienie/produkt!');
       return;
     }
 
     const driverName = users.find(u => u.id === selectedDriver)?.name || 'Nieznany';
     const totalsByCurrency = calculateTotalsByCurrency();
+    const items = getUnsettledItems();
 
-    // Szczegóły zamówień z rabatami
-    const orderDetails = selectedOrders.map(orderId => {
-      const order = orders.find(o => o.id === orderId);
-      if (!order) return null;
-
-      const originalPrice = order.platnosci?.cenaCalkowita || order.platnosci?.doZaplaty || 0;
-      const actuallyCollected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
-      const discount = order.rabatPrzyDostawie;
+    // Szczegóły produktów/zamówień z rabatami
+    const orderDetails = selectedOrders.map(itemId => {
+      const item = items.find(i => i.id === itemId);
+      if (!item) return null;
 
       return {
-        orderId,
-        nrWlasny: order.nrWlasny || '',
-        klient: order.klient?.imie || '',
-        adres: order.klient?.adres || '',
-        dataDostawy: order.dataDostawy || order.szacowanaDostwa || '',
-        towar: order.towar || '',
+        itemId: item.id,
+        orderId: item.orderId,
+        produktIndex: item.produktIndex,
+        isProdukt: item.isProdukt,
+        nrWlasny: item.nrWlasny || '',
+        nrPodzamowienia: item.nrPodzamowienia || '',
+        klient: item.klient?.imie || '',
+        adres: item.klient?.adres || '',
+        dataDostawy: item.dataDostawy || '',
+        towar: item.towar || '',
         // Kwoty z walutami
-        originalPrice,
-        pobrano: actuallyCollected,
-        walutaPobrano: order.platnosci?.waluta || 'PLN',
-        transport: order.koszty?.transportNetto || 0,
-        walutaTransport: order.koszty?.transportWaluta || 'PLN',
-        // Rabat
-        hasDiscount: !!(discount && discount.kwota > 0),
-        discountAmount: discount?.kwota || 0,
-        discountReason: discount?.powod || '',
-        discountBy: discount?.kierowca || '',
-        discountDate: discount?.data || ''
+        pobrano: item.doPobrania || 0,
+        walutaPobrano: item.waluta || 'PLN',
+        transport: item.transportNetto || 0,
+        walutaTransport: item.transportWaluta || 'PLN'
       };
     }).filter(Boolean);
 
     const settlement = {
       driverId: selectedDriver,
       driverName,
-      orderIds: selectedOrders,
+      itemIds: selectedOrders, // Teraz to mogą być ID produktów
       orderDetails,
       ordersCount: selectedOrders.length,
-      totalsByCurrency, // Nowe - sumy pogrupowane po walutach
+      totalsByCurrency,
       status: 'utworzone',
       createdAt: new Date().toISOString(),
       createdBy: { id: currentUser.id, name: currentUser.name },
@@ -9903,12 +9969,34 @@ const SettlementsPanel = ({
     try {
       const settlementId = await onAddSettlement(settlement);
       
-      for (const orderId of selectedOrders) {
-        await onUpdateOrder(orderId, {
-          rozliczone: true,
-          dataRozliczenia: new Date().toISOString(),
-          rozliczenieId: settlementId
-        });
+      // Oznacz produkty/zamówienia jako rozliczone
+      for (const itemId of selectedOrders) {
+        const item = items.find(i => i.id === itemId);
+        if (!item) continue;
+        
+        if (item.isProdukt) {
+          // Rozliczenie produktu w zamówieniu łączonym
+          const order = orders.find(o => o.id === item.orderId);
+          if (order && order.produkty) {
+            const updatedProdukty = [...order.produkty];
+            if (updatedProdukty[item.produktIndex]) {
+              updatedProdukty[item.produktIndex] = {
+                ...updatedProdukty[item.produktIndex],
+                rozliczone: true,
+                dataRozliczenia: new Date().toISOString(),
+                rozliczenieId: settlementId
+              };
+            }
+            await onUpdateOrder(item.orderId, { produkty: updatedProdukty });
+          }
+        } else {
+          // Rozliczenie całego zamówienia (stary typ)
+          await onUpdateOrder(item.orderId, {
+            rozliczone: true,
+            dataRozliczenia: new Date().toISOString(),
+            rozliczenieId: settlementId
+          });
+        }
       }
 
       setSelectedOrders([]);
@@ -10229,9 +10317,9 @@ const SettlementsPanel = ({
 
               {selectedDriver && (
                 <>
-                  <h4>📦 Do rozliczenia ({getUnsettledOrders().length})</h4>
+                  <h4>📦 Do rozliczenia ({getUnsettledItems().length})</h4>
                   
-                  {getUnsettledOrders().length === 0 ? (
+                  {getUnsettledItems().length === 0 ? (
                     <div className="no-orders-info">
                       <p>✅ Wszystko rozliczone</p>
                     </div>
@@ -10240,35 +10328,33 @@ const SettlementsPanel = ({
                       <div className="select-all-row">
                         <label>
                           <input type="checkbox" 
-                            checked={selectedOrders.length === getUnsettledOrders().length && selectedOrders.length > 0}
-                            onChange={e => setSelectedOrders(e.target.checked ? getUnsettledOrders().map(o => o.id) : [])}
+                            checked={selectedOrders.length === getUnsettledItems().length && selectedOrders.length > 0}
+                            onChange={e => setSelectedOrders(e.target.checked ? getUnsettledItems().map(i => i.id) : [])}
                           />
                           Zaznacz wszystkie
                         </label>
                       </div>
 
                       <div className="orders-to-settle">
-                        {getUnsettledOrders().map(order => {
-                          const collected = order.platnosci?.faktyczniePobrano || order.platnosci?.doZaplaty || 0;
-                          const collectedCurrency = order.platnosci?.waluta || 'PLN';
-                          const transport = order.koszty?.transportNetto || 0;
-                          const transportCurrency = order.koszty?.transportWaluta || 'PLN';
-                          const discount = order.rabatPrzyDostawie;
-                          const isSelected = selectedOrders.includes(order.id);
+                        {getUnsettledItems().map(item => {
+                          const collected = item.doPobrania || 0;
+                          const collectedCurrency = item.waluta || 'PLN';
+                          const transport = item.transportNetto || 0;
+                          const transportCurrency = item.transportWaluta || 'PLN';
+                          const isSelected = selectedOrders.includes(item.id);
 
                           return (
-                            <div key={order.id} className={`order-to-settle ${isSelected ? 'selected' : ''}`}
-                              onClick={() => setSelectedOrders(prev => isSelected ? prev.filter(id => id !== order.id) : [...prev, order.id])}>
+                            <div key={item.id} className={`order-to-settle ${isSelected ? 'selected' : ''}`}
+                              onClick={() => setSelectedOrders(prev => isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id])}>
                               <input type="checkbox" checked={isSelected} readOnly />
                               <div className="order-info">
-                                <div className="nr">{order.nrWlasny}</div>
-                                <div className="client">{order.klient?.imie || '—'}</div>
-                                <small>{formatDate(order.dataDostawy || order.szacowanaDostwa)}</small>
-                                {discount?.kwota > 0 && (
-                                  <div className="order-discount-badge">
-                                    🏷️ Rabat: -{formatCurrency(discount.kwota, collectedCurrency)} ({discount.powod})
-                                  </div>
-                                )}
+                                <div className="nr">
+                                  {item.nrPodzamowienia || item.nrWlasny}
+                                  {item.isProdukt && <span className="product-badge">📦</span>}
+                                </div>
+                                <div className="client">{item.klient?.imie || '—'}</div>
+                                <div className="towar-preview">{item.towar?.substring(0, 40) || '—'}...</div>
+                                <small>{formatDate(item.dataDostawy)}</small>
                               </div>
                               <div className="order-amounts">
                                 <div>Pobrano: <strong>{formatCurrency(collected, collectedCurrency)}</strong></div>
@@ -10282,7 +10368,7 @@ const SettlementsPanel = ({
                       {/* Podsumowanie */}
                       {selectedOrders.length > 0 && (
                         <div className="settlement-summary">
-                          <h4>📊 Podsumowanie ({selectedOrders.length} zamówień)</h4>
+                          <h4>📊 Podsumowanie ({selectedOrders.length} pozycji)</h4>
                           <CurrencyTotals totals={calculateTotalsByCurrency()} />
                           <button className="btn-primary btn-create" onClick={handleCreateSettlement}>
                             💰 Utwórz rozliczenie
