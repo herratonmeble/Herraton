@@ -12686,3 +12686,25 @@ input.margin-negative {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
+
+/* Info o podzamówieniach w protokole */
+.protocol-suborders-info {
+  padding: 12px 15px;
+  background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: #1E40AF;
+}
+
+.protocol-suborders-info strong {
+  margin-right: 8px;
+}
+
+/* Podzamówienia w info o rabacie */
+.discount-suborders {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 3px;
+}
