@@ -4696,6 +4696,86 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     zdjecia: [],
     priorytet: 'normalny'
   });
+  
+  // Lightbox do powiększania zdjęć
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  
+  // Zdjęcia do wysłania w czacie
+  const [chatPhotos, setChatPhotos] = useState([]);
+  const [uploadingChatPhotos, setUploadingChatPhotos] = useState(false);
+  
+  // Real-time listener dla wybranej reklamacji
+  useEffect(() => {
+    if (!selectedComplaint?.id) return;
+    
+    let unsubscribe = null;
+    
+    const setupListener = async () => {
+      const { doc, onSnapshot } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      const complaintRef = doc(db, 'complaints', selectedComplaint.id);
+      unsubscribe = onSnapshot(complaintRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setSelectedComplaint({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
+    };
+    
+    setupListener();
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [selectedComplaint?.id]);
+  
+  // Obsługa zdjęć w czacie
+  const handleChatPhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    
+    files.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Zdjęcie jest za duże (max 10MB)');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxSize = 800;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          setChatPhotos(prev => [...prev, compressedBase64]);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset input
+    e.target.value = '';
+  };
+  
+  const removeChatPhoto = (index) => {
+    setChatPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Reset formularza
   const resetForm = () => {
@@ -4827,44 +4907,61 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
   };
 
   const handleAddComment = async () => {
-    if (!selectedComplaint || !newComment.trim()) return;
+    if (!selectedComplaint || (!newComment.trim() && chatPhotos.length === 0)) return;
     
-    const newMsg = {
-      id: Date.now().toString(),
-      autor: 'admin',
-      autorNazwa: currentUser.name,
-      tresc: newComment,
-      data: new Date().toISOString()
-    };
+    setUploadingChatPhotos(true);
     
-    const updated = {
-      ...selectedComplaint,
-      komentarze: [...(selectedComplaint.komentarze || []), {
-        id: Date.now(),
-        tekst: newComment,
-        data: new Date().toISOString(),
-        autor: currentUser.name
-      }],
-      // Dodaj też do wiadomości (dla czatu z klientem)
-      wiadomosci: [...(selectedComplaint.wiadomosci || []), newMsg],
-      // Zmień status na "oczekuje na klienta"
-      status: selectedComplaint.status === 'nowa' || selectedComplaint.status === 'w_trakcie' ? 'oczekuje_na_klienta' : selectedComplaint.status,
-      historia: [...(selectedComplaint.historia || []), {
-        data: new Date().toISOString(),
-        uzytkownik: currentUser.name,
-        akcja: 'Dodano wiadomość'
-      }]
-    };
-    
-    await onSave(updated, selectedComplaint.id);
-    setSelectedComplaint(updated);
-    setNewComment('');
-    
-    // Wyślij email do klienta jeśli ma email i token
-    if (selectedComplaint.klientEmail && selectedComplaint.complaintToken) {
-      const complaintLink = `${window.location.origin}/reklamacja/${selectedComplaint.complaintToken}`;
+    try {
+      // Upload zdjęć do Firebase Storage jeśli są
+      let uploadedPhotoUrls = [];
+      if (chatPhotos.length > 0) {
+        try {
+          const { uploadMultipleImages } = await import('./firebase');
+          uploadedPhotoUrls = await uploadMultipleImages(chatPhotos, 'complaints/chat');
+        } catch (uploadErr) {
+          console.error('Błąd uploadu zdjęć:', uploadErr);
+          uploadedPhotoUrls = chatPhotos; // Fallback na base64
+        }
+      }
       
-      const htmlEmail = `
+      const newMsg = {
+        id: Date.now().toString(),
+        autor: 'admin',
+        autorNazwa: currentUser.name,
+        tresc: newComment,
+        data: new Date().toISOString(),
+        zdjecia: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined
+      };
+      
+      const updated = {
+        ...selectedComplaint,
+        komentarze: [...(selectedComplaint.komentarze || []), {
+          id: Date.now(),
+          tekst: newComment,
+          data: new Date().toISOString(),
+          autor: currentUser.name
+        }],
+        // Dodaj też do wiadomości (dla czatu z klientem)
+        wiadomosci: [...(selectedComplaint.wiadomosci || []), newMsg],
+        // Zmień status na "oczekuje na klienta"
+        status: selectedComplaint.status === 'nowa' || selectedComplaint.status === 'w_trakcie' ? 'oczekuje_na_klienta' : selectedComplaint.status,
+        historia: [...(selectedComplaint.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: currentUser.name,
+          akcja: 'Dodano wiadomość'
+        }]
+      };
+      
+      await onSave(updated, selectedComplaint.id);
+      setSelectedComplaint(updated);
+      setNewComment('');
+      setChatPhotos([]); // Wyczyść zdjęcia
+      
+      // Wyślij email do klienta jeśli ma email i token
+      if (selectedComplaint.klientEmail && selectedComplaint.complaintToken) {
+        const complaintLink = `${window.location.origin}/reklamacja/${selectedComplaint.complaintToken}`;
+        
+        const htmlEmail = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -4887,7 +4984,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
               
               <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin: 20px 0;">
                 <p style="margin: 0 0 5px 0; color: #6B7280; font-size: 13px;">${currentUser.name} napisał/a:</p>
-                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${newComment}</p>
+                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${newComment || '(załączono zdjęcia)'}</p>
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
@@ -4921,6 +5018,12 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
           htmlContent: htmlEmail
         })
       }).catch(err => console.error('Błąd wysyłania emaila:', err));
+    }
+    } catch (err) {
+      console.error('Błąd wysyłania wiadomości:', err);
+      alert('Nie udało się wysłać wiadomości. Spróbuj ponownie.');
+    } finally {
+      setUploadingChatPhotos(false);
     }
   };
 
@@ -5265,7 +5368,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                                         cursor: 'pointer',
                                         border: isClient ? '2px solid #D1D5DB' : '2px solid rgba(255,255,255,0.3)'
                                       }}
-                                      onClick={() => window.open(photoUrl, '_blank')}
+                                      onClick={() => setLightboxPhoto(photoUrl)}
                                     />
                                   );
                                 })}
@@ -5281,37 +5384,92 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                     )}
                   </div>
                   
-                  {/* Pole do pisania wiadomości */}
+                  {/* Pole do pisania wiadomości z możliwością dodania zdjęć */}
                   {!['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) && (
-                    <div style={{display: 'flex', gap: '10px'}}>
-                      <textarea 
-                        value={newComment} 
-                        onChange={e => setNewComment(e.target.value)} 
-                        placeholder="Napisz wiadomość do klienta..." 
-                        rows={2}
-                        style={{
-                          flex: 1,
+                    <div>
+                      {/* Podgląd zdjęć do wysłania */}
+                      {chatPhotos.length > 0 && (
+                        <div style={{display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap'}}>
+                          {chatPhotos.map((photo, idx) => (
+                            <div key={idx} style={{position: 'relative'}}>
+                              <img 
+                                src={photo} 
+                                alt={`Do wysłania ${idx + 1}`}
+                                style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #6366F1'}}
+                              />
+                              <button
+                                onClick={() => removeChatPhoto(idx)}
+                                style={{
+                                  position: 'absolute',
+                                  top: '-6px',
+                                  right: '-6px',
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  background: '#DC2626',
+                                  color: 'white',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <div style={{display: 'flex', gap: '10px', alignItems: 'flex-end'}}>
+                        <textarea 
+                          value={newComment} 
+                          onChange={e => setNewComment(e.target.value)} 
+                          placeholder="Napisz wiadomość do klienta..." 
+                          rows={2}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            border: '2px solid #E5E7EB',
+                            borderRadius: '10px',
+                            fontSize: '14px',
+                            resize: 'none'
+                          }}
+                        />
+                        <label style={{
                           padding: '12px',
-                          border: '2px solid #E5E7EB',
+                          background: '#F3F4F6',
                           borderRadius: '10px',
-                          fontSize: '14px',
-                          resize: 'none'
-                        }}
-                      />
-                      <button 
-                        className="btn-primary" 
-                        onClick={handleAddComment} 
-                        disabled={!newComment.trim()}
-                        style={{
-                          padding: '12px 20px',
-                          borderRadius: '10px',
+                          cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        📤 Wyślij
-                      </button>
+                          justifyContent: 'center',
+                          border: '2px solid #E5E7EB'
+                        }}>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            multiple 
+                            style={{display: 'none'}}
+                            onChange={handleChatPhotoUpload}
+                          />
+                          📷
+                        </label>
+                        <button 
+                          className="btn-primary" 
+                          onClick={handleAddComment} 
+                          disabled={(!newComment.trim() && chatPhotos.length === 0) || uploadingChatPhotos}
+                          style={{
+                            padding: '12px 20px',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          {uploadingChatPhotos ? '⏳' : '📤'} Wyślij
+                        </button>
+                      </div>
                     </div>
                   )}
                   
@@ -5327,6 +5485,56 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                     </div>
                   )}
                 </div>
+
+                {/* LIGHTBOX - powiększone zdjęcie */}
+                {lightboxPhoto && (
+                  <div 
+                    onClick={() => setLightboxPhoto(null)}
+                    style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'rgba(0,0,0,0.9)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10000,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <button
+                      onClick={() => setLightboxPhoto(null)}
+                      style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        background: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '40px',
+                        height: '40px',
+                        fontSize: '24px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >×</button>
+                    <img 
+                      src={lightboxPhoto} 
+                      alt="Powiększone zdjęcie"
+                      style={{
+                        maxWidth: '90vw',
+                        maxHeight: '90vh',
+                        objectFit: 'contain',
+                        borderRadius: '8px'
+                      }}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  </div>
+                )}
 
                 {/* Rozwiązanie */}
                 {selectedComplaint.status === 'rozwiazana' && selectedComplaint.rozwiazanie ? (
@@ -12213,6 +12421,12 @@ const PublicComplaintForm = ({ token }) => {
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   
+  // Zdjęcia w czacie
+  const [chatPhotos, setChatPhotos] = useState([]);
+  
+  // Lightbox do powiększania zdjęć
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  
   // Czy to formularz uniwersalny (bez tokenu)
   const isUniversalForm = !token || token === 'nowy';
   
@@ -12233,6 +12447,53 @@ const PublicComplaintForm = ({ token }) => {
       'odrzucona': { name: 'Odrzucona', color: '#6B7280', bg: '#F3F4F6', icon: '❌' }
     };
     return statuses[status] || statuses['nowa'];
+  };
+  
+  // Upload zdjęć do czatu
+  const handleChatPhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    
+    files.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Zdjęcie jest za duże (max 10MB)');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxSize = 800;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          setChatPhotos(prev => [...prev, compressedBase64]);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    e.target.value = '';
+  };
+  
+  const removeChatPhoto = (index) => {
+    setChatPhotos(prev => prev.filter((_, i) => i !== index));
   };
   
   // Wczytaj dane zamówienia i reklamacji
@@ -12550,13 +12811,24 @@ const PublicComplaintForm = ({ token }) => {
   
   // Wysyłanie wiadomości od klienta
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !complaintData) return;
+    if ((!newMessage.trim() && chatPhotos.length === 0) || !complaintData) return;
     
     setSendingMessage(true);
     
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('./firebase');
+      const { db, uploadMultipleImages } = await import('./firebase');
+      
+      // Upload zdjęć jeśli są
+      let uploadedPhotoUrls = [];
+      if (chatPhotos.length > 0) {
+        try {
+          uploadedPhotoUrls = await uploadMultipleImages(chatPhotos, 'complaints/chat');
+        } catch (uploadErr) {
+          console.error('Błąd uploadu zdjęć:', uploadErr);
+          uploadedPhotoUrls = chatPhotos; // Fallback na base64
+        }
+      }
       
       // Pobierz nazwę klienta z różnych źródeł
       const clientDisplayName = orderData?.klient?.imie || complaintData?.klient || clientName || 'Klient';
@@ -12566,7 +12838,8 @@ const PublicComplaintForm = ({ token }) => {
         autor: 'klient',
         autorNazwa: clientDisplayName,
         tresc: newMessage.trim(),
-        data: new Date().toISOString()
+        data: new Date().toISOString(),
+        zdjecia: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined
       };
       
       const complaintRef = doc(db, 'complaints', complaintData.id);
@@ -12576,11 +12849,12 @@ const PublicComplaintForm = ({ token }) => {
         historia: [...(complaintData.historia || []), {
           data: new Date().toISOString(),
           uzytkownik: clientDisplayName,
-          akcja: 'Klient dodał wiadomość'
+          akcja: uploadedPhotoUrls.length > 0 ? 'Klient dodał wiadomość ze zdjęciami' : 'Klient dodał wiadomość'
         }]
       });
       
       setNewMessage('');
+      setChatPhotos([]); // Wyczyść zdjęcia
     } catch (err) {
       console.error('Błąd wysyłania wiadomości:', err);
       alert('Nie udało się wysłać wiadomości. Spróbuj ponownie.');
@@ -12774,7 +13048,7 @@ const PublicComplaintForm = ({ token }) => {
                       src={photo} 
                       alt={`Zdjęcie ${idx + 1}`}
                       style={{width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #E5E7EB', cursor: 'pointer'}}
-                      onClick={() => window.open(photo, '_blank')}
+                      onClick={() => setLightboxPhoto(photo)}
                     />
                   ))}
                 </div>
@@ -12819,7 +13093,7 @@ const PublicComplaintForm = ({ token }) => {
                               src={photo}
                               alt=""
                               style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer'}}
-                              onClick={() => window.open(photo, '_blank')}
+                              onClick={() => setLightboxPhoto(photo)}
                             />
                           ))}
                         </div>
@@ -12836,36 +13110,92 @@ const PublicComplaintForm = ({ token }) => {
             
             {/* Pole do pisania wiadomości */}
             {complaintData.status !== 'rozwiazana' && complaintData.status !== 'odrzucona' && (
-              <div style={{display: 'flex', gap: '10px'}}>
-                <textarea
-                  value={newMessage}
-                  onChange={e => setNewMessage(e.target.value)}
-                  placeholder="Napisz wiadomość..."
-                  rows={2}
-                  style={{
-                    flex: 1,
+              <div>
+                {/* Podgląd zdjęć do wysłania */}
+                {chatPhotos.length > 0 && (
+                  <div style={{display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap'}}>
+                    {chatPhotos.map((photo, idx) => (
+                      <div key={idx} style={{position: 'relative'}}>
+                        <img 
+                          src={photo} 
+                          alt={`Do wysłania ${idx + 1}`}
+                          style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #6366F1'}}
+                        />
+                        <button
+                          onClick={() => removeChatPhoto(idx)}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: '#DC2626',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div style={{display: 'flex', gap: '10px', alignItems: 'flex-end'}}>
+                  <textarea
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    placeholder="Napisz wiadomość..."
+                    rows={2}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      border: '2px solid #E5E7EB',
+                      borderRadius: '10px',
+                      fontSize: '14px',
+                      resize: 'none'
+                    }}
+                  />
+                  <label style={{
                     padding: '12px',
+                    background: '#F3F4F6',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     border: '2px solid #E5E7EB',
-                    borderRadius: '10px',
-                    fontSize: '14px',
-                    resize: 'none'
-                  }}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={sendingMessage || !newMessage.trim()}
-                  style={{
-                    padding: '12px 20px',
-                    background: sendingMessage || !newMessage.trim() ? '#9CA3AF' : 'linear-gradient(135deg, #6366F1, #4F46E5)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: sendingMessage || !newMessage.trim() ? 'not-allowed' : 'pointer',
-                    fontWeight: '600'
-                  }}
-                >
-                  {sendingMessage ? '...' : '📤'}
-                </button>
+                    fontSize: '18px'
+                  }}>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      style={{display: 'none'}}
+                      onChange={handleChatPhotoUpload}
+                    />
+                    📷
+                  </label>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || (!newMessage.trim() && chatPhotos.length === 0)}
+                    style={{
+                      padding: '12px 20px',
+                      background: sendingMessage || (!newMessage.trim() && chatPhotos.length === 0) ? '#9CA3AF' : 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      cursor: sendingMessage || (!newMessage.trim() && chatPhotos.length === 0) ? 'not-allowed' : 'pointer',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {sendingMessage ? '⏳' : '📤'}
+                  </button>
+                </div>
               </div>
             )}
             
@@ -12877,6 +13207,56 @@ const PublicComplaintForm = ({ token }) => {
               </div>
             )}
           </div>
+          
+          {/* LIGHTBOX - powiększone zdjęcie */}
+          {lightboxPhoto && (
+            <div 
+              onClick={() => setLightboxPhoto(null)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.9)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000,
+                cursor: 'pointer'
+              }}
+            >
+              <button
+                onClick={() => setLightboxPhoto(null)}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >×</button>
+              <img 
+                src={lightboxPhoto} 
+                alt="Powiększone zdjęcie"
+                style={{
+                  maxWidth: '90vw',
+                  maxHeight: '90vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px'
+                }}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          )}
           
           {/* Footer */}
           <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
