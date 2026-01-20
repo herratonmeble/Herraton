@@ -469,65 +469,73 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
     const newAmount = parseFloat(discountEditAmount) || 0;
     const newReason = discountEditReason || 'Brak podanego powodu';
     
-    if (editingDiscount.productIndex !== undefined && editingDiscount.productIndex !== null) {
-      // Rabat w produkcie
-      const updatedProdukty = order.produkty.map((p, idx) => {
-        if (idx === editingDiscount.productIndex) {
-          return {
-            ...p,
-            rabat: {
-              ...p.rabat,
-              kwota: newAmount,
-              powod: newReason,
-              edytowanyPrzez: 'Admin',
-              dataEdycji: new Date().toISOString()
-            }
-          };
-        }
-        return p;
-      });
+    try {
+      if (editingDiscount.productIndex !== undefined && editingDiscount.productIndex !== null) {
+        // Rabat w produkcie
+        const updatedProdukty = order.produkty.map((p, idx) => {
+          if (idx === editingDiscount.productIndex) {
+            return {
+              ...p,
+              rabat: {
+                ...p.rabat,
+                kwota: newAmount,
+                powod: newReason,
+                edytowanyPrzez: 'Admin',
+                dataEdycji: new Date().toISOString()
+              }
+            };
+          }
+          return p;
+        });
+        
+        // Przelicz kwotę do zapłaty
+        let sumaRabatow = 0;
+        updatedProdukty.forEach(p => {
+          if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+        });
+        
+        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+        const originalDoZaplaty = cenaCalkowita - zaplacono;
+        const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+        
+        await onUpdateOrder(order.id, {
+          produkty: updatedProdukty,
+          platnosci: {
+            ...order.platnosci,
+            doZaplaty: newDoZaplaty,
+            originalDoZaplaty: originalDoZaplaty,
+            sumaRabatow: sumaRabatow
+          },
+          historia: [...(order.historia || []), {
+            data: new Date().toISOString(),
+            uzytkownik: 'Admin',
+            akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
+          }]
+        });
+      } else {
+        // Stary rabat globalny
+        await onUpdateOrder(order.id, {
+          rabatPrzyDostawie: {
+            ...order.rabatPrzyDostawie,
+            kwota: newAmount,
+            powod: newReason,
+            edytowanyPrzez: 'Admin',
+            dataEdycji: new Date().toISOString()
+          },
+          historia: [...(order.historia || []), {
+            data: new Date().toISOString(),
+            uzytkownik: 'Admin',
+            akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
+          }]
+        });
+      }
       
-      // Przelicz kwotę do zapłaty
-      let sumaRabatow = 0;
-      updatedProdukty.forEach(p => {
-        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
-      });
-      
-      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-      const originalDoZaplaty = cenaCalkowita - zaplacono;
-      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
-      
-      await onUpdateOrder(order.id, {
-        produkty: updatedProdukty,
-        platnosci: {
-          ...order.platnosci,
-          doZaplaty: newDoZaplaty,
-          originalDoZaplaty: originalDoZaplaty,
-          sumaRabatow: sumaRabatow
-        },
-        historia: [...(order.historia || []), {
-          data: new Date().toISOString(),
-          uzytkownik: 'Admin',
-          akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
-        }]
-      });
-    } else {
-      // Stary rabat globalny
-      await onUpdateOrder(order.id, {
-        rabatPrzyDostawie: {
-          ...order.rabatPrzyDostawie,
-          kwota: newAmount,
-          powod: newReason,
-          edytowanyPrzez: 'Admin',
-          dataEdycji: new Date().toISOString()
-        },
-        historia: [...(order.historia || []), {
-          data: new Date().toISOString(),
-          uzytkownik: 'Admin',
-          akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
-        }]
-      });
+      alert('Rabat został zaktualizowany!');
+      onClose(); // Zamknij modal żeby odświeżyć dane
+    } catch (error) {
+      console.error('Błąd zapisu rabatu:', error);
+      alert('Wystąpił błąd podczas zapisu rabatu');
     }
     
     setEditingDiscount(null);
@@ -539,60 +547,68 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const handleDeleteDiscount = async (productIndex) => {
     if (!window.confirm('Czy na pewno chcesz usunąć ten rabat?')) return;
     
-    if (productIndex !== undefined && productIndex !== null) {
-      // Usuń rabat z produktu
-      const updatedProdukty = order.produkty.map((p, idx) => {
-        if (idx === productIndex) {
-          const { rabat, ...rest } = p;
-          return rest;
-        }
-        return p;
-      });
+    try {
+      if (productIndex !== undefined && productIndex !== null) {
+        // Usuń rabat z produktu
+        const updatedProdukty = order.produkty.map((p, idx) => {
+          if (idx === productIndex) {
+            const { rabat, ...rest } = p;
+            return rest;
+          }
+          return p;
+        });
+        
+        // Przelicz kwotę do zapłaty
+        let sumaRabatow = 0;
+        updatedProdukty.forEach(p => {
+          if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+        });
+        
+        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+        const originalDoZaplaty = cenaCalkowita - zaplacono;
+        const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+        
+        await onUpdateOrder(order.id, {
+          produkty: updatedProdukty,
+          platnosci: {
+            ...order.platnosci,
+            doZaplaty: newDoZaplaty,
+            originalDoZaplaty: originalDoZaplaty,
+            sumaRabatow: sumaRabatow
+          },
+          historia: [...(order.historia || []), {
+            data: new Date().toISOString(),
+            uzytkownik: 'Admin',
+            akcja: 'Usunięto rabat'
+          }]
+        });
+      } else {
+        // Usuń stary rabat globalny
+        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+        const originalDoZaplaty = cenaCalkowita - zaplacono;
+        
+        await onUpdateOrder(order.id, {
+          rabatPrzyDostawie: null,
+          platnosci: {
+            ...order.platnosci,
+            doZaplaty: originalDoZaplaty,
+            rabat: 0
+          },
+          historia: [...(order.historia || []), {
+            data: new Date().toISOString(),
+            uzytkownik: 'Admin',
+            akcja: 'Usunięto rabat'
+          }]
+        });
+      }
       
-      // Przelicz kwotę do zapłaty
-      let sumaRabatow = 0;
-      updatedProdukty.forEach(p => {
-        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
-      });
-      
-      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-      const originalDoZaplaty = cenaCalkowita - zaplacono;
-      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
-      
-      await onUpdateOrder(order.id, {
-        produkty: updatedProdukty,
-        platnosci: {
-          ...order.platnosci,
-          doZaplaty: newDoZaplaty,
-          originalDoZaplaty: originalDoZaplaty,
-          sumaRabatow: sumaRabatow
-        },
-        historia: [...(order.historia || []), {
-          data: new Date().toISOString(),
-          uzytkownik: 'Admin',
-          akcja: 'Usunięto rabat'
-        }]
-      });
-    } else {
-      // Usuń stary rabat globalny
-      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-      const originalDoZaplaty = cenaCalkowita - zaplacono;
-      
-      await onUpdateOrder(order.id, {
-        rabatPrzyDostawie: null,
-        platnosci: {
-          ...order.platnosci,
-          doZaplaty: originalDoZaplaty,
-          rabat: 0
-        },
-        historia: [...(order.historia || []), {
-          data: new Date().toISOString(),
-          uzytkownik: 'Admin',
-          akcja: 'Usunięto rabat'
-        }]
-      });
+      alert('Rabat został usunięty!');
+      onClose(); // Zamknij modal żeby odświeżyć dane
+    } catch (error) {
+      console.error('Błąd usuwania rabatu:', error);
+      alert('Wystąpił błąd podczas usuwania rabatu');
     }
   };
   
@@ -12934,7 +12950,7 @@ Zespół obsługi zamówień
           drivers={drivers}
           onDelete={handleDeleteOrder}
           isContractor={isContractor}
-          onUpdateOrder={handleSaveOrder}
+          onUpdateOrder={updateOrder}
         />
       )}
 
