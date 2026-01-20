@@ -12227,13 +12227,13 @@ const PublicComplaintForm = ({ token }) => {
     loadData();
   }, [token]);
   
-  // Obsługa zdjęć - NAPRAWIONA
+  // Obsługa zdjęć - ULEPSZONA KOMPRESJA
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
     
     files.forEach(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Zdjęcie jest za duże (max 5MB)');
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Zdjęcie jest za duże (max 10MB)');
         return;
       }
       
@@ -12242,9 +12242,9 @@ const PublicComplaintForm = ({ token }) => {
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-          // Kompresja zdjęcia
+          // Silniejsza kompresja zdjęcia
           const canvas = document.createElement('canvas');
-          const maxSize = 1200;
+          const maxSize = 800; // Mniejszy rozmiar dla lepszej kompresji
           let width = img.width;
           let height = img.height;
           
@@ -12261,7 +12261,8 @@ const PublicComplaintForm = ({ token }) => {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
           
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          // Jakość 0.6 dla mniejszego rozmiaru
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
           setPhotos(prev => [...prev, compressedBase64]);
         };
         img.src = event.target.result;
@@ -12299,7 +12300,19 @@ const PublicComplaintForm = ({ token }) => {
     
     try {
       const { collection, addDoc } = await import('firebase/firestore');
-      const { db } = await import('./firebase');
+      const { db, uploadMultipleImages } = await import('./firebase');
+      
+      // Upload zdjęć do Firebase Storage (jeśli są)
+      let uploadedPhotoUrls = [];
+      if (photos.length > 0) {
+        try {
+          uploadedPhotoUrls = await uploadMultipleImages(photos, 'complaints');
+        } catch (uploadErr) {
+          console.error('Błąd uploadu zdjęć:', uploadErr);
+          // Jeśli upload nie działa, spróbuj zapisać jako base64 (fallback)
+          uploadedPhotoUrls = photos;
+        }
+      }
       
       // Generuj numer reklamacji
       const now = new Date();
@@ -12324,7 +12337,7 @@ const PublicComplaintForm = ({ token }) => {
         typ: complaintType,
         opis: description,
         oczekiwaniaKlienta: expectations,
-        zdjecia: photos,
+        zdjecia: uploadedPhotoUrls, // Teraz to są URLe z Firebase Storage
         status: 'nowa',
         priorytet: 'normalny',
         dataUtworzenia: new Date().toISOString(),
@@ -12341,7 +12354,7 @@ const PublicComplaintForm = ({ token }) => {
           autorNazwa: orderData?.klient?.imie || clientName || 'Klient',
           tresc: description,
           data: new Date().toISOString(),
-          zdjecia: photos
+          zdjecia: uploadedPhotoUrls // URLe z Firebase Storage
         }],
         historia: [{
           data: new Date().toISOString(),
