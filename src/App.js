@@ -2552,25 +2552,69 @@ Zespół obsługi zamówień`;
                         ))}
                       </div>
                       <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between' }}>
-                        <strong>SUMA:</strong>
+                        <strong>SUMA (PLN):</strong>
                         <strong>
-                          {formatCurrency(form.produkty.reduce((s, p) => s + (p.koszty?.zakupNetto || 0) + (p.koszty?.transportNetto || 0), 0), 'PLN')} netto
+                          {formatCurrency(
+                            form.produkty.reduce((s, p) => {
+                              const zakup = p.koszty?.zakupNetto || 0;
+                              const rateZ = exchangeRates?.[p.koszty?.waluta || 'PLN'] || 1;
+                              const transport = p.koszty?.transportNetto || 0;
+                              const rateT = exchangeRates?.[p.koszty?.transportWaluta || 'PLN'] || 1;
+                              return s + (zakup * rateZ) + (transport * rateT);
+                            }, 0), 
+                            'PLN'
+                          )} netto
                         </strong>
                       </div>
                     </div>
                   )}
 
-                  {/* Marża */}
+                  {/* Marża - ZAWSZE W PLN */}
                   {(() => {
-                    const przychod = form.platnosci?.cenaCalkowita || 0;
-                    const kosztyZakupu = form.produkty?.reduce((s, p) => s + (p.koszty?.zakupNetto || 0), 0) || form.koszty?.zakupNetto || 0;
-                    const kosztyTransport = form.produkty?.reduce((s, p) => s + (p.koszty?.transportNetto || 0), 0) || form.koszty?.transportNetto || 0;
-                    const marza = przychod - kosztyZakupu - kosztyTransport;
+                    // Cena klienta brutto -> netto
+                    const cenaBrutto = form.platnosci?.cenaCalkowita || 0;
+                    const walutaKlienta = form.platnosci?.waluta || 'PLN';
+                    const cenaNetto = cenaBrutto / 1.23;
+                    
+                    // Kurs waluty klienta do PLN
+                    const rateKlienta = exchangeRates?.[walutaKlienta] || 1;
+                    const cenaNettoPLN = cenaNetto * rateKlienta;
+                    
+                    // Koszty zakupu w PLN
+                    let kosztyZakupuPLN = 0;
+                    let kosztyTransportPLN = 0;
+                    
+                    if (form.produkty && form.produkty.length > 0) {
+                      form.produkty.forEach(p => {
+                        // Zakup
+                        const zakupNetto = p.koszty?.zakupNetto || 0;
+                        const walutaZakupu = p.koszty?.waluta || 'PLN';
+                        const rateZakupu = exchangeRates?.[walutaZakupu] || 1;
+                        kosztyZakupuPLN += zakupNetto * rateZakupu;
+                        
+                        // Transport
+                        const transportNetto = p.koszty?.transportNetto || 0;
+                        const walutaTransport = p.koszty?.transportWaluta || 'PLN';
+                        const rateTransport = exchangeRates?.[walutaTransport] || 1;
+                        kosztyTransportPLN += transportNetto * rateTransport;
+                      });
+                    } else {
+                      // Stare zamówienie
+                      const zakup = form.koszty?.zakupNetto || 0;
+                      const rateZ = exchangeRates?.[form.koszty?.waluta || 'PLN'] || 1;
+                      kosztyZakupuPLN = zakup * rateZ;
+                      
+                      const transport = form.koszty?.transportNetto || 0;
+                      const rateT = exchangeRates?.[form.koszty?.transportWaluta || 'PLN'] || 1;
+                      kosztyTransportPLN = transport * rateT;
+                    }
+                    
+                    const marzaPLN = cenaNettoPLN - kosztyZakupuPLN - kosztyTransportPLN;
                     
                     return (
-                      <div className={`margin-display ${marza >= 0 ? 'positive' : 'negative'}`}>
+                      <div className={`margin-display ${marzaPLN >= 0 ? 'positive' : 'negative'}`}>
                         <span>📈 Szacowana marża netto:</span>
-                        <strong>{formatCurrency(marza, form.platnosci?.waluta || 'PLN')}</strong>
+                        <strong>{formatCurrency(Math.round(marzaPLN * 100) / 100, 'PLN')}</strong>
                       </div>
                     );
                   })()}
@@ -4539,19 +4583,27 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     
     // Koszty - suma z produktów lub ze starego pola
     let zakupNettoPLN = 0;
+    let transportNettoPLN = 0;
+    
     if (order.produkty && order.produkty.length > 0) {
       order.produkty.forEach(p => {
+        // Koszt zakupu
         if (p.koszty?.zakupNetto) {
           zakupNettoPLN += convertToPLN(p.koszty.zakupNetto, p.koszty?.waluta || 'PLN');
         }
+        // Koszt transportu
+        if (p.koszty?.transportNetto) {
+          transportNettoPLN += convertToPLN(p.koszty.transportNetto, p.koszty?.transportWaluta || 'PLN');
+        }
       });
     } else {
+      // Stare zamówienie bez produktów
       const zakupNetto = order.koszty?.zakupNetto || 0;
       zakupNettoPLN = convertToPLN(zakupNetto, order.koszty?.waluta);
+      
+      const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
+      transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
     }
-    
-    const transportNetto = order.koszty?.transportNetto || order.koszty?.transport || 0;
-    const transportNettoPLN = convertToPLN(transportNetto, order.koszty?.transportWaluta || order.koszty?.waluta);
     
     // Marża w PLN = Cena netto - Zakup netto - Transport netto
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
