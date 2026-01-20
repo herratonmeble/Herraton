@@ -4828,6 +4828,15 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
 
   const handleAddComment = async () => {
     if (!selectedComplaint || !newComment.trim()) return;
+    
+    const newMsg = {
+      id: Date.now().toString(),
+      autor: 'admin',
+      autorNazwa: currentUser.name,
+      tresc: newComment,
+      data: new Date().toISOString()
+    };
+    
     const updated = {
       ...selectedComplaint,
       komentarze: [...(selectedComplaint.komentarze || []), {
@@ -4835,11 +4844,84 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
         tekst: newComment,
         data: new Date().toISOString(),
         autor: currentUser.name
+      }],
+      // Dodaj też do wiadomości (dla czatu z klientem)
+      wiadomosci: [...(selectedComplaint.wiadomosci || []), newMsg],
+      // Zmień status na "oczekuje na klienta"
+      status: selectedComplaint.status === 'nowa' || selectedComplaint.status === 'w_trakcie' ? 'oczekuje_na_klienta' : selectedComplaint.status,
+      historia: [...(selectedComplaint.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: 'Dodano wiadomość'
       }]
     };
+    
     await onSave(updated, selectedComplaint.id);
     setSelectedComplaint(updated);
     setNewComment('');
+    
+    // Wyślij email do klienta jeśli ma email i token
+    if (selectedComplaint.klientEmail && selectedComplaint.complaintToken) {
+      const complaintLink = `${window.location.origin}/reklamacja/${selectedComplaint.complaintToken}`;
+      
+      const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 40px; margin-bottom: 10px;">💬</div>
+              <h1 style="color: white; margin: 0; font-size: 22px;">Nowa wiadomość</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Reklamacja: ${selectedComplaint.numer}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">Szanowny/a <strong>${selectedComplaint.klient}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px;">Otrzymałeś nową wiadomość dotyczącą Twojej reklamacji.</p>
+              
+              <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 0 0 5px 0; color: #6B7280; font-size: 13px;">${currentUser.name} napisał/a:</p>
+                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${newComment}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${complaintLink}" style="display: inline-block; background: linear-gradient(135deg, #6366F1, #4F46E5); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">ODPOWIEDZ</a>
+              </div>
+              
+              <p style="margin: 0; color: #9CA3AF; font-size: 13px; text-align: center;">Możesz również śledzić status reklamacji pod powyższym linkiem.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • Obsługa reklamacji</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+      // Wyślij email
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: selectedComplaint.klientEmail,
+          toName: selectedComplaint.klient,
+          subject: `Nowa wiadomość - Reklamacja ${selectedComplaint.numer}`,
+          textContent: `Nowa wiadomość od ${currentUser.name}: ${newComment}. Odpowiedz pod linkiem: ${complaintLink}`,
+          htmlContent: htmlEmail
+        })
+      }).catch(err => console.error('Błąd wysyłania emaila:', err));
+    }
   };
 
   const handlePhotoUpload = (e) => {
@@ -12004,61 +12086,135 @@ const SettlementsPanel = ({
 // PUBLICZNY FORMULARZ REKLAMACJI DLA KLIENTA
 // ============================================
 
-const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
+const PublicComplaintForm = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [orderData, setOrderData] = useState(null);
+  const [complaintData, setComplaintData] = useState(null); // Istniejąca reklamacja
   const [error, setError] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [view, setView] = useState('form'); // 'form' lub 'tracking'
   
-  // Formularz
+  // Formularz nowej reklamacji
   const [complaintType, setComplaintType] = useState('uszkodzenie');
   const [description, setDescription] = useState('');
   const [expectations, setExpectations] = useState('');
   const [photos, setPhotos] = useState([]);
   
-  // Wczytaj dane zamówienia na podstawie tokenu
+  // Wiadomości
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Helper do formatowania daty
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  
+  // Status reklamacji
+  const getStatusInfo = (status) => {
+    const statuses = {
+      'nowa': { name: 'Nowa', color: '#DC2626', bg: '#FEE2E2', icon: '🆕' },
+      'w_trakcie': { name: 'W trakcie', color: '#F59E0B', bg: '#FEF3C7', icon: '⏳' },
+      'oczekuje_na_klienta': { name: 'Oczekuje na odpowiedź', color: '#3B82F6', bg: '#DBEAFE', icon: '💬' },
+      'rozwiazana': { name: 'Rozwiązana', color: '#10B981', bg: '#D1FAE5', icon: '✅' },
+      'odrzucona': { name: 'Odrzucona', color: '#6B7280', bg: '#F3F4F6', icon: '❌' }
+    };
+    return statuses[status] || statuses['nowa'];
+  };
+  
+  // Wczytaj dane zamówienia i reklamacji
   useEffect(() => {
-    const loadOrderByToken = async () => {
+    const loadData = async () => {
       try {
-        // Szukaj zamówienia z tym tokenem
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const { collection, query, where, getDocs, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('./firebase');
         
+        // Szukaj zamówienia z tym tokenem
         const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, where('complaintToken', '==', token));
-        const snapshot = await getDocs(q);
+        const orderQuery = query(ordersRef, where('complaintToken', '==', token));
+        const orderSnapshot = await getDocs(orderQuery);
         
-        if (snapshot.empty) {
+        if (orderSnapshot.empty) {
           setError('Nieprawidłowy lub wygasły link do reklamacji.');
           setLoading(false);
           return;
         }
         
-        const orderDoc = snapshot.docs[0];
-        setOrderData({ id: orderDoc.id, ...orderDoc.data() });
+        const orderDoc = orderSnapshot.docs[0];
+        const order = { id: orderDoc.id, ...orderDoc.data() };
+        setOrderData(order);
+        
+        // Szukaj istniejącej reklamacji dla tego tokenu
+        const complaintsRef = collection(db, 'complaints');
+        const complaintQuery = query(complaintsRef, where('complaintToken', '==', token));
+        
+        // Nasłuchuj na zmiany w reklamacji (real-time)
+        onSnapshot(complaintQuery, (snapshot) => {
+          if (!snapshot.empty) {
+            const complaintDoc = snapshot.docs[0];
+            setComplaintData({ id: complaintDoc.id, ...complaintDoc.data() });
+            setView('tracking');
+          }
+        });
+        
+        // Sprawdź czy już jest reklamacja
+        const complaintSnapshot = await getDocs(complaintQuery);
+        if (!complaintSnapshot.empty) {
+          const complaintDoc = complaintSnapshot.docs[0];
+          setComplaintData({ id: complaintDoc.id, ...complaintDoc.data() });
+          setView('tracking');
+        }
+        
         setLoading(false);
       } catch (err) {
-        console.error('Błąd wczytywania zamówienia:', err);
+        console.error('Błąd wczytywania danych:', err);
         setError('Wystąpił błąd. Spróbuj ponownie później.');
         setLoading(false);
       }
     };
     
-    loadOrderByToken();
+    loadData();
   }, [token]);
   
-  // Obsługa zdjęć
+  // Obsługa zdjęć - NAPRAWIONA
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
+    
     files.forEach(file => {
       if (file.size > 5 * 1024 * 1024) {
         alert('Zdjęcie jest za duże (max 5MB)');
         return;
       }
+      
+      // Kompresuj i konwertuj na base64
       const reader = new FileReader();
       reader.onload = (event) => {
-        setPhotos(prev => [...prev, event.target.result]);
+        const img = new Image();
+        img.onload = () => {
+          // Kompresja zdjęcia
+          const canvas = document.createElement('canvas');
+          const maxSize = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setPhotos(prev => [...prev, compressedBase64]);
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     });
@@ -12092,6 +12248,7 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
       
       const complaint = {
         numer: complaintNumber,
+        complaintToken: token, // Zapisz token żeby później można było śledzić
         orderId: orderData.id,
         nrZamowienia: orderData.nrWlasny,
         klient: orderData.klient?.imie || 'Klient',
@@ -12111,7 +12268,14 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
           rola: 'klient',
           rolaLabel: 'Klient'
         },
-        komentarze: [],
+        wiadomosci: [{
+          id: Date.now().toString(),
+          autor: 'klient',
+          autorNazwa: orderData.klient?.imie || 'Klient',
+          tresc: description,
+          data: new Date().toISOString(),
+          zdjecia: photos
+        }],
         historia: [{
           data: new Date().toISOString(),
           uzytkownik: orderData.klient?.imie || 'Klient',
@@ -12119,14 +12283,53 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
         }]
       };
       
-      await addDoc(collection(db, 'complaints'), complaint);
+      const docRef = await addDoc(collection(db, 'complaints'), complaint);
+      setComplaintData({ id: docRef.id, ...complaint });
+      setView('tracking');
       
-      setSubmitted(true);
     } catch (err) {
       console.error('Błąd zapisywania reklamacji:', err);
       alert('Wystąpił błąd podczas wysyłania reklamacji. Spróbuj ponownie.');
     } finally {
       setSubmitting(false);
+    }
+  };
+  
+  // Wysyłanie wiadomości od klienta
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !complaintData) return;
+    
+    setSendingMessage(true);
+    
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      const newMsg = {
+        id: Date.now().toString(),
+        autor: 'klient',
+        autorNazwa: orderData.klient?.imie || 'Klient',
+        tresc: newMessage.trim(),
+        data: new Date().toISOString()
+      };
+      
+      const complaintRef = doc(db, 'complaints', complaintData.id);
+      await updateDoc(complaintRef, {
+        wiadomosci: [...(complaintData.wiadomosci || []), newMsg],
+        status: complaintData.status === 'oczekuje_na_klienta' ? 'w_trakcie' : complaintData.status,
+        historia: [...(complaintData.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: orderData.klient?.imie || 'Klient',
+          akcja: 'Klient dodał wiadomość'
+        }]
+      });
+      
+      setNewMessage('');
+    } catch (err) {
+      console.error('Błąd wysyłania wiadomości:', err);
+      alert('Nie udało się wysłać wiadomości. Spróbuj ponownie.');
+    } finally {
+      setSendingMessage(false);
     }
   };
   
@@ -12140,26 +12343,29 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
     { id: 'inne', name: '📋 Inne', desc: 'Inny rodzaj problemu' }
   ];
   
+  // Style wspólne
+  const containerStyle = {
+    minHeight: '100vh',
+    padding: '20px',
+    fontFamily: "'Segoe UI', Arial, sans-serif"
+  };
+  
+  const cardStyle = {
+    maxWidth: '700px',
+    margin: '0 auto',
+    background: 'white',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+  };
+  
   // Ekran ładowania
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: "'Segoe UI', Arial, sans-serif"
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          textAlign: 'center',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-        }}>
+      <div style={{...containerStyle, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{background: 'white', padding: '40px', borderRadius: '16px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'}}>
           <div style={{fontSize: '48px', marginBottom: '20px'}}>⏳</div>
-          <p style={{color: '#666', fontSize: '18px'}}>Ładowanie formularza...</p>
+          <p style={{color: '#666', fontSize: '18px'}}>Ładowanie...</p>
         </div>
       </div>
     );
@@ -12168,22 +12374,8 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
   // Ekran błędu
   if (error) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: "'Segoe UI', Arial, sans-serif"
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          textAlign: 'center',
-          maxWidth: '400px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-        }}>
+      <div style={{...containerStyle, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{background: 'white', padding: '40px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'}}>
           <div style={{fontSize: '48px', marginBottom: '20px'}}>❌</div>
           <h2 style={{color: '#DC2626', marginBottom: '15px'}}>Ups!</h2>
           <p style={{color: '#666'}}>{error}</p>
@@ -12192,39 +12384,170 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
     );
   }
   
-  // Ekran sukcesu
-  if (submitted) {
+  // ==========================================
+  // WIDOK ŚLEDZENIA REKLAMACJI
+  // ==========================================
+  if (view === 'tracking' && complaintData) {
+    const statusInfo = getStatusInfo(complaintData.status);
+    const typInfo = complaintTypes.find(t => t.id === complaintData.typ) || complaintTypes[5];
+    
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: "'Segoe UI', Arial, sans-serif"
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '50px',
-          borderRadius: '16px',
-          textAlign: 'center',
-          maxWidth: '500px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{fontSize: '64px', marginBottom: '20px'}}>✅</div>
-          <h1 style={{color: '#059669', marginBottom: '15px'}}>Reklamacja wysłana!</h1>
-          <p style={{color: '#666', fontSize: '16px', lineHeight: '1.6', marginBottom: '20px'}}>
-            Dziękujemy za zgłoszenie. Nasz zespół zajmie się Twoją sprawą najszybciej jak to możliwe.
-            Otrzymasz odpowiedź na adres email.
-          </p>
-          <div style={{
-            background: '#F0FDF4',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #86EFAC'
-          }}>
-            <p style={{margin: 0, color: '#166534'}}>
-              <strong>Zamówienie:</strong> {orderData.nrWlasny}
+      <div style={{...containerStyle, background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)'}}>
+        <div style={cardStyle}>
+          {/* Header */}
+          <div style={{background: 'linear-gradient(135deg, #6366F1, #4F46E5)', padding: '25px', color: 'white'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px'}}>
+              <div>
+                <div style={{fontSize: '14px', opacity: 0.9}}>Reklamacja nr</div>
+                <div style={{fontSize: '24px', fontWeight: '700'}}>{complaintData.numer}</div>
+              </div>
+              <div style={{background: statusInfo.bg, color: statusInfo.color, padding: '8px 16px', borderRadius: '20px', fontWeight: '600', fontSize: '14px'}}>
+                {statusInfo.icon} {statusInfo.name}
+              </div>
+            </div>
+            <div style={{marginTop: '15px', fontSize: '14px', opacity: 0.9}}>
+              Zamówienie: <strong>{complaintData.nrZamowienia}</strong>
+            </div>
+          </div>
+          
+          {/* Info o reklamacji */}
+          <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+              <div>
+                <span style={{color: '#6B7280', fontSize: '12px'}}>Typ problemu</span>
+                <p style={{margin: '5px 0 0 0', fontWeight: '600', fontSize: '14px'}}>{typInfo.name}</p>
+              </div>
+              <div>
+                <span style={{color: '#6B7280', fontSize: '12px'}}>Data zgłoszenia</span>
+                <p style={{margin: '5px 0 0 0', fontWeight: '600', fontSize: '14px'}}>{formatDateTime(complaintData.dataUtworzenia)}</p>
+              </div>
+            </div>
+            
+            {/* Opis problemu */}
+            <div style={{marginTop: '15px'}}>
+              <span style={{color: '#6B7280', fontSize: '12px'}}>Opis problemu</span>
+              <p style={{margin: '5px 0 0 0', fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap'}}>{complaintData.opis}</p>
+            </div>
+            
+            {/* Zdjęcia */}
+            {complaintData.zdjecia && complaintData.zdjecia.length > 0 && (
+              <div style={{marginTop: '15px'}}>
+                <span style={{color: '#6B7280', fontSize: '12px'}}>Załączone zdjęcia ({complaintData.zdjecia.length})</span>
+                <div style={{display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap'}}>
+                  {complaintData.zdjecia.map((photo, idx) => (
+                    <img 
+                      key={idx} 
+                      src={photo} 
+                      alt={`Zdjęcie ${idx + 1}`}
+                      style={{width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #E5E7EB', cursor: 'pointer'}}
+                      onClick={() => window.open(photo, '_blank')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Wiadomości / Czat */}
+          <div style={{padding: '20px'}}>
+            <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151'}}>💬 Wiadomości</h3>
+            
+            <div style={{maxHeight: '400px', overflowY: 'auto', marginBottom: '15px'}}>
+              {(complaintData.wiadomosci || []).map((msg, idx) => {
+                const isClient = msg.autor === 'klient';
+                return (
+                  <div 
+                    key={msg.id || idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent: isClient ? 'flex-end' : 'flex-start',
+                      marginBottom: '12px'
+                    }}
+                  >
+                    <div style={{
+                      maxWidth: '80%',
+                      background: isClient ? 'linear-gradient(135deg, #6366F1, #4F46E5)' : '#F3F4F6',
+                      color: isClient ? 'white' : '#374151',
+                      padding: '12px 16px',
+                      borderRadius: isClient ? '16px 16px 4px 16px' : '16px 16px 16px 4px'
+                    }}>
+                      <div style={{fontSize: '12px', opacity: 0.8, marginBottom: '4px'}}>
+                        {isClient ? 'Ty' : msg.autorNazwa || 'Obsługa'} • {formatDateTime(msg.data)}
+                      </div>
+                      <div style={{fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap'}}>{msg.tresc}</div>
+                      
+                      {/* Zdjęcia w wiadomości */}
+                      {msg.zdjecia && msg.zdjecia.length > 0 && (
+                        <div style={{display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap'}}>
+                          {msg.zdjecia.map((photo, pIdx) => (
+                            <img 
+                              key={pIdx}
+                              src={photo}
+                              alt=""
+                              style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer'}}
+                              onClick={() => window.open(photo, '_blank')}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {(!complaintData.wiadomosci || complaintData.wiadomosci.length === 0) && (
+                <p style={{textAlign: 'center', color: '#9CA3AF', padding: '20px'}}>Brak wiadomości</p>
+              )}
+            </div>
+            
+            {/* Pole do pisania wiadomości */}
+            {complaintData.status !== 'rozwiazana' && complaintData.status !== 'odrzucona' && (
+              <div style={{display: 'flex', gap: '10px'}}>
+                <textarea
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  placeholder="Napisz wiadomość..."
+                  rows={2}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    border: '2px solid #E5E7EB',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    resize: 'none'
+                  }}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || !newMessage.trim()}
+                  style={{
+                    padding: '12px 20px',
+                    background: sendingMessage || !newMessage.trim() ? '#9CA3AF' : 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: sendingMessage || !newMessage.trim() ? 'not-allowed' : 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  {sendingMessage ? '...' : '📤'}
+                </button>
+              </div>
+            )}
+            
+            {(complaintData.status === 'rozwiazana' || complaintData.status === 'odrzucona') && (
+              <div style={{background: statusInfo.bg, padding: '15px', borderRadius: '10px', textAlign: 'center'}}>
+                <p style={{margin: 0, color: statusInfo.color, fontWeight: '500'}}>
+                  {statusInfo.icon} Ta reklamacja została {complaintData.status === 'rozwiazana' ? 'rozwiązana' : 'odrzucona'}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {/* Footer */}
+          <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
+            <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
+              Herraton • System obsługi reklamacji
             </p>
           </div>
         </div>
@@ -12232,29 +12555,14 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
     );
   }
   
-  // Główny formularz
+  // ==========================================
+  // WIDOK FORMULARZA NOWEJ REKLAMACJI
+  // ==========================================
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-      padding: '20px',
-      fontFamily: "'Segoe UI', Arial, sans-serif"
-    }}>
-      <div style={{
-        maxWidth: '700px',
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-      }}>
+    <div style={{...containerStyle, background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)'}}>
+      <div style={cardStyle}>
         {/* Header */}
-        <div style={{
-          background: 'linear-gradient(135deg, #DC2626, #B91C1C)',
-          padding: '30px',
-          textAlign: 'center',
-          color: 'white'
-        }}>
+        <div style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)', padding: '30px', textAlign: 'center', color: 'white'}}>
           <div style={{fontSize: '48px', marginBottom: '10px'}}>📋</div>
           <h1 style={{margin: '0 0 10px 0', fontSize: '24px'}}>Formularz Reklamacji</h1>
           <p style={{margin: 0, opacity: 0.9}}>Zamówienie: <strong>{orderData.nrWlasny}</strong></p>
@@ -12328,15 +12636,7 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
               placeholder="Opisz szczegółowo co się stało..."
               rows={5}
               required
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '2px solid #E5E7EB',
-                borderRadius: '10px',
-                fontSize: '15px',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
+              style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '10px', fontSize: '15px', resize: 'vertical', boxSizing: 'border-box'}}
             />
           </div>
           
@@ -12350,15 +12650,7 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
               onChange={e => setExpectations(e.target.value)}
               placeholder="Np. wymiana towaru, zwrot pieniędzy, naprawa..."
               rows={3}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '2px solid #E5E7EB',
-                borderRadius: '10px',
-                fontSize: '15px',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
+              style={{width: '100%', padding: '12px', border: '2px solid #E5E7EB', borderRadius: '10px', fontSize: '15px', resize: 'vertical', boxSizing: 'border-box'}}
             />
           </div>
           
@@ -12381,30 +12673,12 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
                     <img
                       src={photo}
                       alt={`Zdjęcie ${idx + 1}`}
-                      style={{
-                        width: '100px',
-                        height: '100px',
-                        objectFit: 'cover',
-                        borderRadius: '8px',
-                        border: '2px solid #E5E7EB'
-                      }}
+                      style={{width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #E5E7EB'}}
                     />
                     <button
                       type="button"
                       onClick={() => removePhoto(idx)}
-                      style={{
-                        position: 'absolute',
-                        top: '-8px',
-                        right: '-8px',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        background: '#DC2626',
-                        color: 'white',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '14px'
-                      }}
+                      style={{position: 'absolute', top: '-8px', right: '-8px', width: '24px', height: '24px', borderRadius: '50%', background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', fontSize: '14px'}}
                     >
                       ×
                     </button>
@@ -12436,12 +12710,7 @@ const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
         </form>
         
         {/* Footer */}
-        <div style={{
-          padding: '20px',
-          background: '#F9FAFB',
-          textAlign: 'center',
-          borderTop: '1px solid #E5E7EB'
-        }}>
+        <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
           <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
             Herraton • System obsługi zamówień
           </p>
