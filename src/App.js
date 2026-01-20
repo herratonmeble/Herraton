@@ -119,6 +119,7 @@ const DELIVERY_PAYMENT_METHODS = [
   { id: 'inna', name: 'Inna metoda', icon: '📝', description: 'Opisz w uwagach' },
 ];
 
+// eslint-disable-next-line no-unused-vars
 const getDeliveryPaymentMethod = (id) => DELIVERY_PAYMENT_METHODS.find(m => m.id === id) || DELIVERY_PAYMENT_METHODS[0];
 
 const STATUSES = [
