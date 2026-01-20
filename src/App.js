@@ -532,7 +532,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
       }
       
       alert('Rabat został zaktualizowany!');
-      onClose(); // Zamknij modal żeby odświeżyć dane
+      // Modal pozostaje otwarty - dane się same odświeżą przez Firebase
     } catch (error) {
       console.error('Błąd zapisu rabatu:', error);
       alert('Wystąpił błąd podczas zapisu rabatu');
@@ -549,11 +549,13 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
     
     try {
       if (productIndex !== undefined && productIndex !== null) {
-        // Usuń rabat z produktu
+        // Usuń rabat z produktu (ustawiamy null zamiast usuwać pole)
         const updatedProdukty = order.produkty.map((p, idx) => {
           if (idx === productIndex) {
-            const { rabat, ...rest } = p;
-            return rest;
+            return {
+              ...p,
+              rabat: null
+            };
           }
           return p;
         });
@@ -605,7 +607,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
       }
       
       alert('Rabat został usunięty!');
-      onClose(); // Zamknij modal żeby odświeżyć dane
+      // Modal pozostaje otwarty - dane się same odświeżą przez Firebase
     } catch (error) {
       console.error('Błąd usuwania rabatu:', error);
       alert('Wystąpił błąd podczas usuwania rabatu');
@@ -12941,18 +12943,24 @@ Zespół obsługi zamówień
         />
       )}
 
-      {viewingOrder && (
-        <OrderDetailModal
-          order={viewingOrder.order || viewingOrder}
-          selectedProductIndex={viewingOrder.productIndex}
-          onClose={() => setViewingOrder(null)}
-          producers={producers}
-          drivers={drivers}
-          onDelete={handleDeleteOrder}
-          isContractor={isContractor}
-          onUpdateOrder={updateOrder}
-        />
-      )}
+      {viewingOrder && (() => {
+        // Pobierz aktualne zamówienie z orders (może być zaktualizowane przez Firebase)
+        const orderId = viewingOrder.order?.id || viewingOrder.id || viewingOrder;
+        const currentOrder = orders.find(o => o.id === orderId) || viewingOrder.order || viewingOrder;
+        
+        return (
+          <OrderDetailModal
+            order={currentOrder}
+            selectedProductIndex={viewingOrder.productIndex}
+            onClose={() => setViewingOrder(null)}
+            producers={producers}
+            drivers={drivers}
+            onDelete={handleDeleteOrder}
+            isContractor={isContractor}
+            onUpdateOrder={updateOrder}
+          />
+        );
+      })()}
 
       {showComplaintsPanel && (
         <ComplaintsPanel
