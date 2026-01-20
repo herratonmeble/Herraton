@@ -544,13 +544,15 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   };
   
   // Funkcja usunięcia rabatu
-  const handleDeleteDiscount = async (productIndex) => {
+  const handleDeleteDiscount = async (productIndex, kierowcaId) => {
     if (!window.confirm('Czy na pewno chcesz usunąć ten rabat?')) return;
     
     try {
+      // Usuń rabat z produktu (ustawiamy null zamiast usuwać pole)
+      let updatedProdukty = order.produkty ? [...order.produkty] : [];
+      
       if (productIndex !== undefined && productIndex !== null) {
-        // Usuń rabat z produktu (ustawiamy null zamiast usuwać pole)
-        const updatedProdukty = order.produkty.map((p, idx) => {
+        updatedProdukty = updatedProdukty.map((p, idx) => {
           if (idx === productIndex) {
             return {
               ...p,
@@ -559,52 +561,42 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
           }
           return p;
         });
-        
-        // Przelicz kwotę do zapłaty
-        let sumaRabatow = 0;
-        updatedProdukty.forEach(p => {
-          if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
-        });
-        
-        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-        const originalDoZaplaty = cenaCalkowita - zaplacono;
-        const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
-        
-        await onUpdateOrder(order.id, {
-          produkty: updatedProdukty,
-          platnosci: {
-            ...order.platnosci,
-            doZaplaty: newDoZaplaty,
-            originalDoZaplaty: originalDoZaplaty,
-            sumaRabatow: sumaRabatow
-          },
-          historia: [...(order.historia || []), {
-            data: new Date().toISOString(),
-            uzytkownik: 'Admin',
-            akcja: 'Usunięto rabat'
-          }]
-        });
-      } else {
-        // Usuń stary rabat globalny
-        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-        const originalDoZaplaty = cenaCalkowita - zaplacono;
-        
-        await onUpdateOrder(order.id, {
-          rabatPrzyDostawie: null,
-          platnosci: {
-            ...order.platnosci,
-            doZaplaty: originalDoZaplaty,
-            rabat: 0
-          },
-          historia: [...(order.historia || []), {
-            data: new Date().toISOString(),
-            uzytkownik: 'Admin',
-            akcja: 'Usunięto rabat'
-          }]
-        });
       }
+      
+      // Przelicz kwotę do zapłaty
+      let sumaRabatow = 0;
+      updatedProdukty.forEach(p => {
+        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      });
+      
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+      
+      // Usuń też z rabatyKierowcow jeśli istnieje
+      let updatedRabatyKierowcow = order.rabatyKierowcow ? { ...order.rabatyKierowcow } : {};
+      if (kierowcaId && updatedRabatyKierowcow[kierowcaId]) {
+        updatedRabatyKierowcow[kierowcaId] = null;
+      }
+      
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        rabatyKierowcow: updatedRabatyKierowcow,
+        rabatPrzyDostawie: null, // Usuń też stary globalny rabat
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow,
+          rabat: 0
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: 'Usunięto rabat'
+        }]
+      });
       
       alert('Rabat został usunięty!');
       // Modal pozostaje otwarty - dane się same odświeżą przez Firebase
@@ -1640,6 +1632,7 @@ Zespół obsługi zamówień`;
                     ...p.rabat,
                     podzamowienie: p.nrPodzamowienia || `#${idx+1}`,
                     productIndex: idx,
+                    kierowcaId: p.rabat.kierowcaId || p.kierowca,
                     zProduktu: true
                   });
                 }
@@ -1647,10 +1640,13 @@ Zespół obsługi zamówień`;
             }
             
             // Rabaty z rabatyKierowcow (może być duplikat z produktów)
-            const rabatyKierowcow = order.rabatyKierowcow ? Object.values(order.rabatyKierowcow) : [];
+            const rabatyKierowcow = order.rabatyKierowcow ? Object.entries(order.rabatyKierowcow).map(([odDriver, r]) => ({
+              ...r,
+              kierowcaId: odDriver
+            })) : [];
             
             // Stary rabat globalny (fallback)
-            const staryRabat = order.rabatPrzyDostawie ? { ...order.rabatPrzyDostawie, globalny: true } : null;
+            const staryRabat = order.rabatPrzyDostawie ? { ...order.rabatPrzyDostawie, globalny: true, kierowcaId: order.rabatPrzyDostawie.kierowcaId } : null;
             
             // Połącz wszystkie unikalne rabaty
             const wszystkieRabaty = rabatyZProduktow.length > 0 ? rabatyZProduktow : 
@@ -1684,7 +1680,7 @@ Zespół obsługi zamówień`;
                           </button>
                           <button 
                             className="btn-delete-discount"
-                            onClick={() => handleDeleteDiscount(rabat.productIndex)}
+                            onClick={() => handleDeleteDiscount(rabat.productIndex, rabat.kierowcaId)}
                             title="Usuń rabat"
                           >
                             🗑️
@@ -5718,6 +5714,65 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   // Cennik transportu kierowcy
   const transportRates = user.transportRates || [];
 
+  // Funkcja usunięcia rabatu przez kierowcę
+  const handleDeleteDriverDiscount = async (order, productIndex) => {
+    try {
+      let updatedProdukty = order.produkty ? [...order.produkty] : [];
+      
+      if (productIndex !== undefined && productIndex !== null) {
+        updatedProdukty = updatedProdukty.map((p, idx) => {
+          if (idx === productIndex) {
+            return {
+              ...p,
+              rabat: null
+            };
+          }
+          return p;
+        });
+      }
+      
+      // Przelicz kwotę do zapłaty
+      let sumaRabatow = 0;
+      updatedProdukty.forEach(p => {
+        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      });
+      
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+      
+      // Usuń też z rabatyKierowcow
+      let updatedRabatyKierowcow = order.rabatyKierowcow ? { ...order.rabatyKierowcow } : {};
+      if (updatedRabatyKierowcow[user.id]) {
+        updatedRabatyKierowcow[user.id] = null;
+      }
+      
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        rabatyKierowcow: updatedRabatyKierowcow,
+        rabatPrzyDostawie: order.rabatPrzyDostawie?.kierowcaId === user.id ? null : order.rabatPrzyDostawie,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow,
+          rabat: 0
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: user.name,
+          akcja: 'Kierowca usunął rabat'
+        }]
+      });
+      
+      alert('Rabat został usunięty!');
+    } catch (error) {
+      console.error('Błąd usuwania rabatu:', error);
+      alert('Wystąpił błąd podczas usuwania rabatu');
+    }
+  };
+
   // Dodaj/Edytuj wyjazd
   const addTrip = async () => {
     if (!newTripDate) {
@@ -7457,6 +7512,7 @@ ${t.team}
                     let notatkaKierowcy = null;
                     let mojRabat = 0;
                     let mojRabatInfo = null;
+                    let mojRabatProductIndex = null;
                     const myProductIndexes = order._myProductIndexes || [];
                     
                     if (order.produkty && order.produkty.length > 0) {
@@ -7482,6 +7538,7 @@ ${t.team}
                           if (p.rabat && p.rabat.kwota > 0) {
                             mojRabat += p.rabat.kwota;
                             mojRabatInfo = p.rabat;
+                            mojRabatProductIndex = idx;
                           }
                         }
                       });
@@ -7538,7 +7595,21 @@ ${t.team}
                           {/* Info o rabacie */}
                           {mojRabat > 0 && mojRabatInfo && (
                             <div className="payment-discount-applied">
-                              💸 Udzielono rabat: <strong>-{formatCurrency(mojRabat, order.platnosci?.waluta)}</strong>
+                              <div className="discount-info-row">
+                                <span>💸 Udzielono rabat: <strong>-{formatCurrency(mojRabat, order.platnosci?.waluta)}</strong></span>
+                                <button 
+                                  className="btn-delete-discount-driver"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Czy na pewno chcesz usunąć ten rabat?')) {
+                                      handleDeleteDriverDiscount(order, mojRabatProductIndex);
+                                    }
+                                  }}
+                                  title="Usuń rabat"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                               <span className="discount-reason-small">({mojRabatInfo.powod})</span>
                             </div>
                           )}
