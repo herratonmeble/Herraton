@@ -2332,11 +2332,10 @@ Zespół obsługi zamówień`;
     // Synchronizuj pola towar i zaladunek dla kompatybilności wstecznej
     const formToSave = { ...form };
     if (formToSave.produkty && formToSave.produkty.length > 0) {
-      // Połącz opisy wszystkich produktów
+      // Połącz opisy wszystkich produktów (BEZ nazw producentów - to info wewnętrzne)
       formToSave.towar = formToSave.produkty.map((p, idx) => {
-        const prodName = Object.values(producers).find(pr => pr.id === p.producent)?.name || p.producentNazwa || '';
         const prefix = formToSave.produkty.length > 1 ? `[${p.nrPodzamowienia || idx + 1}] ` : '';
-        return `${prefix}${p.towar}${prodName ? ` (${prodName})` : ''}`;
+        return `${prefix}${p.towar}`;
       }).join('\n\n');
       
       // Pierwszy producent jako główny (dla kompatybilności)
