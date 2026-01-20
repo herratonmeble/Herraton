@@ -12435,7 +12435,7 @@ const PublicComplaintForm = ({ token }) => {
         }).catch(err => console.error('Błąd wysyłania emaila:', err));
       }
       
-      setView('tracking');
+      setView('success');
       
     } catch (err) {
       console.error('Błąd zapisywania reklamacji:', err);
@@ -12529,6 +12529,84 @@ const PublicComplaintForm = ({ token }) => {
           <div style={{fontSize: '48px', marginBottom: '20px'}}>❌</div>
           <h2 style={{color: '#DC2626', marginBottom: '15px'}}>Ups!</h2>
           <p style={{color: '#666'}}>{error}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // ==========================================
+  // WIDOK SUKCESU - PO WYSŁANIU REKLAMACJI
+  // ==========================================
+  if (view === 'success' && complaintData) {
+    const customerEmail = orderData?.klient?.email || clientEmail || '';
+    
+    return (
+      <div style={{...containerStyle, background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{...cardStyle, maxWidth: '550px'}}>
+          {/* Header */}
+          <div style={{background: 'linear-gradient(135deg, #10B981, #059669)', padding: '40px', textAlign: 'center', color: 'white'}}>
+            <div style={{fontSize: '64px', marginBottom: '15px'}}>✅</div>
+            <h1 style={{margin: '0 0 10px 0', fontSize: '28px', fontWeight: '700'}}>Reklamacja przyjęta!</h1>
+            <p style={{margin: 0, fontSize: '18px', opacity: 0.95}}>{complaintData.numer}</p>
+          </div>
+          
+          {/* Treść */}
+          <div style={{padding: '30px'}}>
+            <p style={{margin: '0 0 20px 0', color: '#374151', fontSize: '16px', lineHeight: '1.6', textAlign: 'center'}}>
+              Dziękujemy za zgłoszenie. Nasz zespół zajmie się Twoją sprawą najszybciej jak to możliwe.
+            </p>
+            
+            {/* Info o emailu */}
+            <div style={{background: '#F0FDF4', padding: '20px', borderRadius: '12px', border: '1px solid #86EFAC', marginBottom: '20px'}}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px'}}>
+                <span style={{fontSize: '24px'}}>📧</span>
+                <div>
+                  <p style={{margin: 0, fontWeight: '600', color: '#166534'}}>Link do śledzenia wysłany!</p>
+                  {customerEmail && (
+                    <p style={{margin: '5px 0 0 0', fontSize: '14px', color: '#15803D'}}>
+                      Na adres: <strong>{customerEmail}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p style={{margin: 0, fontSize: '14px', color: '#166534', lineHeight: '1.5'}}>
+                W emailu znajdziesz link, który pozwoli Ci w każdej chwili sprawdzić status reklamacji i komunikować się z naszym zespołem.
+              </p>
+            </div>
+            
+            {/* Szczegóły reklamacji */}
+            <div style={{background: '#F9FAFB', padding: '20px', borderRadius: '12px'}}>
+              <h3 style={{margin: '0 0 15px 0', fontSize: '14px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Szczegóły zgłoszenia</h3>
+              <div style={{display: 'grid', gap: '10px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#6B7280'}}>Numer reklamacji:</span>
+                  <span style={{fontWeight: '600', color: '#374151'}}>{complaintData.numer}</span>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#6B7280'}}>Zamówienie:</span>
+                  <span style={{fontWeight: '600', color: '#374151'}}>{complaintData.nrZamowienia}</span>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#6B7280'}}>Status:</span>
+                  <span style={{fontWeight: '600', color: '#DC2626'}}>🆕 Nowa</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Info */}
+            <div style={{marginTop: '20px', padding: '15px', background: '#FEF3C7', borderRadius: '10px'}}>
+              <p style={{margin: 0, fontSize: '13px', color: '#92400E', textAlign: 'center'}}>
+                💡 <strong>Zachowaj email z linkiem!</strong> Pozwoli Ci śledzić status i odpowiadać na nasze wiadomości.
+              </p>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
+            <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
+              Herraton • System obsługi reklamacji
+            </p>
+          </div>
         </div>
       </div>
     );
