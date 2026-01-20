@@ -441,6 +441,11 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const [activeProductIdx, setActiveProductIdx] = useState(selectedProductIndex || 0);
   const [expandedProtocols, setExpandedProtocols] = useState({});
   
+  // State do edycji rabatów przez admina
+  const [editingDiscount, setEditingDiscount] = useState(null); // { productIndex, rabat } lub { global: true, rabat }
+  const [discountEditAmount, setDiscountEditAmount] = useState('');
+  const [discountEditReason, setDiscountEditReason] = useState('');
+  
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -449,6 +454,147 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
   
   const hasMultipleProducts = order.produkty && order.produkty.length > 1;
+  
+  // Funkcja edycji rabatu przez admina
+  const handleEditDiscount = (productIndex, rabat) => {
+    setEditingDiscount({ productIndex, rabat });
+    setDiscountEditAmount(rabat.kwota?.toString() || '');
+    setDiscountEditReason(rabat.powod || '');
+  };
+  
+  // Funkcja zapisu edytowanego rabatu
+  const handleSaveDiscount = async () => {
+    if (!editingDiscount) return;
+    
+    const newAmount = parseFloat(discountEditAmount) || 0;
+    const newReason = discountEditReason || 'Brak podanego powodu';
+    
+    if (editingDiscount.productIndex !== undefined && editingDiscount.productIndex !== null) {
+      // Rabat w produkcie
+      const updatedProdukty = order.produkty.map((p, idx) => {
+        if (idx === editingDiscount.productIndex) {
+          return {
+            ...p,
+            rabat: {
+              ...p.rabat,
+              kwota: newAmount,
+              powod: newReason,
+              edytowanyPrzez: 'Admin',
+              dataEdycji: new Date().toISOString()
+            }
+          };
+        }
+        return p;
+      });
+      
+      // Przelicz kwotę do zapłaty
+      let sumaRabatow = 0;
+      updatedProdukty.forEach(p => {
+        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      });
+      
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+      
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
+        }]
+      });
+    } else {
+      // Stary rabat globalny
+      await onUpdateOrder(order.id, {
+        rabatPrzyDostawie: {
+          ...order.rabatPrzyDostawie,
+          kwota: newAmount,
+          powod: newReason,
+          edytowanyPrzez: 'Admin',
+          dataEdycji: new Date().toISOString()
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
+        }]
+      });
+    }
+    
+    setEditingDiscount(null);
+    setDiscountEditAmount('');
+    setDiscountEditReason('');
+  };
+  
+  // Funkcja usunięcia rabatu
+  const handleDeleteDiscount = async (productIndex) => {
+    if (!window.confirm('Czy na pewno chcesz usunąć ten rabat?')) return;
+    
+    if (productIndex !== undefined && productIndex !== null) {
+      // Usuń rabat z produktu
+      const updatedProdukty = order.produkty.map((p, idx) => {
+        if (idx === productIndex) {
+          const { rabat, ...rest } = p;
+          return rest;
+        }
+        return p;
+      });
+      
+      // Przelicz kwotę do zapłaty
+      let sumaRabatow = 0;
+      updatedProdukty.forEach(p => {
+        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      });
+      
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+      
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: 'Usunięto rabat'
+        }]
+      });
+    } else {
+      // Usuń stary rabat globalny
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      
+      await onUpdateOrder(order.id, {
+        rabatPrzyDostawie: null,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: originalDoZaplaty,
+          rabat: 0
+        },
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: 'Usunięto rabat'
+        }]
+      });
+    }
+  };
   
   // Grupuj protokoły per kierowca - BEZ protokołu głównego
   const getProtocolsByDriver = () => {
@@ -1475,6 +1621,7 @@ Zespół obsługi zamówień`;
                   rabatyZProduktow.push({
                     ...p.rabat,
                     podzamowienie: p.nrPodzamowienia || `#${idx+1}`,
+                    productIndex: idx,
                     zProduktu: true
                   });
                 }
@@ -1485,7 +1632,7 @@ Zespół obsługi zamówień`;
             const rabatyKierowcow = order.rabatyKierowcow ? Object.values(order.rabatyKierowcow) : [];
             
             // Stary rabat globalny (fallback)
-            const staryRabat = order.rabatPrzyDostawie;
+            const staryRabat = order.rabatPrzyDostawie ? { ...order.rabatPrzyDostawie, globalny: true } : null;
             
             // Połącz wszystkie unikalne rabaty
             const wszystkieRabaty = rabatyZProduktow.length > 0 ? rabatyZProduktow : 
@@ -1502,14 +1649,38 @@ Zespół obsługi zamówień`;
                 <label>💸 RABATY PRZY DOSTAWIE {wszystkieRabaty.length > 1 && `(${wszystkieRabaty.length})`}</label>
                 {wszystkieRabaty.map((rabat, idx) => (
                   <div key={idx} className="discount-display">
-                    <div className="discount-amount">
-                      -{formatCurrency(rabat.kwota, order.platnosci?.waluta)}
-                      {rabat.podzamowienie && <span className="discount-suborder">({rabat.podzamowienie})</span>}
+                    <div className="discount-header-row">
+                      <div className="discount-amount">
+                        -{formatCurrency(rabat.kwota, order.platnosci?.waluta)}
+                        {rabat.podzamowienie && <span className="discount-suborder">({rabat.podzamowienie})</span>}
+                      </div>
+                      {/* Przyciski edycji/usunięcia dla admina */}
+                      {!isContractor && (
+                        <div className="discount-admin-actions">
+                          <button 
+                            className="btn-edit-discount"
+                            onClick={() => handleEditDiscount(rabat.productIndex, rabat)}
+                            title="Edytuj rabat"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            className="btn-delete-discount"
+                            onClick={() => handleDeleteDiscount(rabat.productIndex)}
+                            title="Usuń rabat"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="discount-details">
                       <p><strong>Powód:</strong> {rabat.powod}</p>
                       <p><strong>Udzielony przez:</strong> {rabat.kierowca}</p>
                       <p><strong>Data:</strong> {formatDateTime(rabat.data)}</p>
+                      {rabat.edytowanyPrzez && (
+                        <p className="discount-edited"><em>Edytowany przez: {rabat.edytowanyPrzez} ({formatDateTime(rabat.dataEdycji)})</em></p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1521,6 +1692,36 @@ Zespół obsługi zamówień`;
               </div>
             );
           })()}
+          
+          {/* Modal edycji rabatu */}
+          {editingDiscount && (
+            <div className="discount-edit-overlay" onClick={() => setEditingDiscount(null)}>
+              <div className="discount-edit-modal" onClick={e => e.stopPropagation()}>
+                <h3>✏️ Edycja rabatu</h3>
+                <div className="form-group">
+                  <label>Kwota rabatu ({order.platnosci?.waluta || 'PLN'})</label>
+                  <input 
+                    type="number" 
+                    value={discountEditAmount} 
+                    onChange={e => setDiscountEditAmount(e.target.value)}
+                    step="0.01"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Powód rabatu</label>
+                  <textarea 
+                    value={discountEditReason} 
+                    onChange={e => setDiscountEditReason(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="discount-edit-actions">
+                  <button className="btn-secondary" onClick={() => setEditingDiscount(null)}>Anuluj</button>
+                  <button className="btn-primary" onClick={handleSaveDiscount}>💾 Zapisz</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
             </>
