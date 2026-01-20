@@ -1465,22 +1465,62 @@ Zespół obsługi zamówień`;
             </div>
           )}
 
-          {/* RABAT PRZY DOSTAWIE */}
-          {order.rabatPrzyDostawie && (
-            <div className="detail-section discount-section">
-              <label>💸 RABAT PRZY DOSTAWIE</label>
-              <div className="discount-display">
-                <div className="discount-amount">
-                  -{formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci?.waluta)}
-                </div>
-                <div className="discount-details">
-                  <p><strong>Powód:</strong> {order.rabatPrzyDostawie.powod}</p>
-                  <p><strong>Udzielony przez:</strong> {order.rabatPrzyDostawie.kierowca}</p>
-                  <p><strong>Data:</strong> {formatDateTime(order.rabatPrzyDostawie.data)}</p>
-                </div>
+          {/* RABAT PRZY DOSTAWIE - obsługa nowej i starej logiki */}
+          {(() => {
+            // Zbierz wszystkie rabaty - z produktów (nowa logika) i z rabatyKierowcow
+            const rabatyZProduktow = [];
+            if (order.produkty && order.produkty.length > 0) {
+              order.produkty.forEach((p, idx) => {
+                if (p.rabat && p.rabat.kwota > 0) {
+                  rabatyZProduktow.push({
+                    ...p.rabat,
+                    podzamowienie: p.nrPodzamowienia || `#${idx+1}`,
+                    zProduktu: true
+                  });
+                }
+              });
+            }
+            
+            // Rabaty z rabatyKierowcow (może być duplikat z produktów)
+            const rabatyKierowcow = order.rabatyKierowcow ? Object.values(order.rabatyKierowcow) : [];
+            
+            // Stary rabat globalny (fallback)
+            const staryRabat = order.rabatPrzyDostawie;
+            
+            // Połącz wszystkie unikalne rabaty
+            const wszystkieRabaty = rabatyZProduktow.length > 0 ? rabatyZProduktow : 
+              (rabatyKierowcow.length > 0 ? rabatyKierowcow : 
+              (staryRabat ? [staryRabat] : []));
+            
+            // Oblicz sumę rabatów
+            const sumaRabatow = wszystkieRabaty.reduce((sum, r) => sum + (r.kwota || 0), 0);
+            
+            if (wszystkieRabaty.length === 0) return null;
+            
+            return (
+              <div className="detail-section discount-section">
+                <label>💸 RABATY PRZY DOSTAWIE {wszystkieRabaty.length > 1 && `(${wszystkieRabaty.length})`}</label>
+                {wszystkieRabaty.map((rabat, idx) => (
+                  <div key={idx} className="discount-display">
+                    <div className="discount-amount">
+                      -{formatCurrency(rabat.kwota, order.platnosci?.waluta)}
+                      {rabat.podzamowienie && <span className="discount-suborder">({rabat.podzamowienie})</span>}
+                    </div>
+                    <div className="discount-details">
+                      <p><strong>Powód:</strong> {rabat.powod}</p>
+                      <p><strong>Udzielony przez:</strong> {rabat.kierowca}</p>
+                      <p><strong>Data:</strong> {formatDateTime(rabat.data)}</p>
+                    </div>
+                  </div>
+                ))}
+                {wszystkieRabaty.length > 1 && (
+                  <div className="discount-total">
+                    <strong>Suma rabatów: -{formatCurrency(sumaRabatow, order.platnosci?.waluta)}</strong>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
             </>
@@ -5129,23 +5169,61 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           {order.platnosci?.doZaplaty > 0 && (
             <span className="unpaid">
               Do zapłaty: <strong>{formatCurrency(order.platnosci.doZaplaty, order.platnosci.waluta)}</strong>
-              {order.rabatPrzyDostawie?.kwota > 0 && (
-                <small className="payment-discount-info">
-                  <br/>
-                  <span className="original-amount">Było: {formatCurrency(order.platnosci.originalDoZaplaty || (order.platnosci.doZaplaty + order.rabatPrzyDostawie.kwota), order.platnosci.waluta)}</span>
-                  <span className="discount-applied"> → Rabat: -{formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci.waluta)}</span>
-                </small>
-              )}
             </span>
           )}
           {order.platnosci?.doZaplaty === 0 && order.platnosci?.cenaCalkowita > 0 && (
             <span className="paid-badge">✓ Opłacone</span>
           )}
+          {/* Info o rabacie - nowa logika */}
+          {(() => {
+            // Zbierz sumę rabatów z produktów (nowa logika)
+            let sumaRabatow = 0;
+            if (order.produkty && order.produkty.length > 0) {
+              order.produkty.forEach(p => {
+                if (p.rabat && p.rabat.kwota > 0) {
+                  sumaRabatow += p.rabat.kwota;
+                }
+              });
+            }
+            // Fallback na rabatyKierowcow
+            if (sumaRabatow === 0 && order.rabatyKierowcow) {
+              sumaRabatow = Object.values(order.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+            }
+            // Fallback na stary rabatPrzyDostawie
+            if (sumaRabatow === 0 && order.rabatPrzyDostawie?.kwota > 0) {
+              sumaRabatow = order.rabatPrzyDostawie.kwota;
+            }
+            
+            if (sumaRabatow > 0 && order.platnosci?.doZaplaty >= 0) {
+              const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (order.platnosci?.doZaplaty + sumaRabatow);
+              return (
+                <small className="payment-discount-info">
+                  <br/>
+                  <span className="original-amount">Było: {formatCurrency(originalDoZaplaty, order.platnosci?.waluta)}</span>
+                  <span className="discount-applied"> → Rabat: -{formatCurrency(sumaRabatow, order.platnosci?.waluta)}</span>
+                </small>
+              );
+            }
+            return null;
+          })()}
           {/* Marża - tylko dla admina - ZAWSZE W PLN */}
           {isAdmin && (order.koszty?.zakupNetto > 0 || order.koszty?.zakupBrutto > 0 || (order.produkty?.some(p => p.koszty?.zakupNetto > 0))) && (
             <span className={calcMarzaPLN() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
               📊 Marża: <strong>{formatCurrency(calcMarzaPLN(), 'PLN')}</strong>
-              {order.rabatPrzyDostawie?.kwota > 0 && <small className="discount-note"> (po rabacie)</small>}
+              {(() => {
+                // Sprawdź czy jest jakiś rabat
+                let maRabat = false;
+                if (order.produkty) {
+                  maRabat = order.produkty.some(p => p.rabat?.kwota > 0);
+                }
+                if (!maRabat && order.rabatyKierowcow) {
+                  maRabat = Object.values(order.rabatyKierowcow).some(r => r.kwota > 0);
+                }
+                if (!maRabat && order.rabatPrzyDostawie?.kwota > 0) {
+                  maRabat = true;
+                }
+                return maRabat ? <small className="discount-note"> (po rabacie)</small> : null;
+              })()}
             </span>
           )}
         </div>
