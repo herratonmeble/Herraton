@@ -2570,18 +2570,22 @@ Zespół obsługi zamówień`;
                     <div className="costs-summary-box">
                       <h4>💰 Koszty produktów:</h4>
                       <div className="costs-products-list">
-                        {form.produkty.map((p, idx) => (
-                          <div key={idx} className="cost-product-row">
-                            <span>#{idx + 1}: {p.towar?.substring(0, 30) || 'Produkt'}...</span>
-                            <span>
-                              Zakup: {formatCurrency(p.koszty?.zakupNetto || 0, p.koszty?.waluta || 'PLN')} | 
-                              Transport: {formatCurrency(p.koszty?.transportNetto || 0, p.koszty?.transportWaluta || 'PLN')}
-                            </span>
-                          </div>
-                        ))}
+                        {form.produkty.map((p, idx) => {
+                          const zakupPLN = (p.koszty?.zakupNetto || 0) * (exchangeRates?.[p.koszty?.waluta || 'PLN'] || 1);
+                          const transportPLN = (p.koszty?.transportNetto || 0) * (exchangeRates?.[p.koszty?.transportWaluta || 'PLN'] || 1);
+                          return (
+                            <div key={idx} className="cost-product-row">
+                              <span>#{idx + 1}: {p.towar?.substring(0, 20) || 'Produkt'}...</span>
+                              <span>
+                                Zakup: {formatCurrency(zakupPLN, 'PLN')} | 
+                                Transport: {formatCurrency(transportPLN, 'PLN')}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                       <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between' }}>
-                        <strong>SUMA (PLN):</strong>
+                        <strong>Suma kosztów (PLN):</strong>
                         <strong>
                           {formatCurrency(
                             form.produkty.reduce((s, p) => {
