@@ -450,7 +450,7 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   
   const hasMultipleProducts = order.produkty && order.produkty.length > 1;
   
-  // Grupuj protokoły per kierowca
+  // Grupuj protokoły per kierowca - BEZ protokołu głównego
   const getProtocolsByDriver = () => {
     const protocols = {};
     
@@ -467,7 +467,8 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
             zdjeciaOdbioru: [],
             zdjeciaDostawy: [],
             podpisy: [],
-            uwagi: []
+            uwagi: [],
+            rabat: null
           };
         }
         
@@ -481,38 +482,25 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
           protocols[driverId].zdjeciaDostawy.push(...prod.protokol.zdjeciaDostawy);
         }
         if (prod.protokol?.podpis) {
-          protocols[driverId].podpisy.push({ productIdx: idx, podpis: prod.protokol.podpis });
+          protocols[driverId].podpisy.push({ productIdx: idx, podpis: prod.protokol.podpis, uwagi: prod.protokol.uwagiKlienta });
         }
-        if (prod.protokol?.uwagi) {
-          protocols[driverId].uwagi.push({ productIdx: idx, uwagi: prod.protokol.uwagi });
+        if (prod.protokol?.uwagiKlienta) {
+          protocols[driverId].uwagi.push({ productIdx: idx, uwagi: prod.protokol.uwagiKlienta });
+        }
+        
+        // Rabat kierowcy
+        if (prod.rabat) {
+          protocols[driverId].rabat = prod.rabat;
         }
       });
-    }
-    
-    // Dodaj też globalne protokoły zamówienia jeśli istnieją
-    if (order.zdjeciaOdbioru?.length > 0 || order.zdjeciaDostawy?.length > 0 || order.podpisKlienta) {
-      const globalDriverId = order.przypisanyKierowca || 'global';
-      if (!protocols[globalDriverId]) {
-        const driverInfo = drivers.find(d => d.id === globalDriverId);
-        protocols[globalDriverId] = {
-          driverName: driverInfo?.name || 'Protokół główny',
-          products: [],
-          zdjeciaOdbioru: order.zdjeciaOdbioru || [],
-          zdjeciaDostawy: order.zdjeciaDostawy || [],
-          podpisy: order.podpisKlienta ? [{ global: true, podpis: order.podpisKlienta }] : [],
-          uwagi: order.uwagiKierowcy ? [{ global: true, uwagi: order.uwagiKierowcy }] : []
-        };
-      } else {
-        // Dodaj do istniejącego kierowcy
-        if (order.zdjeciaOdbioru?.length > 0) {
-          protocols[globalDriverId].zdjeciaOdbioru.push(...order.zdjeciaOdbioru);
-        }
-        if (order.zdjeciaDostawy?.length > 0) {
-          protocols[globalDriverId].zdjeciaDostawy.push(...order.zdjeciaDostawy);
-        }
-        if (order.podpisKlienta) {
-          protocols[globalDriverId].podpisy.push({ global: true, podpis: order.podpisKlienta });
-        }
+      
+      // Dodaj rabaty z rabatyKierowcow jeśli nie ma w produktach
+      if (order.rabatyKierowcow) {
+        Object.entries(order.rabatyKierowcow).forEach(([driverId, rabat]) => {
+          if (protocols[driverId] && !protocols[driverId].rabat) {
+            protocols[driverId].rabat = rabat;
+          }
+        });
       }
     }
     
@@ -1577,13 +1565,40 @@ Zespół obsługi zamówień`;
                       {/* Uwagi */}
                       {protocol.uwagi.length > 0 && (
                         <div className="protocol-notes-section">
-                          <strong>📝 Uwagi:</strong>
+                          <strong>📝 Uwagi klienta:</strong>
                           {protocol.uwagi.map((u, i) => (
                             <div key={i} className="protocol-note">
                               {!u.global && <span className="note-product">#{u.productIdx + 1}:</span>}
                               {u.uwagi}
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Rabat kierowcy */}
+                      {protocol.rabat && (
+                        <div className="protocol-discount-section">
+                          <strong>💸 Rabat udzielony:</strong>
+                          <div className="protocol-discount-info">
+                            <span className="discount-amount">-{formatCurrency(protocol.rabat.kwota, order.platnosci?.waluta)}</span>
+                            <span className="discount-reason">{protocol.rabat.powod}</span>
+                            <span className="discount-date">{formatDateTime(protocol.rabat.data)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Przycisk pobrania protokołu */}
+                      {(protocol.podpisy.length > 0 || protocol.zdjeciaDostawy.length > 0) && (
+                        <div className="protocol-actions">
+                          <button 
+                            className="btn-download-protocol"
+                            onClick={() => {
+                              // TODO: Generowanie PDF protokołu dla tego kierowcy
+                              alert(`Generowanie protokołu dla ${protocol.driverName}...`);
+                            }}
+                          >
+                            📥 Pobierz protokół PDF
+                          </button>
                         </div>
                       )}
                     </div>
@@ -5627,7 +5642,7 @@ ${st.team}
     setShowStatusChangeEmail(null);
   };
 
-  // Zapisz rabat
+  // Zapisz rabat - per kierowca dla zamówień łączonych
   const saveDiscount = async () => {
     const order = orders.find(o => o.id === showDiscount);
     if (!order) return;
@@ -5642,63 +5657,76 @@ ${st.team}
       kwota: amount,
       powod: discountReason || 'Brak podanego powodu',
       data: new Date().toISOString(),
-      kierowca: user.name
+      kierowca: user.name,
+      kierowcaId: user.id
     };
 
-    // POPRAWIONE: Oblicz oryginalną kwotę do zapłaty (bez rabatu)
-    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-    const zaliczka = order.platnosci?.zaliczka || 0;
-    const zaplacono = order.platnosci?.zaplacono || zaliczka;
-    
-    // Oryginalna kwota do zapłaty (przed jakimkolwiek rabatem)
-    const originalDoZaplaty = cenaCalkowita - zaplacono;
-    
-    // Nowa kwota do zapłaty = oryginalna - nowy rabat
-    const newDoZaplaty = Math.max(0, originalDoZaplaty - amount);
+    // Sprawdź czy to zamówienie łączone
+    if (order.produkty && order.produkty.length > 0) {
+      // Zapisz rabat do produktów tego kierowcy
+      const updatedProdukty = order.produkty.map((prod) => {
+        const prodDriverId = prod.kierowca || order.przypisanyKierowca;
+        if (prodDriverId === user.id) {
+          return {
+            ...prod,
+            rabat: rabat
+          };
+        }
+        return prod;
+      });
 
-    // PRZELICZANIE MARŻY - rabat pomniejsza marżę
-    // Konwertuj rabat do PLN jeśli zamówienie jest w innej walucie
-    const waluta = order.platnosci?.waluta || 'PLN';
-    const kursyWalut = { PLN: 1, EUR: 4.35, GBP: 5.10, USD: 4.05 };
-    const rabatPLN = amount * (kursyWalut[waluta] || 1);
-    
-    // Pobierz oryginalną marżę (przed rabatem) lub aktualną
-    const originalMarzaPLN = order.koszty?.originalMarzaPLN ?? order.koszty?.marzaPLN ?? 0;
-    const originalMarzaProcentowa = order.koszty?.originalMarzaProcentowa ?? order.koszty?.marzaProcentowa ?? 0;
-    
-    // Nowa marża = oryginalna marża - rabat (w PLN)
-    const newMarzaPLN = originalMarzaPLN - rabatPLN;
-    
-    // Oblicz nowy procent marży
-    const cenaNettoPLN = order.koszty?.cenaNettoPLN || (cenaCalkowita / 1.23 * (kursyWalut[waluta] || 1));
-    const newCenaNettoPLN = cenaNettoPLN - (rabatPLN / 1.23); // rabat też pomniejsza cenę netto
-    const newMarzaProcentowa = newCenaNettoPLN > 0 ? Math.round(newMarzaPLN / newCenaNettoPLN * 100) : 0;
+      // Zapisz też w zbiorze rabatów per kierowca
+      const rabatyKierowcow = order.rabatyKierowcow || {};
+      rabatyKierowcow[user.id] = rabat;
 
-    await onUpdateOrder(order.id, {
-      ...order,
-      rabatPrzyDostawie: rabat,
-      platnosci: {
-        ...order.platnosci,
-        doZaplaty: newDoZaplaty,
-        originalDoZaplaty: originalDoZaplaty,
-        rabat: amount
-      },
-      koszty: {
-        ...order.koszty,
-        // Zapisz oryginalne wartości marży (przed rabatem) żeby móc je przywrócić
-        originalMarzaPLN: originalMarzaPLN,
-        originalMarzaProcentowa: originalMarzaProcentowa,
-        // Zaktualizuj marżę po rabacie
-        marzaPLN: Math.round(newMarzaPLN * 100) / 100,
-        marzaProcentowa: newMarzaProcentowa,
-        rabatPLN: Math.round(rabatPLN * 100) / 100
-      },
-      historia: [...(order.historia || []), { 
-        data: new Date().toISOString(), 
-        uzytkownik: user.name, 
-        akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'} (marża: ${formatCurrency(newMarzaPLN, 'PLN')})` 
-      }]
-    });
+      // Oblicz sumę wszystkich rabatów
+      const sumaRabatow = Object.values(rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+      
+      // Przelicz kwotę do zapłaty
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
+
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        rabatyKierowcow: rabatyKierowcow,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow
+        },
+        historia: [...(order.historia || []), { 
+          data: new Date().toISOString(), 
+          uzytkownik: user.name, 
+          akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
+        }]
+      });
+    } else {
+      // Stare zamówienie - zapisz globalnie
+      const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+      const zaliczka = order.platnosci?.zaliczka || 0;
+      const zaplacono = order.platnosci?.zaplacono || zaliczka;
+      const originalDoZaplaty = cenaCalkowita - zaplacono;
+      const newDoZaplaty = Math.max(0, originalDoZaplaty - amount);
+
+      await onUpdateOrder(order.id, {
+        ...order,
+        rabatPrzyDostawie: rabat,
+        platnosci: {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          rabat: amount
+        },
+        historia: [...(order.historia || []), { 
+          data: new Date().toISOString(), 
+          uzytkownik: user.name, 
+          akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
+        }]
+      });
+    }
 
     onAddNotification({ 
       icon: '💸', 
@@ -5815,12 +5843,39 @@ ${st.team}
         return;
       }
 
-      const updatedPhotos = [...(currentOrder[field] || []), photo];
+      // Sprawdź czy to zamówienie łączone i znajdź produkty tego kierowcy
+      if (currentOrder.produkty && currentOrder.produkty.length > 0) {
+        // Znajdź produkty przypisane do tego kierowcy
+        const updatedProdukty = currentOrder.produkty.map((prod, idx) => {
+          const prodDriverId = prod.kierowca || currentOrder.przypisanyKierowca;
+          if (prodDriverId === user.id) {
+            // Ten produkt należy do tego kierowcy - dodaj zdjęcie do protokołu
+            const protokol = prod.protokol || {};
+            const photos = protokol[field] || [];
+            return {
+              ...prod,
+              protokol: {
+                ...protokol,
+                [field]: [...photos, photo]
+              }
+            };
+          }
+          return prod;
+        });
 
-      await onUpdateOrder(orderId, {
-        [field]: updatedPhotos,
-        historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
-      });
+        await onUpdateOrder(orderId, {
+          produkty: updatedProdukty,
+          historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+        });
+      } else {
+        // Stare zamówienie bez produktów - zapisz globalnie
+        const updatedPhotos = [...(currentOrder[field] || []), photo];
+
+        await onUpdateOrder(orderId, {
+          [field]: updatedPhotos,
+          historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+        });
+      }
 
       console.log('Zdjęcie zapisane pomyślnie');
       onAddNotification({ icon: '📷', title: `Zdjęcie: ${currentOrder.nrWlasny}`, message: `Kierowca ${user.name} dodał zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}`, orderId: orderId });
@@ -5896,36 +5951,102 @@ ${st.team}
     const dataUrl = canvasRef.current.toDataURL();
     const now = new Date();
     
-    // Tworzenie pełnej umowy odbioru
-    const umowaOdbioru = {
-      dataDostawy: now.toISOString(),
-      godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-      klient: {
-        imie: order.klient?.imie || '',
-        adres: order.klient?.adres || '',
-        telefon: order.klient?.telefon || '',
-        email: order.klient?.email || ''
-      },
-      produkt: order.towar || '',
-      nrZamowienia: order.nrWlasny || '',
-      kierowca: user.name,
-      uwagiKlienta: clientRemarks || '',
-      akceptacjaBezUwag: !clientRemarks || clientRemarks.trim() === '',
-      podpis: { url: dataUrl, timestamp: now.toISOString() },
-      jezyk: protocolLanguage, // Zapisz wybrany język
-      trescUmowy: `Potwierdzam odbiór zamówienia nr ${order.nrWlasny}. Produkt: ${order.towar || 'brak opisu'}. ${!clientRemarks ? 'Nie zgłaszam uwag do produktu ani do dostawy.' : `Uwagi: ${clientRemarks}`}`
-    };
+    const podpisData = { url: dataUrl, timestamp: now.toISOString(), by: user.name };
+    
+    // Sprawdź czy to zamówienie łączone
+    if (order.produkty && order.produkty.length > 0) {
+      // Znajdź produkty przypisane do tego kierowcy i dodaj podpis
+      const updatedProdukty = order.produkty.map((prod, idx) => {
+        const prodDriverId = prod.kierowca || order.przypisanyKierowca;
+        if (prodDriverId === user.id) {
+          // Ten produkt należy do tego kierowcy
+          const protokol = prod.protokol || {};
+          return {
+            ...prod,
+            protokol: {
+              ...protokol,
+              podpis: podpisData,
+              uwagiKlienta: clientRemarks || '',
+              dataDostawy: now.toISOString(),
+              godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+              kierowca: user.name,
+              jezyk: protocolLanguage
+            }
+          };
+        }
+        return prod;
+      });
 
-    await onUpdateOrder(order.id, {
-      ...order,
-      podpisKlienta: { url: dataUrl, timestamp: now.toISOString(), by: user.name },
-      umowaOdbioru: umowaOdbioru,
-      historia: [...(order.historia || []), { 
-        data: now.toISOString(), 
-        uzytkownik: user.name, 
-        akcja: `Podpis klienta${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
-      }]
-    });
+      // Tworzenie umowy odbioru dla produktów tego kierowcy
+      const mojeProduktOpisy = order.produkty
+        .filter(p => (p.kierowca || order.przypisanyKierowca) === user.id)
+        .map(p => p.towar)
+        .join('; ');
+      
+      const umowaOdbioru = {
+        dataDostawy: now.toISOString(),
+        godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+        klient: {
+          imie: order.klient?.imie || '',
+          adres: order.klient?.adres || '',
+          telefon: order.klient?.telefon || '',
+          email: order.klient?.email || ''
+        },
+        produkt: mojeProduktOpisy,
+        nrZamowienia: order.nrWlasny || '',
+        kierowca: user.name,
+        uwagiKlienta: clientRemarks || '',
+        akceptacjaBezUwag: !clientRemarks || clientRemarks.trim() === '',
+        podpis: podpisData,
+        jezyk: protocolLanguage
+      };
+
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        // Zapisz też umowę dla tego kierowcy
+        umowyOdbioru: {
+          ...(order.umowyOdbioru || {}),
+          [user.id]: umowaOdbioru
+        },
+        historia: [...(order.historia || []), { 
+          data: now.toISOString(), 
+          uzytkownik: user.name, 
+          akcja: `Podpis klienta${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
+        }]
+      });
+    } else {
+      // Stare zamówienie bez produktów
+      const umowaOdbioru = {
+        dataDostawy: now.toISOString(),
+        godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+        klient: {
+          imie: order.klient?.imie || '',
+          adres: order.klient?.adres || '',
+          telefon: order.klient?.telefon || '',
+          email: order.klient?.email || ''
+        },
+        produkt: order.towar || '',
+        nrZamowienia: order.nrWlasny || '',
+        kierowca: user.name,
+        uwagiKlienta: clientRemarks || '',
+        akceptacjaBezUwag: !clientRemarks || clientRemarks.trim() === '',
+        podpis: podpisData,
+        jezyk: protocolLanguage,
+        trescUmowy: `Potwierdzam odbiór zamówienia nr ${order.nrWlasny}. Produkt: ${order.towar || 'brak opisu'}. ${!clientRemarks ? 'Nie zgłaszam uwag do produktu ani do dostawy.' : `Uwagi: ${clientRemarks}`}`
+      };
+
+      await onUpdateOrder(order.id, {
+        ...order,
+        podpisKlienta: podpisData,
+        umowaOdbioru: umowaOdbioru,
+        historia: [...(order.historia || []), { 
+          data: now.toISOString(), 
+          uzytkownik: user.name, 
+          akcja: `Podpis klienta${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
+        }]
+      });
+    }
+    
     onAddNotification({ 
       icon: '✍️', 
       title: `Podpis: ${order.nrWlasny}`, 
@@ -7021,11 +7142,20 @@ ${t.team}
                           />
                         </div>
                         <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
-                        {(order.platnosci?.doZaplaty > 0 || order.rabatPrzyDostawie) && (
-                          <button className="btn-driver discount" onClick={() => { setDiscountAmount(order.rabatPrzyDostawie?.kwota?.toString() || ''); setDiscountReason(order.rabatPrzyDostawie?.powod || ''); setShowDiscount(order.id); }}>
-                            💸 {order.rabatPrzyDostawie ? 'Edytuj rabat' : 'Udziel rabatu'}
-                          </button>
-                        )}
+                        {/* Rabat - kierowca widzi i edytuje tylko swój */}
+                        {(order.platnosci?.doZaplaty > 0 || (order.rabatyKierowcow && order.rabatyKierowcow[user.id]) || order.rabatPrzyDostawie) && (() => {
+                          // Pobierz rabat tego kierowcy
+                          const mojRabat = order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
+                          return (
+                            <button className="btn-driver discount" onClick={() => { 
+                              setDiscountAmount(mojRabat?.kwota?.toString() || ''); 
+                              setDiscountReason(mojRabat?.powod || ''); 
+                              setShowDiscount(order.id); 
+                            }}>
+                              💸 {mojRabat ? 'Edytuj mój rabat' : 'Udziel rabatu'}
+                            </button>
+                          );
+                        })()}
                         <button className="btn-driver notes" onClick={() => openNotes(order)}>📝 Uwagi</button>
                         <button className="btn-driver confirm" onClick={() => confirmDelivery(order)}>✔️ Potwierdź dostawę</button>
                         <button className="btn-driver back" onClick={() => changeStatus(order, 'odebrane')}>⬅️ Cofnij</button>
@@ -7044,13 +7174,19 @@ ${t.team}
                     )}
                   </div>
 
-                  {/* Wyświetl info o rabacie jeśli był */}
-                  {order.rabatPrzyDostawie && (
-                    <div className="discount-info-card">
-                      <span className="discount-badge">💸 Rabat: {formatCurrency(order.rabatPrzyDostawie.kwota, order.platnosci?.waluta)}</span>
-                      <span className="discount-reason">{order.rabatPrzyDostawie.powod}</span>
-                    </div>
-                  )}
+                  {/* Wyświetl info o rabacie TYLKO TEGO KIEROWCY */}
+                  {(() => {
+                    const mojRabat = order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
+                    if (mojRabat) {
+                      return (
+                        <div className="discount-info-card">
+                          <span className="discount-badge">💸 Mój rabat: {formatCurrency(mojRabat.kwota, order.platnosci?.waluta)}</span>
+                          <span className="discount-reason">{mojRabat.powod}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               );
             })}
