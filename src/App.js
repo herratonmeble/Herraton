@@ -1593,8 +1593,21 @@ Zespół obsługi zamówień`;
                           <button 
                             className="btn-download-protocol"
                             onClick={() => {
-                              // TODO: Generowanie PDF protokołu dla tego kierowcy
-                              alert(`Generowanie protokołu dla ${protocol.driverName}...`);
+                              // Otwórz modal protokołu z danymi tego kierowcy
+                              const protocolData = {
+                                ...order,
+                                _driverProtocol: {
+                                  driverId: driverId,
+                                  driverName: protocol.driverName,
+                                  products: protocol.products,
+                                  podpis: protocol.podpisy[0]?.podpis,
+                                  zdjeciaDostawy: protocol.zdjeciaDostawy,
+                                  zdjeciaOdbioru: protocol.zdjeciaOdbioru,
+                                  uwagi: protocol.uwagi,
+                                  rabat: protocol.rabat
+                                }
+                              };
+                              openProtocolModal(protocolData);
                             }}
                           >
                             📥 Pobierz protokół PDF
@@ -5651,7 +5664,14 @@ ${st.team}
     const order = orders.find(o => o.id === orderWithIndexes.id);
     if (!order) return;
     
-    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    let myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    
+    // Jeśli nie mamy _myProductIndexes, spróbuj znaleźć produkty tego kierowcy
+    if (myProductIndexes.length === 0 && order.produkty && order.produkty.length > 0) {
+      myProductIndexes = order.produkty
+        .map((p, idx) => (p.kierowca === user.id || (!p.kierowca && order.przypisanyKierowca === user.id)) ? idx : -1)
+        .filter(idx => idx !== -1);
+    }
     
     const amount = parseFloat(discountAmount) || 0;
     if (amount <= 0) {
@@ -5854,7 +5874,14 @@ ${st.team}
       }
 
       // Użyj _myProductIndexes z przekazanego order (zawiera informację które produkty są moje)
-      const myProductIndexes = order._myProductIndexes || [];
+      let myProductIndexes = order._myProductIndexes || [];
+      
+      // Jeśli nie mamy _myProductIndexes, spróbuj znaleźć produkty tego kierowcy
+      if (myProductIndexes.length === 0 && currentOrder.produkty && currentOrder.produkty.length > 0) {
+        myProductIndexes = currentOrder.produkty
+          .map((p, idx) => (p.kierowca === user.id || (!p.kierowca && currentOrder.przypisanyKierowca === user.id)) ? idx : -1)
+          .filter(idx => idx !== -1);
+      }
 
       // Sprawdź czy to zamówienie łączone i znajdź produkty tego kierowcy
       if (currentOrder.produkty && currentOrder.produkty.length > 0 && myProductIndexes.length > 0) {
@@ -5966,7 +5993,15 @@ ${st.team}
     const order = orders.find(o => o.id === orderWithIndexes.id);
     if (!order) return;
     
-    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    let myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    
+    // Jeśli nie mamy _myProductIndexes, spróbuj znaleźć produkty tego kierowcy
+    if (myProductIndexes.length === 0 && order.produkty && order.produkty.length > 0) {
+      myProductIndexes = order.produkty
+        .map((p, idx) => (p.kierowca === user.id || (!p.kierowca && order.przypisanyKierowca === user.id)) ? idx : -1)
+        .filter(idx => idx !== -1);
+    }
+    
     const dataUrl = canvasRef.current.toDataURL();
     const now = new Date();
     
@@ -7262,31 +7297,39 @@ ${t.team}
         <div className="modal-overlay" onClick={() => setShowDiscount(null)}>
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>💸 {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie ? 'Edytuj rabat' : 'Udziel rabatu'}</h2>
+              <h2>💸 Udziel rabatu</h2>
               <button className="btn-close" onClick={() => setShowDiscount(null)}>×</button>
             </div>
             <div className="modal-body">
               {(() => {
-                const order = orders.find(o => o.id === showDiscount);
-                const existingDiscount = order?.rabatPrzyDostawie;
+                // showDiscount to teraz obiekt order z _myProductIndexes
+                const orderWithIndexes = showDiscount;
+                const order = orders.find(o => o.id === orderWithIndexes?.id);
+                if (!order) return <p>Nie znaleziono zamówienia</p>;
                 
-                // Jeśli jest istniejący rabat i pola są puste, ustaw je
-                if (existingDiscount && !discountAmount && !discountReason) {
-                  setTimeout(() => {
-                    setDiscountAmount(existingDiscount.kwota?.toString() || '');
-                    setDiscountReason(existingDiscount.powod || '');
-                  }, 0);
-                }
+                const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+                const mojePodzamowienia = myProductIndexes.length > 0 && order.produkty
+                  ? myProductIndexes.map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`).join(', ')
+                  : null;
+                
+                // Pobierz istniejący rabat z moich produktów
+                const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
+                  ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                  : null;
+                const existingDiscount = mojRabatZProduktu || order.rabatyKierowcow?.[user.id];
                 
                 // Oblicz oryginalną kwotę do zapłaty
                 const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
                 const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
                 const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
                 
-                return order && (
+                return (
                   <>
                     <div className="discount-order-info">
                       <p><strong>Zamówienie:</strong> {order.nrWlasny}</p>
+                      {mojePodzamowienia && (
+                        <p><strong>Podzamówienie:</strong> {mojePodzamowienia}</p>
+                      )}
                       <p><strong>Cena całkowita:</strong> {formatCurrency(cenaCalkowita, order.platnosci?.waluta)}</p>
                       {zaplacono > 0 && (
                         <p><strong>Już zapłacono (zaliczka):</strong> {formatCurrency(zaplacono, order.platnosci?.waluta)} ✓</p>
@@ -7296,10 +7339,9 @@ ${t.team}
                     
                     {existingDiscount && (
                       <div className="existing-discount-info">
-                        <h4>📝 Aktualny rabat:</h4>
+                        <h4>📝 Twój aktualny rabat:</h4>
                         <p>Kwota: {formatCurrency(existingDiscount.kwota, order.platnosci?.waluta)}</p>
                         <p>Powód: {existingDiscount.powod}</p>
-                        <p>Udzielony przez: {existingDiscount.kierowca}</p>
                         <p>Data: {formatDateTime(existingDiscount.data)}</p>
                       </div>
                     )}
@@ -7325,10 +7367,6 @@ ${t.team}
                     </div>
                     <div className="discount-summary">
                       {(() => {
-                        // Oblicz oryginalną kwotę do zapłaty (używając zaplacono lub zaliczki)
-                        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-                        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
-                        const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
                         const nowyRabat = parseFloat(discountAmount) || 0;
                         const nowaKwota = Math.max(0, originalDoZaplaty - nowyRabat);
                         return (
@@ -7342,46 +7380,7 @@ ${t.team}
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => { setShowDiscount(null); setDiscountAmount(''); setDiscountReason(''); }}>Anuluj</button>
-              {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie && (
-                <button className="btn-delete" onClick={async () => {
-                  const order = orders.find(o => o.id === showDiscount);
-                  if (order && window.confirm('Czy na pewno chcesz usunąć rabat?')) {
-                    // POPRAWIONE: Przywróć oryginalną kwotę do zapłaty
-                    const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
-                    const zaliczka = order.platnosci?.zaliczka || 0;
-                    const zaplacono = order.platnosci?.zaplacono || zaliczka;
-                    
-                    // Oryginalna kwota do zapłaty = zapisana lub obliczona
-                    const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
-                    
-                    // Przywróć oryginalną marżę
-                    const originalMarzaPLN = order.koszty?.originalMarzaPLN ?? order.koszty?.marzaPLN ?? 0;
-                    const originalMarzaProcentowa = order.koszty?.originalMarzaProcentowa ?? order.koszty?.marzaProcentowa ?? 0;
-                    
-                    await onUpdateOrder(order.id, {
-                      ...order,
-                      rabatPrzyDostawie: null,
-                      platnosci: { 
-                        ...order.platnosci, 
-                        doZaplaty: originalDoZaplaty,
-                        rabat: 0 
-                      },
-                      koszty: {
-                        ...order.koszty,
-                        // Przywróć oryginalną marżę
-                        marzaPLN: originalMarzaPLN,
-                        marzaProcentowa: originalMarzaProcentowa,
-                        rabatPLN: 0
-                      },
-                      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Usunięto rabat (marża przywrócona: ${originalMarzaPLN.toFixed(2)} PLN)` }]
-                    });
-                    setShowDiscount(null);
-                    setDiscountAmount('');
-                    setDiscountReason('');
-                  }
-                }}>🗑️ Usuń rabat</button>
-              )}
-              <button className="btn-primary" onClick={saveDiscount}>💸 {orders.find(o => o.id === showDiscount)?.rabatPrzyDostawie ? 'Zapisz zmiany' : 'Zatwierdź rabat'}</button>
+              <button className="btn-primary" onClick={saveDiscount}>💸 Zatwierdź rabat</button>
             </div>
           </div>
         </div>
