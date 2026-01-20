@@ -12297,3 +12297,332 @@ input.margin-negative {
 .product-margin-display.negative .margin-result strong {
   color: #DC2626;
 }
+
+/* ===== WIDOK PRODUKTU / PRZEŁĄCZNIK ===== */
+.view-mode-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #F8FAFC;
+  border-radius: 10px;
+}
+
+.view-mode-btn {
+  padding: 8px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-mode-btn:hover {
+  border-color: #A78BFA;
+  background: #F5F3FF;
+}
+
+.view-mode-btn.active {
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  color: white;
+  border-color: transparent;
+}
+
+.view-mode-btn.product {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.product-view-badge {
+  background: #DBEAFE;
+  color: #1E40AF;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+/* Widok pojedynczego produktu */
+.single-product-view {
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.product-header-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.product-nr-large {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.costs-mini-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.costs-mini-grid div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.costs-mini-grid span {
+  color: #64748B;
+  font-size: 13px;
+}
+
+/* Lista produktów w widoku szczegółowym */
+.products-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-detail-item {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.product-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.product-detail-nr {
+  font-weight: 700;
+  color: #4F46E5;
+}
+
+.product-detail-status {
+  padding: 3px 10px;
+  border-radius: 15px;
+  font-size: 11px;
+}
+
+.product-detail-desc {
+  font-size: 13px;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.product-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ===== PROTOKOŁY PER KIEROWCA ===== */
+.protocols-by-driver {
+  margin-top: 15px;
+}
+
+.driver-protocol-block {
+  margin-bottom: 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.driver-protocol-header {
+  width: 100%;
+  padding: 12px 15px;
+  background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.driver-protocol-header:hover {
+  background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+}
+
+.driver-protocol-header.expanded {
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  color: white;
+}
+
+.driver-protocol-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.protocol-counts {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: normal;
+  opacity: 0.8;
+}
+
+.protocol-counts span {
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.driver-protocol-header:not(.expanded) .protocol-counts span {
+  background: rgba(79, 70, 229, 0.1);
+  color: #4F46E5;
+}
+
+.expand-icon {
+  font-size: 12px;
+}
+
+.driver-protocol-content {
+  padding: 15px;
+  background: white;
+}
+
+.protocol-products {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #E2E8F0;
+}
+
+.protocol-product-tag {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 3px 8px;
+  background: #DBEAFE;
+  color: #1E40AF;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.protocol-photos-section,
+.protocol-signatures-section,
+.protocol-notes-section {
+  margin-top: 12px;
+}
+
+.protocol-photos-section strong,
+.protocol-signatures-section strong,
+.protocol-notes-section strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.photos-grid.small {
+  gap: 8px;
+}
+
+.photo-item.small {
+  width: 60px;
+  height: 60px;
+}
+
+.photo-item.small img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.signatures-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.signature-item {
+  text-align: center;
+  cursor: pointer;
+}
+
+.signature-item img {
+  width: 80px;
+  height: 50px;
+  object-fit: contain;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+.signature-item span {
+  display: block;
+  font-size: 10px;
+  color: #64748B;
+  margin-top: 3px;
+}
+
+.protocol-note {
+  padding: 8px 10px;
+  background: #FEF9C3;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.note-product {
+  font-weight: 600;
+  color: #92400E;
+  margin-right: 6px;
+}
+
+/* Kliknięcie na podzamówienie */
+.order-product-item.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-product-item.clickable:hover {
+  background: #F0FDFA;
+  border-color: #14B8A6;
+  transform: translateX(3px);
+}
+
+.product-protocol-indicators {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.mini-indicator {
+  font-size: 10px;
+  padding: 2px 5px;
+  background: #DCFCE7;
+  color: #15803D;
+  border-radius: 8px;
+}
+
+/* Przycisk podglądu całego zamówienia */
+.view-all-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, #F0FDFA, #CCFBF1);
+  border: 1px dashed #14B8A6;
+  border-radius: 8px;
+  color: #0F766E;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-all-btn:hover {
+  background: linear-gradient(135deg, #CCFBF1, #99F6E4);
+  border-style: solid;
+}
