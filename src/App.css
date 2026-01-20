@@ -12055,3 +12055,77 @@ input.margin-negative {
   color: #64748B;
   margin-top: 4px;
 }
+
+/* Edytowalne pobranie per kierowca */
+.driver-collection-block {
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #E2E8F0;
+}
+
+.driver-collection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.driver-collection-header .driver-name {
+  font-weight: 600;
+  color: #1E1B4B;
+}
+
+.driver-collection-header .driver-total {
+  font-weight: 700;
+  color: #4338CA;
+  font-size: 15px;
+}
+
+.driver-product-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed #E2E8F0;
+}
+
+.driver-product-row:last-child {
+  border-bottom: none;
+}
+
+.product-label {
+  font-size: 12px;
+  color: #64748B;
+  flex: 1;
+}
+
+.product-amount-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.product-amount-edit span {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.driver-amount-input {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid #C7D2FE;
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: right;
+  background: #F8FAFC;
+}
+
+.driver-amount-input:focus {
+  outline: none;
+  border-color: #4F46E5;
+  background: white;
+}
