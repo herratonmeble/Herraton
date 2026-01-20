@@ -2269,7 +2269,7 @@ Zespół obsługi zamówień`;
                           return null;
                         })()}
 
-                        {/* MARŻA - wyliczana w PLN */}
+                        {/* MARŻA - wyliczana w PLN z pokazaniem przeliczeń */}
                         {(() => {
                           const walutaKlienta = form.platnosci?.waluta || 'PLN';
                           const walutaZakupu = form.produkty[activeProductIndex].koszty?.waluta || 'PLN';
@@ -2279,11 +2279,12 @@ Zespół obsługi zamówień`;
                           const kosztZakupu = form.produkty[activeProductIndex].koszty?.zakupNetto || 0;
                           const kosztTransportu = form.produkty[activeProductIndex].koszty?.transportNetto || 0;
                           
-                          // Przelicz wszystko na PLN
+                          // Pobierz kursy z NBP (PLN = 1)
                           const rateKlienta = exchangeRates?.[walutaKlienta] || 1;
                           const rateZakupu = exchangeRates?.[walutaZakupu] || 1;
                           const rateTransportu = exchangeRates?.[walutaTransportu] || 1;
                           
+                          // Przelicz na PLN
                           const cenaKlientaPLN = cenaKlienta * rateKlienta;
                           const kosztZakupuPLN = kosztZakupu * rateZakupu;
                           const kosztTransportuPLN = kosztTransportu * rateTransportu;
@@ -2294,8 +2295,36 @@ Zespół obsługi zamówień`;
                           
                           return (
                             <div className={`product-margin-display ${marzaPLN >= 0 ? 'positive' : 'negative'}`}>
-                              <span>📊 Marża netto (PLN):</span>
-                              <strong>{formatCurrency(marzaPLN, 'PLN')}</strong>
+                              <div className="margin-calculation">
+                                <div className="calc-row">
+                                  <span>Cena klienta netto:</span>
+                                  <span>
+                                    {formatCurrency(cenaKlienta, walutaKlienta)} / 1.23 
+                                    {walutaKlienta !== 'PLN' && ` × ${rateKlienta.toFixed(4)}`} 
+                                    = <strong>{formatCurrency(cenaNettoPLN, 'PLN')}</strong>
+                                  </span>
+                                </div>
+                                <div className="calc-row minus">
+                                  <span>− Koszt zakupu:</span>
+                                  <span>
+                                    {formatCurrency(kosztZakupu, walutaZakupu)}
+                                    {walutaZakupu !== 'PLN' && ` × ${rateZakupu.toFixed(4)}`} 
+                                    = <strong>{formatCurrency(kosztZakupuPLN, 'PLN')}</strong>
+                                  </span>
+                                </div>
+                                <div className="calc-row minus">
+                                  <span>− Koszt transportu:</span>
+                                  <span>
+                                    {formatCurrency(kosztTransportu, walutaTransportu)}
+                                    {walutaTransportu !== 'PLN' && ` × ${rateTransportu.toFixed(4)}`} 
+                                    = <strong>{formatCurrency(kosztTransportuPLN, 'PLN')}</strong>
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="margin-result">
+                                <span>📊 Marża netto:</span>
+                                <strong>{formatCurrency(Math.round(marzaPLN * 100) / 100, 'PLN')}</strong>
+                              </div>
                             </div>
                           );
                         })()}
