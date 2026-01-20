@@ -2433,7 +2433,7 @@ Zespół obsługi zamówień`;
                   </div>
                 </div>
 
-                {/* Pobranie per kierowca - edytowalne */}
+                {/* Pobranie per kierowca - edytowalne z metodą płatności i notatkami */}
                 {form.produkty && form.produkty.length > 0 && (() => {
                   // Grupuj produkty per kierowca
                   const driverProducts = {};
@@ -2458,9 +2458,11 @@ Zespół obsługi zamówień`;
                           return (
                             <div key={dId} className="driver-collection-block">
                               <div className="driver-collection-header">
-                                <span className="driver-name">{driver?.name || 'Nieznany'}</span>
+                                <span className="driver-name">🚗 {driver?.name || 'Nieznany'}</span>
                                 <span className="driver-total">{formatCurrency(totalAmount, form.platnosci?.waluta)}</span>
                               </div>
+                              
+                              {/* Produkty tego kierowcy */}
                               {products.map(p => (
                                 <div key={p.index} className="driver-product-row">
                                   <span className="product-label">#{p.index + 1}: {p.towar?.substring(0, 20) || 'Produkt'}...</span>
@@ -2476,6 +2478,44 @@ Zespół obsługi zamówień`;
                                   </div>
                                 </div>
                               ))}
+                              
+                              {/* Metoda płatności przy dostawie */}
+                              <div className="driver-payment-method">
+                                <label>💳 Metoda pobrania:</label>
+                                <select
+                                  value={products[0]?.metodaPobrania || 'gotowka'}
+                                  onChange={e => {
+                                    // Ustaw metodę dla wszystkich produktów tego kierowcy
+                                    products.forEach(p => {
+                                      updateProduct(p.index, 'metodaPobrania', e.target.value);
+                                    });
+                                  }}
+                                  className="payment-method-select"
+                                >
+                                  <option value="gotowka">💵 Gotówka</option>
+                                  <option value="przelew">🏦 Przelew</option>
+                                  <option value="karta">💳 Karta</option>
+                                  <option value="blik">📱 BLIK</option>
+                                  <option value="oplacone">✅ Już opłacone</option>
+                                </select>
+                              </div>
+                              
+                              {/* Notatka dla kierowcy */}
+                              <div className="driver-note-section">
+                                <label>📝 Notatka dla kierowcy:</label>
+                                <textarea
+                                  value={products[0]?.notatkaKierowcy || ''}
+                                  onChange={e => {
+                                    // Ustaw notatkę dla wszystkich produktów tego kierowcy
+                                    products.forEach(p => {
+                                      updateProduct(p.index, 'notatkaKierowcy', e.target.value);
+                                    });
+                                  }}
+                                  placeholder="Np. dzwonić przed dostawą, kod do bramy: 1234..."
+                                  className="driver-note-input"
+                                  rows={2}
+                                />
+                              </div>
                             </div>
                           );
                         })}
@@ -6301,13 +6341,24 @@ ${t.team}
                   {/* Kwota do pobrania - tylko dla produktów tego kierowcy */}
                   {(() => {
                     let myAmount = 0;
+                    let metodaPobrania = null;
+                    let notatkaKierowcy = null;
                     
                     if (order.produkty && order.produkty.length > 0) {
                       // Zamówienie łączone - sumuj tylko produkty tego kierowcy
                       order.produkty.forEach(p => {
                         const prodDriverId = p.kierowca || order.przypisanyKierowca;
-                        if (prodDriverId === user.id && p.doPobrania > 0) {
-                          myAmount += p.doPobrania;
+                        if (prodDriverId === user.id) {
+                          if (p.doPobrania > 0) {
+                            myAmount += p.doPobrania;
+                          }
+                          // Pobierz metodę pobrania i notatkę
+                          if (p.metodaPobrania && !metodaPobrania) {
+                            metodaPobrania = p.metodaPobrania;
+                          }
+                          if (p.notatkaKierowcy && !notatkaKierowcy) {
+                            notatkaKierowcy = p.notatkaKierowcy;
+                          }
                         }
                       });
                     } else {
@@ -6317,40 +6368,64 @@ ${t.team}
                       }
                     }
                     
-                    if (myAmount > 0) {
+                    // Słownik metod pobrania
+                    const metodaLabels = {
+                      gotowka: { icon: '💵', name: 'Gotówka' },
+                      przelew: { icon: '🏦', name: 'Przelew' },
+                      karta: { icon: '💳', name: 'Karta' },
+                      blik: { icon: '📱', name: 'BLIK' },
+                      oplacone: { icon: '✅', name: 'Już opłacone' }
+                    };
+                    
+                    if (myAmount > 0 || metodaPobrania === 'oplacone') {
                       return (
-                        <div className="driver-payment-alert">
+                        <div className={`driver-payment-alert ${metodaPobrania === 'oplacone' ? 'paid' : ''}`}>
                           <div className="payment-header">
-                            <div className="payment-label">💰 Do pobrania od klienta</div>
-                            <div className="payment-amount">{formatCurrency(myAmount, order.platnosci?.waluta)}</div>
+                            <div className="payment-label">
+                              {metodaPobrania === 'oplacone' ? '✅ Opłacone' : '💰 Do pobrania od klienta'}
+                            </div>
+                            {myAmount > 0 && (
+                              <div className="payment-amount">{formatCurrency(myAmount, order.platnosci?.waluta)}</div>
+                            )}
                           </div>
+                          
+                          {/* Metoda pobrania */}
+                          {metodaPobrania && metodaPobrania !== 'oplacone' && (
+                            <div className="payment-method-info">
+                              <span className="method-badge">
+                                {metodaLabels[metodaPobrania]?.icon || '💵'} {metodaLabels[metodaPobrania]?.name || 'Gotówka'}
+                              </span>
+                            </div>
+                          )}
+                          
                           {(order.platnosci?.zaliczka > 0 || order.platnosci?.zaplacono > 0) && (
                             <div className="payment-advance-info">
                               💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci?.zaplacono || order.platnosci?.zaliczka, order.platnosci?.waluta)}</strong>
                             </div>
                           )}
-                          <div className="payment-details">
-                            {order.platnosci?.metodaPrzyDostawie && (
-                              <div className="payment-method-badge">
-                                {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).icon} {getDeliveryPaymentMethod(order.platnosci.metodaPrzyDostawie).name}
-                              </div>
-                            )}
-                            {!order.platnosci?.metodaPrzyDostawie && (
-                              <div className="payment-method-badge default">💵 Gotówka (domyślnie)</div>
-                            )}
-                          </div>
-                          {order.platnosci?.uwagiPlatnosc && (
-                            <div className="payment-notes">📝 {order.platnosci.uwagiPlatnosc}</div>
+                          
+                          {/* Notatka dla kierowcy */}
+                          {notatkaKierowcy && (
+                            <div className="driver-instruction-note">
+                              <span className="note-icon">📋</span>
+                              <span className="note-text">{notatkaKierowcy}</span>
+                            </div>
                           )}
                         </div>
                       );
                     }
                     
-                    // Jeśli kwota = 0, pokaż że opłacone
+                    // Jeśli kwota = 0 i nie ma metody "oplacone", pokaż że opłacone
                     if (order.platnosci?.cenaCalkowita > 0) {
                       return (
                         <div className="driver-payment-ok">
                           <span>✅ Zapłacone w całości</span>
+                          {notatkaKierowcy && (
+                            <div className="driver-instruction-note small">
+                              <span className="note-icon">📋</span>
+                              <span className="note-text">{notatkaKierowcy}</span>
+                            </div>
+                          )}
                         </div>
                       );
                     }
@@ -11271,18 +11346,29 @@ Zespół obsługi zamówień
               <span className="sf-count">{visibleOrders.length}</span>
               <span className="sf-label">Wszystkie</span>
             </button>
-            {STATUSES.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setFilter(s.id)}
-                className={`status-filter-btn ${filter === s.id ? 'active' : ''}`}
-                style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
-              >
-                <span className="sf-icon">{s.icon}</span>
-                <span className="sf-count">{visibleOrders.filter(o => o.status === s.id).length}</span>
-                <span className="sf-label">{s.name}</span>
-              </button>
-            ))}
+            {STATUSES.map(s => {
+              // Licz zamówienia które mają ten status (główny LUB w produktach)
+              const count = visibleOrders.filter(o => {
+                // Sprawdź główny status
+                if (o.status === s.id) return true;
+                // Sprawdź statusy produktów
+                if (o.produkty && o.produkty.some(p => p.status === s.id)) return true;
+                return false;
+              }).length;
+              
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setFilter(s.id)}
+                  className={`status-filter-btn ${filter === s.id ? 'active' : ''}`}
+                  style={{ background: filter === s.id ? s.color : s.bgColor, color: filter === s.id ? 'white' : s.color }}
+                >
+                  <span className="sf-icon">{s.icon}</span>
+                  <span className="sf-count">{count}</span>
+                  <span className="sf-label">{s.name}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="extra-filters">
