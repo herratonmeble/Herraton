@@ -12708,3 +12708,41 @@ input.margin-negative {
   color: #64748B;
   margin-top: 3px;
 }
+
+/* Kwota przekreślona (przed rabatem) */
+.original-amount-strike {
+  text-decoration: line-through;
+  color: #94A3B8;
+  font-size: 14px;
+  margin-left: 8px;
+  font-weight: normal;
+}
+
+/* Informacja o zastosowanym rabacie */
+.payment-discount-applied {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #92400E;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.payment-discount-applied strong {
+  color: #DC2626;
+}
+
+.discount-reason-small {
+  font-size: 11px;
+  color: #78716C;
+}
+
+/* Kwota 0 po rabacie */
+.payment-amount.paid {
+  color: #16A34A;
+  font-size: 16px;
+}
