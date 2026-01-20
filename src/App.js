@@ -9869,6 +9869,7 @@ const SettlementsPanel = ({
     return items;
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getUnsettledOrders = () => {
     // Dla kompatybilności wstecznej - zwraca unikalne zamówienia
     const items = getUnsettledItems();
