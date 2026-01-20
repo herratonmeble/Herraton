@@ -12558,10 +12558,13 @@ const PublicComplaintForm = ({ token }) => {
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
+      // Pobierz nazwę klienta z różnych źródeł
+      const clientDisplayName = orderData?.klient?.imie || complaintData?.klient || clientName || 'Klient';
+      
       const newMsg = {
         id: Date.now().toString(),
         autor: 'klient',
-        autorNazwa: orderData.klient?.imie || 'Klient',
+        autorNazwa: clientDisplayName,
         tresc: newMessage.trim(),
         data: new Date().toISOString()
       };
@@ -12572,7 +12575,7 @@ const PublicComplaintForm = ({ token }) => {
         status: complaintData.status === 'oczekuje_na_klienta' ? 'w_trakcie' : complaintData.status,
         historia: [...(complaintData.historia || []), {
           data: new Date().toISOString(),
-          uzytkownik: orderData.klient?.imie || 'Klient',
+          uzytkownik: clientDisplayName,
           akcja: 'Klient dodał wiadomość'
         }]
       });
