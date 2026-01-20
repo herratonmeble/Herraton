@@ -440,6 +440,8 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const [viewMode, setViewMode] = useState(selectedProductIndex !== null && selectedProductIndex !== undefined ? 'product' : 'all'); // 'all' lub 'product'
   const [activeProductIdx, setActiveProductIdx] = useState(selectedProductIndex || 0);
   const [expandedProtocols, setExpandedProtocols] = useState({});
+  const [showComplaintLinkModal, setShowComplaintLinkModal] = useState(false);
+  const [complaintLinkLang, setComplaintLinkLang] = useState('pl');
   
   // State do edycji rabatów przez admina
   const [editingDiscount, setEditingDiscount] = useState(null); // { productIndex, rabat } lub { global: true, rabat }
@@ -1942,6 +1944,11 @@ Zespół obsługi zamówień`;
               📦 Potwierdzenie dostawy
             </button>
           )}
+          {order.klient?.email && (
+            <button className="btn-complaint-link" onClick={() => setShowComplaintLinkModal(true)} style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)', color: 'white'}}>
+              📋 Link do reklamacji
+            </button>
+          )}
           <button className="btn-danger" onClick={handleDelete}>🗑️ Usuń zamówienie</button>
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
         </div>
@@ -2065,6 +2072,168 @@ Zespół obsługi zamówień`;
                 }}
               >
                 📥 Pobierz protokół
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal wysyłania linku do reklamacji */}
+      {showComplaintLinkModal && (
+        <div className="modal-overlay" onClick={() => setShowComplaintLinkModal(false)} style={{zIndex: 2000}}>
+          <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)'}}>
+              <h2 style={{color: 'white'}}>📋 Wyślij link do reklamacji</h2>
+              <button className="btn-close" onClick={() => setShowComplaintLinkModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="complaint-link-preview">
+                <div className="preview-section" style={{marginBottom: '15px'}}>
+                  <label style={{color: '#6B7280', fontSize: '13px'}}>📧 Email klienta:</label>
+                  <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{order.klient?.email}</p>
+                </div>
+                <div className="preview-section" style={{marginBottom: '15px'}}>
+                  <label style={{color: '#6B7280', fontSize: '13px'}}>📦 Zamówienie:</label>
+                  <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{order.nrWlasny}</p>
+                </div>
+                <div className="preview-section" style={{marginBottom: '15px'}}>
+                  <label style={{color: '#6B7280', fontSize: '13px'}}>👤 Klient:</label>
+                  <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{order.klient?.imie}</p>
+                </div>
+                <div className="form-group">
+                  <label>🌍 Język wiadomości:</label>
+                  <select 
+                    value={complaintLinkLang} 
+                    onChange={e => setComplaintLinkLang(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="pl">🇵🇱 Polski</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                  </select>
+                </div>
+                <div style={{background: '#FEF3C7', padding: '15px', borderRadius: '8px', marginTop: '15px'}}>
+                  <p style={{margin: 0, fontSize: '13px', color: '#92400E'}}>
+                    📌 Klient otrzyma email z linkiem do formularza reklamacji. 
+                    Po wypełnieniu formularza reklamacja automatycznie pojawi się w panelu "Reklamacje" z załączonymi zdjęciami i opisem.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowComplaintLinkModal(false)}>Anuluj</button>
+              <button 
+                className="btn-primary" 
+                style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)'}}
+                onClick={() => {
+                  // Generuj unikalny token dla reklamacji
+                  const complaintToken = `${order.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                  const complaintLink = `${window.location.origin}/reklamacja/${complaintToken}`;
+                  
+                  // Zapisz token w zamówieniu
+                  if (onUpdateOrder) {
+                    onUpdateOrder(order.id, {
+                      complaintToken: complaintToken,
+                      complaintTokenCreated: new Date().toISOString()
+                    });
+                  }
+                  
+                  // Tłumaczenia
+                  const translations = {
+                    pl: {
+                      subject: `Formularz reklamacji - Zamówienie ${order.nrWlasny}`,
+                      greeting: 'Szanowny/a',
+                      intro: 'Otrzymaliśmy informację o problemie z Twoim zamówieniem. Przepraszamy za niedogodności.',
+                      instruction: 'Aby zgłosić reklamację, kliknij poniższy przycisk i wypełnij formularz:',
+                      buttonText: 'ZGŁOŚ REKLAMACJĘ',
+                      info: 'W formularzu możesz opisać problem i załączyć zdjęcia. Nasz zespół zajmie się Twoją sprawą najszybciej jak to możliwe.',
+                      thanks: 'Dziękujemy za cierpliwość!',
+                      team: 'Zespół Obsługi Klienta'
+                    },
+                    en: {
+                      subject: `Complaint Form - Order ${order.nrWlasny}`,
+                      greeting: 'Dear',
+                      intro: 'We have received information about an issue with your order. We apologize for any inconvenience.',
+                      instruction: 'To submit a complaint, please click the button below and fill out the form:',
+                      buttonText: 'SUBMIT COMPLAINT',
+                      info: 'In the form, you can describe the problem and attach photos. Our team will handle your case as soon as possible.',
+                      thanks: 'Thank you for your patience!',
+                      team: 'Customer Service Team'
+                    },
+                    de: {
+                      subject: `Reklamationsformular - Bestellung ${order.nrWlasny}`,
+                      greeting: 'Sehr geehrte/r',
+                      intro: 'Wir haben Informationen über ein Problem mit Ihrer Bestellung erhalten. Wir entschuldigen uns für die Unannehmlichkeiten.',
+                      instruction: 'Um eine Reklamation einzureichen, klicken Sie auf die Schaltfläche unten und füllen Sie das Formular aus:',
+                      buttonText: 'REKLAMATION EINREICHEN',
+                      info: 'Im Formular können Sie das Problem beschreiben und Fotos anhängen. Unser Team wird sich so schnell wie möglich um Ihren Fall kümmern.',
+                      thanks: 'Vielen Dank für Ihre Geduld!',
+                      team: 'Kundenservice-Team'
+                    }
+                  };
+                  
+                  const t = translations[complaintLinkLang] || translations.pl;
+                  
+                  const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
+              <h1 style="color: white; margin: 0; font-size: 22px;">Formularz Reklamacji</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Zamówienie: ${order.nrWlasny}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">${t.greeting} <strong>${order.klient?.imie}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px; line-height: 1.6;">${t.intro}</p>
+              <p style="margin: 0 0 25px 0; color: #374151; font-size: 15px;">${t.instruction}</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${complaintLink}" style="display: inline-block; background: linear-gradient(135deg, #DC2626, #B91C1C); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">${t.buttonText}</a>
+              </div>
+              <div style="background: #FEF3C7; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                <p style="margin: 0; color: #92400E; font-size: 14px; line-height: 1.6;">💡 ${t.info}</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px; background-color: #F9FAFB; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #374151;">${t.thanks}</p>
+              <p style="margin: 0; color: #6B7280; font-size: 14px;">${t.team}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+                  sendEmailViaMailerSend(
+                    order.klient.email,
+                    order.klient.imie,
+                    t.subject,
+                    `${t.greeting} ${order.klient?.imie}, ${t.intro} ${t.instruction} Link: ${complaintLink}`,
+                    htmlEmail
+                  ).then(result => {
+                    if (result.success) {
+                      alert('✅ Link do reklamacji został wysłany na email klienta!');
+                    } else {
+                      alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+                    }
+                  });
+                  
+                  setShowComplaintLinkModal(false);
+                }}
+              >
+                📤 Wyślij link
               </button>
             </div>
           </div>
@@ -7336,32 +7505,184 @@ ${pt.clientRemarks}: ${uwagiDoWyslania || pt.noRemarks}
 ${hasSignature ? pt.signature : pt.noSignature}
 ═══════════════════════════════════════════════════════════`;
     
-    const body = `${t.greeting} ${order.klient?.imie || t.client},
+    // Wersja tekstowa (fallback)
+    const textBody = `${t.greeting} ${order.klient?.imie || t.client},
 
 ${t.intro}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ ${t.title}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${t.orderNumber}: ${order.nrWlasny}
+${t.deliveryDate}: ${formatDate(dataPlatnosci)}
+${t.driver}: ${user.name}
 
-🔢 ${t.orderNumber}: ${order.nrWlasny}
-📅 ${t.deliveryDate}: ${formatDate(dataPlatnosci)}
-🚚 ${t.driver}: ${user.name}
-
-📦 ${t.product}:
+${t.product}:
 ${order.towar || '-'}
 ${paymentSummary}
-${protocolText}
-${hasPhotos ? `\n📸 Zdjęcia dostawy: ${order.zdjeciaDostawy.length} zdjęć w załączniku` : ''}
 
 ${t.thanks}
 ${t.welcome}
 
 ${t.regards},
-${t.team}
+${t.team}`;
 
----
-📧 Ta wiadomość została wysłana automatycznie. Prosimy nie odpowiadać na ten email.`;
+    // Wersja HTML (ładna jak PDF)
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
+              <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">${t.title}</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Zamówienie: ${order.nrWlasny}</p>
+              <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 14px;">Data dostawy: ${formatDate(dataPlatnosci)} | Kierowca: ${user.name}</p>
+            </td>
+          </tr>
+          
+          <!-- Greeting -->
+          <tr>
+            <td style="padding: 30px 30px 20px 30px;">
+              <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                ${t.greeting} <strong>${order.klient?.imie || t.client}</strong>,
+              </p>
+              <p style="margin: 15px 0 0 0; color: #6B7280; font-size: 15px; line-height: 1.6;">
+                ${t.intro}
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Dane odbiorcy -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #F3F4F6; border-radius: 10px; padding: 20px;">
+                <h3 style="margin: 0 0 15px 0; color: #1F2937; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">👤 Dane odbiorcy</h3>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 8px 0; color: #6B7280; font-size: 14px;">Imię i nazwisko:</td>
+                    <td style="padding: 8px 0; color: #1F2937; font-size: 14px; font-weight: 500; text-align: right;">${order.klient?.imie || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6B7280; font-size: 14px; border-top: 1px solid #E5E7EB;">Adres dostawy:</td>
+                    <td style="padding: 8px 0; color: #1F2937; font-size: 14px; font-weight: 500; text-align: right; border-top: 1px solid #E5E7EB;">${order.klient?.adres || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6B7280; font-size: 14px; border-top: 1px solid #E5E7EB;">Telefon:</td>
+                    <td style="padding: 8px 0; color: #1F2937; font-size: 14px; font-weight: 500; text-align: right; border-top: 1px solid #E5E7EB;">${order.klient?.telefon || '-'}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Zamówiony towar -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #FEF3C7; border-radius: 10px; padding: 20px; border-left: 4px solid #F59E0B;">
+                <h3 style="margin: 0 0 10px 0; color: #92400E; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">📦 Zamówiony towar</h3>
+                <p style="margin: 0; color: #78350F; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${order.towar || '-'}</p>
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Podsumowanie płatności -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius: 10px; padding: 20px;">
+                <h3 style="margin: 0 0 15px 0; color: #3730A3; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">💰 Podsumowanie płatności</h3>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 10px 0; color: #4B5563; font-size: 14px;">Wartość zamówienia:</td>
+                    <td style="padding: 10px 0; color: #1F2937; font-size: 16px; font-weight: 600; text-align: right;">${cenaCalkowita.toFixed(2)} ${walutaSymbol}</td>
+                  </tr>
+                  ${zaplaconoPrzedDostawa > 0 ? `
+                  <tr>
+                    <td style="padding: 10px 0; color: #4B5563; font-size: 14px; border-top: 1px solid #C7D2FE;">Wpłacona zaliczka:</td>
+                    <td style="padding: 10px 0; text-align: right; border-top: 1px solid #C7D2FE;">
+                      <span style="background-color: #10B981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">✓ ${zaplaconoPrzedDostawa.toFixed(2)} ${walutaSymbol}</span>
+                    </td>
+                  </tr>
+                  ` : ''}
+                  <tr>
+                    <td style="padding: 10px 0; color: #4B5563; font-size: 14px; border-top: 1px solid #C7D2FE;">Pozostało do zapłaty:</td>
+                    <td style="padding: 10px 0; color: #1F2937; font-size: 14px; text-align: right; border-top: 1px solid #C7D2FE;">${originalDoZaplaty.toFixed(2)} ${walutaSymbol}</td>
+                  </tr>
+                  ${hasDiscount ? `
+                  <tr>
+                    <td style="padding: 10px 0; color: #DC2626; font-size: 14px; border-top: 1px solid #C7D2FE;">🎁 Udzielono rabatu (${rabatPowod || 'brak powodu'}):</td>
+                    <td style="padding: 10px 0; color: #DC2626; font-size: 14px; font-weight: 600; text-align: right; border-top: 1px solid #C7D2FE;">-${rabatKwota.toFixed(2)} ${walutaSymbol}</td>
+                  </tr>
+                  ` : ''}
+                  <tr>
+                    <td colspan="2" style="padding-top: 15px; border-top: 2px solid #6366F1;">
+                      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #10B981; border-radius: 8px;">
+                        <tr>
+                          <td style="padding: 15px; color: white; font-size: 14px; font-weight: 500;">✅ Pobrano od klienta:</td>
+                          <td style="padding: 15px; color: white; font-size: 18px; font-weight: 700; text-align: right;">${faktyczniePobrano.toFixed(2)} ${walutaSymbol}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          
+          ${signatureUrl ? `
+          <!-- Podpis klienta -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #F9FAFB; border-radius: 10px; padding: 20px; text-align: center; border: 2px dashed #D1D5DB;">
+                <h3 style="margin: 0 0 15px 0; color: #374151; font-size: 14px;">✍️ Podpis klienta</h3>
+                <img src="${signatureUrl}" alt="Podpis klienta" style="max-width: 200px; max-height: 100px; border-radius: 8px;" />
+                <p style="margin: 10px 0 0 0; color: #9CA3AF; font-size: 12px;">Podpisano elektronicznie: ${formatDateTime(order.podpisKlienta?.timestamp || dataPlatnosci)}</p>
+              </div>
+            </td>
+          </tr>
+          ` : ''}
+          
+          ${hasPhotos ? `
+          <!-- Info o zdjęciach -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #DBEAFE; border-radius: 10px; padding: 15px; text-align: center;">
+                <p style="margin: 0; color: #1E40AF; font-size: 14px;">📸 Zdjęcia dostawy (${order.zdjeciaDostawy.length}) dołączone w załącznikach</p>
+              </div>
+            </td>
+          </tr>
+          ` : ''}
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #F9FAFB; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #374151; font-size: 15px;">${t.thanks}</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 14px;">${t.welcome}</p>
+              <p style="margin: 0; color: #9CA3AF; font-size: 13px;">${t.regards},<br><strong>${t.team}</strong></p>
+            </td>
+          </tr>
+          
+          <!-- Copyright -->
+          <tr>
+            <td style="padding: 20px; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">📧 Ta wiadomość została wysłana automatycznie przez system Herraton</p>
+              <p style="margin: 5px 0 0 0; color: #D1D5DB; font-size: 11px;">${new Date().toLocaleString('pl-PL')}</p>
+            </td>
+          </tr>
+          
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
     // Przygotuj załączniki
     const attachments = [];
@@ -7388,12 +7709,12 @@ ${t.team}
     // Dodaj podpis jako załącznik jeśli jest
     if (hasSignature && order.podpisKlienta) {
       // Podpis może być stringiem (data URL) lub obiektem { url: '...' }
-      const signatureUrl = typeof order.podpisKlienta === 'string' 
+      const sigUrl = typeof order.podpisKlienta === 'string' 
         ? order.podpisKlienta 
         : order.podpisKlienta.url;
       
-      if (signatureUrl && typeof signatureUrl === 'string' && signatureUrl.includes(',')) {
-        const signatureBase64 = signatureUrl.split(',')[1];
+      if (sigUrl && typeof sigUrl === 'string' && sigUrl.includes(',')) {
+        const signatureBase64 = sigUrl.split(',')[1];
         if (signatureBase64) {
           attachments.push({
             filename: `podpis_${order.nrWlasny}.png`,
@@ -7403,13 +7724,13 @@ ${t.team}
       }
     }
 
-    // Wyślij przez MailerSend z załącznikami
+    // Wyślij przez MailerSend z załącznikami - TERAZ Z HTML!
     sendEmailViaMailerSend(
       order.klient.email,
       order.klient.imie,
       subject,
-      body,
-      null,
+      textBody,
+      htmlBody,
       attachments
     ).then(result => {
       if (result.success) {
