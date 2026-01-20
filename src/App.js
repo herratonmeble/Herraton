@@ -4812,11 +4812,50 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
 const EmailModal = ({ order, producer, onClose }) => {
   const [emailType, setEmailType] = useState('inquiry'); // inquiry, order
   
+  // Filtruj produkty tylko dla tego producenta
+  const getProducerProducts = () => {
+    if (!order.produkty || order.produkty.length === 0) {
+      // Stare zamówienie bez produktów
+      return order.towar || 'Brak opisu';
+    }
+    
+    // Filtruj produkty przypisane do tego producenta
+    const producerProducts = order.produkty.filter(p => p.producent === producer?.id);
+    
+    if (producerProducts.length === 0) {
+      // Fallback - pokaż wszystkie produkty
+      return order.towar || 'Brak opisu';
+    }
+    
+    // Formatuj listę produktów tego producenta
+    return producerProducts.map(p => {
+      const prefix = order.produkty.length > 1 ? `[${p.nrPodzamowienia || ''}] ` : '';
+      return `${prefix}${p.towar}`;
+    }).join('\n');
+  };
+  
+  // Pobierz datę odbioru dla produktów tego producenta
+  const getProducerDeliveryDate = () => {
+    if (!order.produkty || order.produkty.length === 0) {
+      return formatDate(order.dataOdbioru);
+    }
+    
+    const producerProducts = order.produkty.filter(p => p.producent === producer?.id);
+    if (producerProducts.length > 0 && producerProducts[0].dataOdbioru) {
+      return formatDate(producerProducts[0].dataOdbioru);
+    }
+    
+    return formatDate(order.dataOdbioru) || '—';
+  };
+  
+  const productDescription = getProducerProducts();
+  const deliveryDate = getProducerDeliveryDate();
+  
   const inquiryBody = `Dzień dobry,
 
-Pytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${formatDate(order.dataOdbioru)}.
+Pytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${deliveryDate}.
 
-Opis: ${order.towar}
+Opis: ${productDescription}
 
 Proszę o informację o statusie realizacji.
 
@@ -4827,8 +4866,8 @@ Z poważaniem`;
 Zlecam realizację zamówienia:
 
 Nr zamówienia: ${order.nrWlasny || 'BRAK'}
-Opis: ${order.towar}
-Termin odbioru: ${formatDate(order.dataOdbioru) || 'Do ustalenia'}
+Opis: ${productDescription}
+Termin odbioru: ${deliveryDate || 'Do ustalenia'}
 
 Proszę o potwierdzenie przyjęcia zlecenia.
 
@@ -4890,6 +4929,37 @@ const BulkEmailModal = ({ orders, producer, onClose }) => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [emailType, setEmailType] = useState('inquiry');
 
+  // Funkcja do pobierania tylko produktów danego producenta z zamówienia
+  const getProducerProductsFromOrder = (order) => {
+    if (!order.produkty || order.produkty.length === 0) {
+      return order.towar || 'brak opisu';
+    }
+    
+    const producerProducts = order.produkty.filter(p => p.producent === producer?.id);
+    if (producerProducts.length === 0) {
+      return order.towar || 'brak opisu';
+    }
+    
+    return producerProducts.map(p => {
+      const prefix = order.produkty.length > 1 ? `[${p.nrPodzamowienia || ''}] ` : '';
+      return `${prefix}${p.towar}`;
+    }).join('; ');
+  };
+
+  // Funkcja do pobierania daty odbioru dla produktów danego producenta
+  const getProducerDeliveryDate = (order) => {
+    if (!order.produkty || order.produkty.length === 0) {
+      return formatDate(order.dataOdbioru) || 'brak';
+    }
+    
+    const producerProducts = order.produkty.filter(p => p.producent === producer?.id);
+    if (producerProducts.length > 0 && producerProducts[0].dataOdbioru) {
+      return formatDate(producerProducts[0].dataOdbioru);
+    }
+    
+    return formatDate(order.dataOdbioru) || 'brak';
+  };
+
   const toggleOrder = (orderId) => {
     setSelectedOrders(prev => prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]);
   };
@@ -4902,9 +4972,11 @@ const BulkEmailModal = ({ orders, producer, onClose }) => {
     const selected = orders.filter(o => selectedOrders.includes(o.id));
     
     if (emailType === 'inquiry') {
-      const ordersList = selected.map(o => 
-        `• Nr ${o.nrWlasny} - ${o.towar?.substring(0, 50) || 'brak opisu'}... (termin: ${formatDate(o.dataOdbioru) || 'brak'})`
-      ).join('\n');
+      const ordersList = selected.map(o => {
+        const productDesc = getProducerProductsFromOrder(o);
+        const deliveryDate = getProducerDeliveryDate(o);
+        return `• Nr ${o.nrWlasny} - ${productDesc.substring(0, 50)}${productDesc.length > 50 ? '...' : ''} (termin: ${deliveryDate})`;
+      }).join('\n');
 
       return `Dzień dobry,
 
@@ -4916,12 +4988,14 @@ Proszę o informację zwrotną.
 
 Z poważaniem`;
     } else {
-      const ordersList = selected.map(o => 
-        `━━━━━━━━━━━━━━━━━━━━━━
+      const ordersList = selected.map(o => {
+        const productDesc = getProducerProductsFromOrder(o);
+        const deliveryDate = getProducerDeliveryDate(o);
+        return `━━━━━━━━━━━━━━━━━━━━━━
 Nr zamówienia: ${o.nrWlasny}
-Opis: ${o.towar || 'brak opisu'}
-Termin odbioru: ${formatDate(o.dataOdbioru) || 'Do ustalenia'}`
-      ).join('\n\n');
+Opis: ${productDesc}
+Termin odbioru: ${deliveryDate || 'Do ustalenia'}`;
+      }).join('\n\n');
 
       return `Dzień dobry,
 
