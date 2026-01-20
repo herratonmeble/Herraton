@@ -2543,21 +2543,25 @@ Zespół obsługi zamówień`;
     // Marża w PLN (przed rabatem)
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
     
-    // Oblicz sumę rabatów z NOWEJ logiki
+    // Oblicz sumę rabatów - preferuj rabatyKierowcow jako źródło prawdy
     let sumaRabatow = 0;
     
-    // 1. Rabaty z produktów (nowa logika - priorytet)
-    if (form.produkty && form.produkty.length > 0) {
-      form.produkty.forEach(p => {
-        if (p.rabat && p.rabat.kwota > 0) {
-          sumaRabatow += p.rabat.kwota;
-        }
-      });
+    // 1. Sprawdź rabatyKierowcow (główne źródło prawdy)
+    if (form.rabatyKierowcow) {
+      sumaRabatow = Object.values(form.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
     }
     
-    // 2. Jeśli brak rabatów w produktach, sprawdź rabatyKierowcow
-    if (sumaRabatow === 0 && form.rabatyKierowcow) {
-      sumaRabatow = Object.values(form.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+    // 2. Jeśli brak, sprawdź produkty (unikalne per kierowca)
+    if (sumaRabatow === 0 && form.produkty && form.produkty.length > 0) {
+      const rabatyPerKierowca = {};
+      form.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0 && p.rabat.kierowcaId) {
+          if (!rabatyPerKierowca[p.rabat.kierowcaId]) {
+            rabatyPerKierowca[p.rabat.kierowcaId] = p.rabat.kwota;
+          }
+        }
+      });
+      sumaRabatow = Object.values(rabatyPerKierowca).reduce((sum, k) => sum + k, 0);
     }
     
     // 3. Fallback na stary rabatPrzyDostawie
@@ -5438,21 +5442,27 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     // Marża w PLN = Cena netto - Zakup netto - Transport netto
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
     
-    // Oblicz sumę rabatów z NOWEJ logiki
+    // Oblicz sumę rabatów - preferuj rabatyKierowcow jako źródło prawdy
     let sumaRabatow = 0;
     
-    // 1. Rabaty z produktów (nowa logika - priorytet)
-    if (order.produkty && order.produkty.length > 0) {
-      order.produkty.forEach(p => {
-        if (p.rabat && p.rabat.kwota > 0) {
-          sumaRabatow += p.rabat.kwota;
-        }
-      });
+    // 1. Sprawdź rabatyKierowcow (główne źródło prawdy dla rabatów)
+    if (order.rabatyKierowcow) {
+      sumaRabatow = Object.values(order.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
     }
     
-    // 2. Jeśli brak rabatów w produktach, sprawdź rabatyKierowcow
-    if (sumaRabatow === 0 && order.rabatyKierowcow) {
-      sumaRabatow = Object.values(order.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
+    // 2. Jeśli brak w rabatyKierowcow, sprawdź produkty (dla starych zamówień)
+    if (sumaRabatow === 0 && order.produkty && order.produkty.length > 0) {
+      // Zbierz unikalne rabaty per kierowca z produktów
+      const rabatyPerKierowca = {};
+      order.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0 && p.rabat.kierowcaId) {
+          // Zapisz tylko jeden rabat per kierowca
+          if (!rabatyPerKierowca[p.rabat.kierowcaId]) {
+            rabatyPerKierowca[p.rabat.kierowcaId] = p.rabat.kwota;
+          }
+        }
+      });
+      sumaRabatow = Object.values(rabatyPerKierowca).reduce((sum, kwota) => sum + kwota, 0);
     }
     
     // 3. Fallback na stary rabatPrzyDostawie
@@ -5591,20 +5601,28 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           )}
           {/* Info o rabacie - nowa logika */}
           {(() => {
-            // Zbierz sumę rabatów z produktów (nowa logika)
+            // Zbierz sumę rabatów - preferuj rabatyKierowcow
             let sumaRabatow = 0;
-            if (order.produkty && order.produkty.length > 0) {
-              order.produkty.forEach(p => {
-                if (p.rabat && p.rabat.kwota > 0) {
-                  sumaRabatow += p.rabat.kwota;
-                }
-              });
-            }
-            // Fallback na rabatyKierowcow - filtruj null
-            if (sumaRabatow === 0 && order.rabatyKierowcow) {
+            
+            // 1. Sprawdź rabatyKierowcow (główne źródło prawdy)
+            if (order.rabatyKierowcow) {
               sumaRabatow = Object.values(order.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
             }
-            // Fallback na stary rabatPrzyDostawie
+            
+            // 2. Jeśli brak, sprawdź produkty (unikalne per kierowca)
+            if (sumaRabatow === 0 && order.produkty && order.produkty.length > 0) {
+              const rabatyPerKierowca = {};
+              order.produkty.forEach(p => {
+                if (p.rabat && p.rabat.kwota > 0 && p.rabat.kierowcaId) {
+                  if (!rabatyPerKierowca[p.rabat.kierowcaId]) {
+                    rabatyPerKierowca[p.rabat.kierowcaId] = p.rabat.kwota;
+                  }
+                }
+              });
+              sumaRabatow = Object.values(rabatyPerKierowca).reduce((sum, k) => sum + k, 0);
+            }
+            
+            // 3. Fallback na stary rabatPrzyDostawie
             if (sumaRabatow === 0 && order.rabatPrzyDostawie?.kwota > 0) {
               sumaRabatow = order.rabatPrzyDostawie.kwota;
             }
@@ -6287,13 +6305,20 @@ ${st.team}
 
     // Sprawdź czy to zamówienie łączone
     if (order.produkty && order.produkty.length > 0 && myProductIndexes.length > 0) {
-      // Zapisz rabat tylko do MOICH produktów
+      // Zapisz rabat tylko do PIERWSZEGO produktu kierowcy (nie do wszystkich!)
+      const firstProductIndex = myProductIndexes[0];
+      
       const updatedProdukty = order.produkty.map((prod, idx) => {
-        if (myProductIndexes.includes(idx)) {
+        if (idx === firstProductIndex) {
+          // Zapisz rabat tylko do pierwszego produktu
           return {
             ...prod,
             rabat: rabat
           };
+        } else if (myProductIndexes.includes(idx)) {
+          // Usuń rabat z pozostałych produktów tego kierowcy (jeśli był)
+          const { rabat: oldRabat, ...rest } = prod;
+          return rest;
         }
         return prod;
       });
@@ -6311,10 +6336,10 @@ ${st.team}
       // Dodaj nowy rabat tego kierowcy
       rabatyKierowcow[user.id] = rabat;
 
-      // Oblicz sumę wszystkich rabatów (z produktów, bo są bardziej aktualne)
+      // Oblicz sumę wszystkich rabatów - każdy kierowca ma tylko jeden rabat
       let sumaRabatow = 0;
-      updatedProdukty.forEach(p => {
-        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      Object.values(rabatyKierowcow).forEach(r => {
+        if (r && r.kwota > 0) sumaRabatow += r.kwota;
       });
       
       // Przelicz kwotę do zapłaty
