@@ -456,8 +456,8 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const hasMultipleProducts = order.produkty && order.produkty.length > 1;
   
   // Funkcja edycji rabatu przez admina
-  const handleEditDiscount = (productIndex, rabat) => {
-    setEditingDiscount({ productIndex, rabat });
+  const handleEditDiscount = (rabat) => {
+    setEditingDiscount(rabat); // Przekazujemy cały obiekt rabatu z wszystkimi informacjami
     setDiscountEditAmount(rabat.kwota?.toString() || '');
     setDiscountEditReason(rabat.powod || '');
   };
@@ -470,8 +470,16 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
     const newReason = discountEditReason || 'Brak podanego powodu';
     
     try {
-      if (editingDiscount.productIndex !== undefined && editingDiscount.productIndex !== null) {
-        // Rabat w produkcie
+      const updateData = {
+        historia: [...(order.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: 'Admin',
+          akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
+        }]
+      };
+      
+      // Jeśli rabat pochodzi z produktu (ma productIndex)
+      if (editingDiscount.productIndex !== undefined && editingDiscount.productIndex !== null && editingDiscount.zProduktu) {
         const updatedProdukty = order.produkty.map((p, idx) => {
           if (idx === editingDiscount.productIndex) {
             return {
@@ -499,40 +507,69 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
         const originalDoZaplaty = cenaCalkowita - zaplacono;
         const newDoZaplaty = Math.max(0, originalDoZaplaty - sumaRabatow);
         
-        await onUpdateOrder(order.id, {
-          produkty: updatedProdukty,
-          platnosci: {
-            ...order.platnosci,
-            doZaplaty: newDoZaplaty,
-            originalDoZaplaty: originalDoZaplaty,
-            sumaRabatow: sumaRabatow
-          },
-          historia: [...(order.historia || []), {
-            data: new Date().toISOString(),
-            uzytkownik: 'Admin',
-            akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
-          }]
-        });
-      } else {
-        // Stary rabat globalny
-        await onUpdateOrder(order.id, {
-          rabatPrzyDostawie: {
-            ...order.rabatPrzyDostawie,
+        updateData.produkty = updatedProdukty;
+        updateData.platnosci = {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: sumaRabatow
+        };
+      } 
+      // Jeśli rabat pochodzi z rabatyKierowcow (ma kierowcaId ale nie zProduktu)
+      else if (editingDiscount.kierowcaId && !editingDiscount.zProduktu && !editingDiscount.globalny) {
+        const updatedRabatyKierowcow = {
+          ...order.rabatyKierowcow,
+          [editingDiscount.kierowcaId]: {
+            ...order.rabatyKierowcow?.[editingDiscount.kierowcaId],
             kwota: newAmount,
             powod: newReason,
             edytowanyPrzez: 'Admin',
             dataEdycji: new Date().toISOString()
-          },
-          historia: [...(order.historia || []), {
-            data: new Date().toISOString(),
-            uzytkownik: 'Admin',
-            akcja: `Edycja rabatu: ${formatCurrency(newAmount, order.platnosci?.waluta)} - ${newReason}`
-          }]
-        });
+          }
+        };
+        
+        updateData.rabatyKierowcow = updatedRabatyKierowcow;
+        
+        // Przelicz płatności
+        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+        const originalDoZaplaty = cenaCalkowita - zaplacono;
+        const newDoZaplaty = Math.max(0, originalDoZaplaty - newAmount);
+        
+        updateData.platnosci = {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: newAmount
+        };
+      }
+      // Stary rabat globalny
+      else {
+        updateData.rabatPrzyDostawie = {
+          ...order.rabatPrzyDostawie,
+          kwota: newAmount,
+          powod: newReason,
+          edytowanyPrzez: 'Admin',
+          dataEdycji: new Date().toISOString()
+        };
+        
+        // Przelicz płatności
+        const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
+        const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
+        const originalDoZaplaty = cenaCalkowita - zaplacono;
+        const newDoZaplaty = Math.max(0, originalDoZaplaty - newAmount);
+        
+        updateData.platnosci = {
+          ...order.platnosci,
+          doZaplaty: newDoZaplaty,
+          originalDoZaplaty: originalDoZaplaty,
+          sumaRabatow: newAmount
+        };
       }
       
+      await onUpdateOrder(order.id, updateData);
+      
       alert('Rabat został zaktualizowany!');
-      // Modal pozostaje otwarty - dane się same odświeżą przez Firebase
     } catch (error) {
       console.error('Błąd zapisu rabatu:', error);
       alert('Wystąpił błąd podczas zapisu rabatu');
@@ -1644,7 +1681,8 @@ Zespół obsługi zamówień`;
               .filter(([_, r]) => r && r.kwota > 0)
               .map(([odDriver, r]) => ({
                 ...r,
-                kierowcaId: odDriver
+                kierowcaId: odDriver,
+                zRabatyKierowcow: true
               })) : [];
             
             // Stary rabat globalny (fallback)
@@ -1652,10 +1690,22 @@ Zespół obsługi zamówień`;
               ? { ...order.rabatPrzyDostawie, globalny: true, kierowcaId: order.rabatPrzyDostawie.kierowcaId } 
               : null;
             
-            // Połącz wszystkie unikalne rabaty
-            const wszystkieRabaty = rabatyZProduktow.length > 0 ? rabatyZProduktow : 
-              (rabatyKierowcow.length > 0 ? rabatyKierowcow : 
-              (staryRabat ? [staryRabat] : []));
+            // Połącz wszystkie rabaty - priorytet: produkty > rabatyKierowcow > rabatPrzyDostawie
+            // Ale nie duplikuj jeśli ten sam kierowca ma rabat w obu miejscach
+            let wszystkieRabaty = [...rabatyZProduktow];
+            
+            // Dodaj rabaty z rabatyKierowcow tylko jeśli nie ma już dla tego kierowcy w produktach
+            rabatyKierowcow.forEach(rk => {
+              const jestWProduktach = rabatyZProduktow.some(rp => rp.kierowcaId === rk.kierowcaId);
+              if (!jestWProduktach) {
+                wszystkieRabaty.push(rk);
+              }
+            });
+            
+            // Dodaj stary rabat globalny jeśli nie ma żadnych innych
+            if (wszystkieRabaty.length === 0 && staryRabat) {
+              wszystkieRabaty.push(staryRabat);
+            }
             
             // Oblicz sumę rabatów
             const sumaRabatow = wszystkieRabaty.reduce((sum, r) => sum + (r.kwota || 0), 0);
@@ -1677,7 +1727,7 @@ Zespół obsługi zamówień`;
                         <div className="discount-admin-actions">
                           <button 
                             className="btn-edit-discount"
-                            onClick={() => handleEditDiscount(rabat.productIndex, rabat)}
+                            onClick={() => handleEditDiscount(rabat)}
                             title="Edytuj rabat"
                           >
                             ✏️
