@@ -650,10 +650,10 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
         }
       });
       
-      // Dodaj rabaty z rabatyKierowcow jeśli nie ma w produktach
+      // Dodaj rabaty z rabatyKierowcow jeśli nie ma w produktach - filtruj null
       if (order.rabatyKierowcow) {
         Object.entries(order.rabatyKierowcow).forEach(([driverId, rabat]) => {
-          if (protocols[driverId] && !protocols[driverId].rabat) {
+          if (rabat && rabat.kwota > 0 && protocols[driverId] && !protocols[driverId].rabat) {
             protocols[driverId].rabat = rabat;
           }
         });
@@ -1639,14 +1639,18 @@ Zespół obsługi zamówień`;
               });
             }
             
-            // Rabaty z rabatyKierowcow (może być duplikat z produktów)
-            const rabatyKierowcow = order.rabatyKierowcow ? Object.entries(order.rabatyKierowcow).map(([odDriver, r]) => ({
-              ...r,
-              kierowcaId: odDriver
-            })) : [];
+            // Rabaty z rabatyKierowcow (może być duplikat z produktów) - filtruj null
+            const rabatyKierowcow = order.rabatyKierowcow ? Object.entries(order.rabatyKierowcow)
+              .filter(([_, r]) => r && r.kwota > 0)
+              .map(([odDriver, r]) => ({
+                ...r,
+                kierowcaId: odDriver
+              })) : [];
             
             // Stary rabat globalny (fallback)
-            const staryRabat = order.rabatPrzyDostawie ? { ...order.rabatPrzyDostawie, globalny: true, kierowcaId: order.rabatPrzyDostawie.kierowcaId } : null;
+            const staryRabat = order.rabatPrzyDostawie && order.rabatPrzyDostawie.kwota > 0 
+              ? { ...order.rabatPrzyDostawie, globalny: true, kierowcaId: order.rabatPrzyDostawie.kierowcaId } 
+              : null;
             
             // Połącz wszystkie unikalne rabaty
             const wszystkieRabaty = rabatyZProduktow.length > 0 ? rabatyZProduktow : 
@@ -5398,7 +5402,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     
     // 2. Jeśli brak rabatów w produktach, sprawdź rabatyKierowcow
     if (sumaRabatow === 0 && order.rabatyKierowcow) {
-      sumaRabatow = Object.values(order.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+      sumaRabatow = Object.values(order.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
     }
     
     // 3. Fallback na stary rabatPrzyDostawie
@@ -5546,9 +5550,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                 }
               });
             }
-            // Fallback na rabatyKierowcow
+            // Fallback na rabatyKierowcow - filtruj null
             if (sumaRabatow === 0 && order.rabatyKierowcow) {
-              sumaRabatow = Object.values(order.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+              sumaRabatow = Object.values(order.rabatyKierowcow).filter(r => r && r.kwota > 0).reduce((sum, r) => sum + r.kwota, 0);
             }
             // Fallback na stary rabatPrzyDostawie
             if (sumaRabatow === 0 && order.rabatPrzyDostawie?.kwota > 0) {
@@ -5572,13 +5576,13 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             <span className={calcMarzaPLN() >= 0 ? 'margin-badge positive' : 'margin-badge negative'}>
               📊 Marża: <strong>{formatCurrency(calcMarzaPLN(), 'PLN')}</strong>
               {(() => {
-                // Sprawdź czy jest jakiś rabat
+                // Sprawdź czy jest jakiś rabat - filtruj null
                 let maRabat = false;
                 if (order.produkty) {
                   maRabat = order.produkty.some(p => p.rabat?.kwota > 0);
                 }
                 if (!maRabat && order.rabatyKierowcow) {
-                  maRabat = Object.values(order.rabatyKierowcow).some(r => r.kwota > 0);
+                  maRabat = Object.values(order.rabatyKierowcow).filter(r => r).some(r => r.kwota > 0);
                 }
                 if (!maRabat && order.rabatPrzyDostawie?.kwota > 0) {
                   maRabat = true;
@@ -7554,8 +7558,8 @@ ${t.team}
                       }
                     }
                     
-                    // Sprawdź też rabat z rabatyKierowcow
-                    if (!mojRabatInfo && order.rabatyKierowcow?.[user.id]) {
+                    // Sprawdź też rabat z rabatyKierowcow - upewnij się że nie jest null
+                    if (!mojRabatInfo && order.rabatyKierowcow?.[user.id] && order.rabatyKierowcow[user.id]?.kwota > 0) {
                       mojRabat = order.rabatyKierowcow[user.id].kwota || 0;
                       mojRabatInfo = order.rabatyKierowcow[user.id];
                     }
@@ -7799,13 +7803,13 @@ ${t.team}
                         </div>
                         <button className="btn-driver signature" onClick={() => openSignatureModal(order)}>✍️ Podpis klienta</button>
                         {/* Rabat - kierowca widzi i edytuje tylko swój */}
-                        {(order.platnosci?.doZaplaty > 0 || (order.rabatyKierowcow && order.rabatyKierowcow[user.id]) || order.rabatPrzyDostawie) && (() => {
+                        {(order.platnosci?.doZaplaty > 0 || (order.rabatyKierowcow && order.rabatyKierowcow[user.id]?.kwota > 0) || order.rabatPrzyDostawie?.kwota > 0) && (() => {
                           // Pobierz rabat tego kierowcy (z moich produktów)
                           const myProductIndexes = order._myProductIndexes || [];
                           const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
-                            ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                            ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat?.kwota > 0)?.rabat
                             : null;
-                          const mojRabat = mojRabatZProduktu || order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
+                          const mojRabat = mojRabatZProduktu || (order.rabatyKierowcow?.[user.id]?.kwota > 0 ? order.rabatyKierowcow[user.id] : null) || (order.rabatPrzyDostawie?.kierowcaId === user.id && order.rabatPrzyDostawie?.kwota > 0 ? order.rabatPrzyDostawie : null);
                           return (
                             <button className="btn-driver discount" onClick={() => { 
                               setDiscountAmount(mojRabat?.kwota?.toString() || ''); 
@@ -7838,10 +7842,10 @@ ${t.team}
                   {(() => {
                     const myProductIndexes = order._myProductIndexes || [];
                     const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
-                      ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                      ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat?.kwota > 0)?.rabat
                       : null;
-                    const mojRabat = mojRabatZProduktu || order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
-                    if (mojRabat) {
+                    const mojRabat = mojRabatZProduktu || (order.rabatyKierowcow?.[user.id]?.kwota > 0 ? order.rabatyKierowcow[user.id] : null) || (order.rabatPrzyDostawie?.kierowcaId === user.id && order.rabatPrzyDostawie?.kwota > 0 ? order.rabatPrzyDostawie : null);
+                    if (mojRabat && mojRabat.kwota > 0) {
                       return (
                         <div className="discount-info-card">
                           <span className="discount-badge">💸 Mój rabat: {formatCurrency(mojRabat.kwota, order.platnosci?.waluta)}</span>
@@ -7911,9 +7915,9 @@ ${t.team}
                 
                 // Pobierz istniejący rabat z moich produktów
                 const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
-                  ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                  ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat?.kwota > 0)?.rabat
                   : null;
-                const existingDiscount = mojRabatZProduktu || order.rabatyKierowcow?.[user.id];
+                const existingDiscount = mojRabatZProduktu || (order.rabatyKierowcow?.[user.id]?.kwota > 0 ? order.rabatyKierowcow[user.id] : null);
                 
                 // Oblicz oryginalną kwotę do zapłaty
                 const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
