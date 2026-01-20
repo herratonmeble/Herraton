@@ -12229,3 +12229,19 @@ input.margin-negative {
 .driver-payment-ok .driver-instruction-note {
   background: rgba(255,255,255,0.7);
 }
+
+/* Badge produktu w rozliczeniach */
+.order-to-settle .product-badge {
+  margin-left: 6px;
+  font-size: 12px;
+}
+
+.order-to-settle .towar-preview {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
