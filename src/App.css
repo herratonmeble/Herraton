@@ -12746,3 +12746,28 @@ input.margin-negative {
   color: #16A34A;
   font-size: 16px;
 }
+
+/* Podzamówienie przy rabacie */
+.discount-suborder {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+/* Suma rabatów */
+.discount-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid #FCD34D;
+  text-align: right;
+  color: #DC2626;
+  font-size: 16px;
+}
+
+/* Wiele rabatów */
+.discount-display + .discount-display {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #E5E7EB;
+}
