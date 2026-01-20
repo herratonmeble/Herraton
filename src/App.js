@@ -7268,6 +7268,11 @@ ${st.team}
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
     const hasSignature = order.podpisKlienta;
     
+    // Pobierz URL podpisu
+    const signatureUrl = order.podpisKlienta 
+      ? (typeof order.podpisKlienta === 'string' ? order.podpisKlienta : order.podpisKlienta.url)
+      : null;
+    
     // Pobierz rabat z nowej logiki - preferuj rabatyKierowcow
     let rabatKwota = 0;
     let rabatPowod = '';
