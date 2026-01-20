@@ -5018,7 +5018,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
           htmlContent: htmlEmail
         })
       }).catch(err => console.error('Błąd wysyłania emaila:', err));
-    }
+      }
     } catch (err) {
       console.error('Błąd wysyłania wiadomości:', err);
       alert('Nie udało się wysłać wiadomości. Spróbuj ponownie.');
@@ -12817,16 +12817,18 @@ const PublicComplaintForm = ({ token }) => {
     
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
-      const { db, uploadMultipleImages } = await import('./firebase');
+      const { db } = await import('./firebase');
       
       // Upload zdjęć jeśli są
       let uploadedPhotoUrls = [];
       if (chatPhotos.length > 0) {
         try {
+          const { uploadMultipleImages } = await import('./firebase');
           uploadedPhotoUrls = await uploadMultipleImages(chatPhotos, 'complaints/chat');
         } catch (uploadErr) {
           console.error('Błąd uploadu zdjęć:', uploadErr);
-          uploadedPhotoUrls = chatPhotos; // Fallback na base64
+          // Fallback - zapisz jako base64
+          uploadedPhotoUrls = chatPhotos;
         }
       }
       
@@ -12837,10 +12839,14 @@ const PublicComplaintForm = ({ token }) => {
         id: Date.now().toString(),
         autor: 'klient',
         autorNazwa: clientDisplayName,
-        tresc: newMessage.trim(),
-        data: new Date().toISOString(),
-        zdjecia: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined
+        tresc: newMessage.trim() || '(załączono zdjęcia)',
+        data: new Date().toISOString()
       };
+      
+      // Dodaj zdjęcia tylko jeśli są
+      if (uploadedPhotoUrls.length > 0) {
+        newMsg.zdjecia = uploadedPhotoUrls;
+      }
       
       const complaintRef = doc(db, 'complaints', complaintData.id);
       await updateDoc(complaintRef, {
