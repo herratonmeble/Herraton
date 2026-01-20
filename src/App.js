@@ -5201,19 +5201,132 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   )}
                 </div>
 
-                {/* Zdjęcia */}
-                {selectedComplaint.zdjecia?.length > 0 && (
-                  <div className="detail-section-card">
-                    <h4>📷 Zdjęcia ({selectedComplaint.zdjecia.length})</h4>
-                    <div className="photos-grid">
-                      {selectedComplaint.zdjecia.map(photo => (
-                        <div key={photo.id} className="photo-item">
-                          <img src={photo.url} alt="Reklamacja" />
+                {/* CZAT Z KLIENTEM - zamiast osobnych sekcji Zdjęcia i Komentarze */}
+                <div className="detail-section-card" style={{background: '#F8FAFC'}}>
+                  <h4 style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px'}}>
+                    💬 Czat z klientem
+                    {selectedComplaint.wiadomosci?.length > 0 && (
+                      <span style={{background: '#6366F1', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '12px'}}>
+                        {selectedComplaint.wiadomosci.length}
+                      </span>
+                    )}
+                  </h4>
+                  
+                  {/* Lista wiadomości */}
+                  <div style={{
+                    maxHeight: '400px', 
+                    overflowY: 'auto', 
+                    marginBottom: '15px',
+                    padding: '10px',
+                    background: 'white',
+                    borderRadius: '10px',
+                    border: '1px solid #E5E7EB'
+                  }}>
+                    {(selectedComplaint.wiadomosci || []).map((msg, idx) => {
+                      const isClient = msg.autor === 'klient';
+                      return (
+                        <div 
+                          key={msg.id || idx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: isClient ? 'flex-start' : 'flex-end',
+                            marginBottom: '12px'
+                          }}
+                        >
+                          <div style={{
+                            maxWidth: '75%',
+                            background: isClient ? '#F3F4F6' : 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                            color: isClient ? '#374151' : 'white',
+                            padding: '12px 16px',
+                            borderRadius: isClient ? '4px 16px 16px 16px' : '16px 16px 4px 16px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          }}>
+                            <div style={{fontSize: '11px', opacity: 0.8, marginBottom: '4px', fontWeight: '500'}}>
+                              {isClient ? `👤 ${msg.autorNazwa || 'Klient'}` : `🏢 ${msg.autorNazwa || 'Obsługa'}`} • {formatDateTime(msg.data)}
+                            </div>
+                            <div style={{fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap'}}>{msg.tresc}</div>
+                            
+                            {/* Zdjęcia w wiadomości */}
+                            {msg.zdjecia && msg.zdjecia.length > 0 && (
+                              <div style={{display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap'}}>
+                                {msg.zdjecia.map((photo, pIdx) => {
+                                  // Obsługa różnych formatów zdjęć (URL lub obiekt)
+                                  const photoUrl = typeof photo === 'string' ? photo : photo.url;
+                                  return (
+                                    <img 
+                                      key={pIdx}
+                                      src={photoUrl}
+                                      alt={`Zdjęcie ${pIdx + 1}`}
+                                      style={{
+                                        width: '80px', 
+                                        height: '80px', 
+                                        objectFit: 'cover', 
+                                        borderRadius: '8px', 
+                                        cursor: 'pointer',
+                                        border: isClient ? '2px solid #D1D5DB' : '2px solid rgba(255,255,255,0.3)'
+                                      }}
+                                      onClick={() => window.open(photoUrl, '_blank')}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
+                    
+                    {(!selectedComplaint.wiadomosci || selectedComplaint.wiadomosci.length === 0) && (
+                      <p style={{textAlign: 'center', color: '#9CA3AF', padding: '30px'}}>Brak wiadomości</p>
+                    )}
                   </div>
-                )}
+                  
+                  {/* Pole do pisania wiadomości */}
+                  {!['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) && (
+                    <div style={{display: 'flex', gap: '10px'}}>
+                      <textarea 
+                        value={newComment} 
+                        onChange={e => setNewComment(e.target.value)} 
+                        placeholder="Napisz wiadomość do klienta..." 
+                        rows={2}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          border: '2px solid #E5E7EB',
+                          borderRadius: '10px',
+                          fontSize: '14px',
+                          resize: 'none'
+                        }}
+                      />
+                      <button 
+                        className="btn-primary" 
+                        onClick={handleAddComment} 
+                        disabled={!newComment.trim()}
+                        style={{
+                          padding: '12px 20px',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        📤 Wyślij
+                      </button>
+                    </div>
+                  )}
+                  
+                  {['rozwiazana', 'odrzucona'].includes(selectedComplaint.status) && (
+                    <div style={{
+                      background: selectedComplaint.status === 'rozwiazana' ? '#D1FAE5' : '#F3F4F6',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                      color: selectedComplaint.status === 'rozwiazana' ? '#065F46' : '#6B7280'
+                    }}>
+                      {selectedComplaint.status === 'rozwiazana' ? '✅ Reklamacja rozwiązana' : '❌ Reklamacja odrzucona'} - czat zamknięty
+                    </div>
+                  )}
+                </div>
 
                 {/* Rozwiązanie */}
                 {selectedComplaint.status === 'rozwiazana' && selectedComplaint.rozwiazanie ? (
@@ -5231,29 +5344,6 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                     </div>
                   </div>
                 )}
-
-                {/* Komentarze */}
-                <div className="detail-section-card">
-                  <h4>💬 Komentarze ({selectedComplaint.komentarze?.length || 0})</h4>
-                  <div className="comments-list">
-                    {(selectedComplaint.komentarze || []).map(comment => (
-                      <div key={comment.id} className="comment-item">
-                        <div className="comment-header">
-                          <strong>{comment.autor}</strong>
-                          <span>{formatDateTime(comment.data)}</span>
-                        </div>
-                        <p>{comment.tekst}</p>
-                      </div>
-                    ))}
-                    {(!selectedComplaint.komentarze || selectedComplaint.komentarze.length === 0) && (
-                      <p className="no-comments">Brak komentarzy</p>
-                    )}
-                  </div>
-                  <div className="comment-form">
-                    <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Dodaj komentarz..." rows={2} />
-                    <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()}>➕</button>
-                  </div>
-                </div>
               </div>
 
               <div className="complaint-detail-sidebar">
