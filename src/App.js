@@ -4827,11 +4827,27 @@ const EmailModal = ({ order, producer, onClose }) => {
       return order.towar || 'Brak opisu';
     }
     
-    // Formatuj listę produktów tego producenta
+    // Formatuj listę produktów tego producenta (BEZ numeru w nawiasie - będzie osobno)
     return producerProducts.map(p => {
-      const prefix = order.produkty.length > 1 ? `[${p.nrPodzamowienia || ''}] ` : '';
-      return `${prefix}${p.towar}`;
+      return p.towar;
     }).join('\n');
+  };
+  
+  // Pobierz numery zamówień dla produktów tego producenta
+  const getProducerOrderNumbers = () => {
+    if (!order.produkty || order.produkty.length === 0) {
+      return order.nrWlasny || 'BRAK';
+    }
+    
+    const producerProducts = order.produkty.filter(p => p.producent === producer?.id);
+    
+    if (producerProducts.length === 0) {
+      return order.nrWlasny || 'BRAK';
+    }
+    
+    // Zwróć numery podzamówień tego producenta
+    const orderNumbers = producerProducts.map(p => p.nrPodzamowienia || order.nrWlasny).filter(Boolean);
+    return orderNumbers.length > 0 ? orderNumbers.join(', ') : order.nrWlasny || 'BRAK';
   };
   
   // Pobierz datę odbioru dla produktów tego producenta
@@ -4850,10 +4866,11 @@ const EmailModal = ({ order, producer, onClose }) => {
   
   const productDescription = getProducerProducts();
   const deliveryDate = getProducerDeliveryDate();
+  const orderNumbers = getProducerOrderNumbers();
   
   const inquiryBody = `Dzień dobry,
 
-Pytanie o zamówienie nr ${order.nrWlasny || 'BRAK'} - termin: ${deliveryDate}.
+Pytanie o zamówienie nr ${orderNumbers} - termin: ${deliveryDate}.
 
 Opis: ${productDescription}
 
@@ -4865,7 +4882,7 @@ Z poważaniem`;
 
 Zlecam realizację zamówienia:
 
-Nr zamówienia: ${order.nrWlasny || 'BRAK'}
+Nr zamówienia: ${orderNumbers}
 Opis: ${productDescription}
 Termin odbioru: ${deliveryDate || 'Do ustalenia'}
 
@@ -4875,8 +4892,8 @@ Z poważaniem`;
 
   const body = emailType === 'inquiry' ? inquiryBody : orderBody;
   const subject = emailType === 'inquiry' 
-    ? `Zapytanie - zamówienie ${order.nrWlasny}` 
-    : `ZLECENIE - zamówienie ${order.nrWlasny}`;
+    ? `Zapytanie - zamówienie ${orderNumbers}` 
+    : `ZLECENIE - zamówienie ${orderNumbers}`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
