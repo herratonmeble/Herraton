@@ -2274,17 +2274,38 @@ Zespół obsługi zamówień`;
     // Marża w PLN (przed rabatem)
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
     
-    // Odejmij rabat jeśli był udzielony przez kierowcę
-    const rabat = form.rabatPrzyDostawie?.kwota || 0;
-    if (rabat > 0) {
-      const rabatNetto = rabat / vatMultiplier;
+    // Oblicz sumę rabatów z NOWEJ logiki
+    let sumaRabatow = 0;
+    
+    // 1. Rabaty z produktów (nowa logika - priorytet)
+    if (form.produkty && form.produkty.length > 0) {
+      form.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0) {
+          sumaRabatow += p.rabat.kwota;
+        }
+      });
+    }
+    
+    // 2. Jeśli brak rabatów w produktach, sprawdź rabatyKierowcow
+    if (sumaRabatow === 0 && form.rabatyKierowcow) {
+      sumaRabatow = Object.values(form.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+    }
+    
+    // 3. Fallback na stary rabatPrzyDostawie
+    if (sumaRabatow === 0 && form.rabatPrzyDostawie?.kwota > 0) {
+      sumaRabatow = form.rabatPrzyDostawie.kwota;
+    }
+    
+    // Odejmij rabat od marży (rabat jest brutto, więc przeliczamy na netto)
+    if (sumaRabatow > 0) {
+      const rabatNetto = sumaRabatow / vatMultiplier;
       const rabatPLN = convertToPLN(rabatNetto, form.platnosci?.waluta);
       marzaPLN -= rabatPLN;
     }
     
     // Oblicz procent marży (od ceny po rabacie)
-    const skutecznaCenaNettoPLN = rabat > 0 
-      ? cenaNettoPLN - convertToPLN(rabat / vatMultiplier, form.platnosci?.waluta)
+    const skutecznaCenaNettoPLN = sumaRabatow > 0 
+      ? cenaNettoPLN - convertToPLN(sumaRabatow / vatMultiplier, form.platnosci?.waluta)
       : cenaNettoPLN;
     const marzaProcentowa = skutecznaCenaNettoPLN > 0 ? Math.round(marzaPLN / skutecznaCenaNettoPLN * 100) : 0;
     
@@ -2301,7 +2322,7 @@ Zespół obsługi zamówień`;
       transportWaluta: transportWaluta,
       marzaPLN: Math.round(marzaPLN * 100) / 100,
       marzaProcentowa,
-      rabatPLN: rabat > 0 ? Math.round(convertToPLN(rabat / vatMultiplier, form.platnosci?.waluta) * 100) / 100 : 0
+      rabatPLN: sumaRabatow > 0 ? Math.round(convertToPLN(sumaRabatow / vatMultiplier, form.platnosci?.waluta) * 100) / 100 : 0
     };
   };
 
@@ -5045,9 +5066,31 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     // Marża w PLN = Cena netto - Zakup netto - Transport netto
     let marzaPLN = cenaNettoPLN - zakupNettoPLN - transportNettoPLN;
     
-    // Odejmij rabat jeśli był udzielony przez kierowcę
-    if (order.rabatPrzyDostawie?.kwota > 0) {
-      const rabatNetto = order.rabatPrzyDostawie.kwota / vatMultiplier;
+    // Oblicz sumę rabatów z NOWEJ logiki
+    let sumaRabatow = 0;
+    
+    // 1. Rabaty z produktów (nowa logika - priorytet)
+    if (order.produkty && order.produkty.length > 0) {
+      order.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0) {
+          sumaRabatow += p.rabat.kwota;
+        }
+      });
+    }
+    
+    // 2. Jeśli brak rabatów w produktach, sprawdź rabatyKierowcow
+    if (sumaRabatow === 0 && order.rabatyKierowcow) {
+      sumaRabatow = Object.values(order.rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+    }
+    
+    // 3. Fallback na stary rabatPrzyDostawie
+    if (sumaRabatow === 0 && order.rabatPrzyDostawie?.kwota > 0) {
+      sumaRabatow = order.rabatPrzyDostawie.kwota;
+    }
+    
+    // Odejmij rabat od marży (rabat jest brutto, więc przeliczamy na netto)
+    if (sumaRabatow > 0) {
+      const rabatNetto = sumaRabatow / vatMultiplier;
       const rabatPLN = convertToPLN(rabatNetto, order.platnosci?.waluta);
       marzaPLN -= rabatPLN;
     }
