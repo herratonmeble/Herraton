@@ -4912,6 +4912,9 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     setUploadingChatPhotos(true);
     
     try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
       // Upload zdjęć do Firebase Storage jeśli są
       let uploadedPhotoUrls = [];
       if (chatPhotos.length > 0) {
@@ -4924,36 +4927,46 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
         }
       }
       
+      const messageText = newComment.trim() || (uploadedPhotoUrls.length > 0 ? '(załączono zdjęcia)' : '');
+      
       const newMsg = {
         id: Date.now().toString(),
         autor: 'admin',
         autorNazwa: currentUser.name,
-        tresc: newComment,
+        tresc: messageText,
+        data: new Date().toISOString()
+      };
+      
+      // Dodaj zdjęcia tylko jeśli są
+      if (uploadedPhotoUrls.length > 0) {
+        newMsg.zdjecia = uploadedPhotoUrls;
+      }
+      
+      const updatedWiadomosci = [...(selectedComplaint.wiadomosci || []), newMsg];
+      const updatedKomentarze = [...(selectedComplaint.komentarze || []), {
+        id: Date.now(),
+        tekst: messageText,
         data: new Date().toISOString(),
-        zdjecia: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined
-      };
+        autor: currentUser.name
+      }];
+      const updatedHistoria = [...(selectedComplaint.historia || []), {
+        data: new Date().toISOString(),
+        uzytkownik: currentUser.name,
+        akcja: uploadedPhotoUrls.length > 0 ? 'Dodano wiadomość ze zdjęciami' : 'Dodano wiadomość'
+      }];
+      const newStatus = (selectedComplaint.status === 'nowa' || selectedComplaint.status === 'w_trakcie') 
+        ? 'oczekuje_na_klienta' 
+        : selectedComplaint.status;
       
-      const updated = {
-        ...selectedComplaint,
-        komentarze: [...(selectedComplaint.komentarze || []), {
-          id: Date.now(),
-          tekst: newComment,
-          data: new Date().toISOString(),
-          autor: currentUser.name
-        }],
-        // Dodaj też do wiadomości (dla czatu z klientem)
-        wiadomosci: [...(selectedComplaint.wiadomosci || []), newMsg],
-        // Zmień status na "oczekuje na klienta"
-        status: selectedComplaint.status === 'nowa' || selectedComplaint.status === 'w_trakcie' ? 'oczekuje_na_klienta' : selectedComplaint.status,
-        historia: [...(selectedComplaint.historia || []), {
-          data: new Date().toISOString(),
-          uzytkownik: currentUser.name,
-          akcja: 'Dodano wiadomość'
-        }]
-      };
+      // Użyj bezpośrednio updateDoc zamiast onSave
+      const complaintRef = doc(db, 'complaints', selectedComplaint.id);
+      await updateDoc(complaintRef, {
+        komentarze: updatedKomentarze,
+        wiadomosci: updatedWiadomosci,
+        status: newStatus,
+        historia: updatedHistoria
+      });
       
-      await onSave(updated, selectedComplaint.id);
-      setSelectedComplaint(updated);
       setNewComment('');
       setChatPhotos([]); // Wyczyść zdjęcia
       
