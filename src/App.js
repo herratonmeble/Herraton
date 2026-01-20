@@ -12132,6 +12132,457 @@ const SettlementsPanel = ({
 // GŁÓWNA APLIKACJA
 // ============================================
 
+// ============================================
+// PUBLICZNY FORMULARZ REKLAMACJI DLA KLIENTA
+// ============================================
+
+const PublicComplaintForm = ({ token, onComplaintSubmit }) => {
+  const [loading, setLoading] = useState(true);
+  const [orderData, setOrderData] = useState(null);
+  const [error, setError] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Formularz
+  const [complaintType, setComplaintType] = useState('uszkodzenie');
+  const [description, setDescription] = useState('');
+  const [expectations, setExpectations] = useState('');
+  const [photos, setPhotos] = useState([]);
+  
+  // Wczytaj dane zamówienia na podstawie tokenu
+  useEffect(() => {
+    const loadOrderByToken = async () => {
+      try {
+        // Szukaj zamówienia z tym tokenem
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        
+        const ordersRef = collection(db, 'orders');
+        const q = query(ordersRef, where('complaintToken', '==', token));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+          setError('Nieprawidłowy lub wygasły link do reklamacji.');
+          setLoading(false);
+          return;
+        }
+        
+        const orderDoc = snapshot.docs[0];
+        setOrderData({ id: orderDoc.id, ...orderDoc.data() });
+        setLoading(false);
+      } catch (err) {
+        console.error('Błąd wczytywania zamówienia:', err);
+        setError('Wystąpił błąd. Spróbuj ponownie później.');
+        setLoading(false);
+      }
+    };
+    
+    loadOrderByToken();
+  }, [token]);
+  
+  // Obsługa zdjęć
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Zdjęcie jest za duże (max 5MB)');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPhotos(prev => [...prev, event.target.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  // Wysyłanie reklamacji
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!description.trim()) {
+      alert('Proszę opisać problem.');
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      // Generuj numer reklamacji
+      const now = new Date();
+      const year = now.getFullYear().toString().slice(-2);
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const complaintNumber = `RK/${year}/${month}/${random}`;
+      
+      const complaint = {
+        numer: complaintNumber,
+        orderId: orderData.id,
+        nrZamowienia: orderData.nrWlasny,
+        klient: orderData.klient?.imie || 'Klient',
+        klientEmail: orderData.klient?.email || '',
+        klientTelefon: orderData.klient?.telefon || '',
+        typ: complaintType,
+        opis: description,
+        oczekiwaniaKlienta: expectations,
+        zdjecia: photos,
+        status: 'nowa',
+        priorytet: 'normalny',
+        dataUtworzenia: new Date().toISOString(),
+        zrodlo: 'formularz_klienta',
+        utworzonePrzez: {
+          id: 'klient',
+          nazwa: orderData.klient?.imie || 'Klient',
+          rola: 'klient',
+          rolaLabel: 'Klient'
+        },
+        komentarze: [],
+        historia: [{
+          data: new Date().toISOString(),
+          uzytkownik: orderData.klient?.imie || 'Klient',
+          akcja: 'Reklamacja zgłoszona przez formularz online'
+        }]
+      };
+      
+      await addDoc(collection(db, 'complaints'), complaint);
+      
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Błąd zapisywania reklamacji:', err);
+      alert('Wystąpił błąd podczas wysyłania reklamacji. Spróbuj ponownie.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  // Typy reklamacji
+  const complaintTypes = [
+    { id: 'uszkodzenie', name: '🔨 Uszkodzenie towaru', desc: 'Produkt został uszkodzony podczas transportu' },
+    { id: 'niezgodnosc', name: '📦 Niezgodność z zamówieniem', desc: 'Otrzymany produkt różni się od zamówionego' },
+    { id: 'brak', name: '❌ Brak części towaru', desc: 'Brakuje elementów z zamówienia' },
+    { id: 'jakosc', name: '⚠️ Wada jakościowa', desc: 'Produkt ma wady fabryczne lub jakościowe' },
+    { id: 'opoznienie', name: '⏰ Opóźnienie dostawy', desc: 'Dostawa znacząco opóźniona' },
+    { id: 'inne', name: '📋 Inne', desc: 'Inny rodzaj problemu' }
+  ];
+  
+  // Ekran ładowania
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Segoe UI', Arial, sans-serif"
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          textAlign: 'center',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{fontSize: '48px', marginBottom: '20px'}}>⏳</div>
+          <p style={{color: '#666', fontSize: '18px'}}>Ładowanie formularza...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Ekran błędu
+  if (error) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Segoe UI', Arial, sans-serif"
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          textAlign: 'center',
+          maxWidth: '400px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{fontSize: '48px', marginBottom: '20px'}}>❌</div>
+          <h2 style={{color: '#DC2626', marginBottom: '15px'}}>Ups!</h2>
+          <p style={{color: '#666'}}>{error}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Ekran sukcesu
+  if (submitted) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Segoe UI', Arial, sans-serif"
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '50px',
+          borderRadius: '16px',
+          textAlign: 'center',
+          maxWidth: '500px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{fontSize: '64px', marginBottom: '20px'}}>✅</div>
+          <h1 style={{color: '#059669', marginBottom: '15px'}}>Reklamacja wysłana!</h1>
+          <p style={{color: '#666', fontSize: '16px', lineHeight: '1.6', marginBottom: '20px'}}>
+            Dziękujemy za zgłoszenie. Nasz zespół zajmie się Twoją sprawą najszybciej jak to możliwe.
+            Otrzymasz odpowiedź na adres email.
+          </p>
+          <div style={{
+            background: '#F0FDF4',
+            padding: '20px',
+            borderRadius: '12px',
+            border: '1px solid #86EFAC'
+          }}>
+            <p style={{margin: 0, color: '#166534'}}>
+              <strong>Zamówienie:</strong> {orderData.nrWlasny}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Główny formularz
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+      padding: '20px',
+      fontFamily: "'Segoe UI', Arial, sans-serif"
+    }}>
+      <div style={{
+        maxWidth: '700px',
+        margin: '0 auto',
+        background: 'white',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+      }}>
+        {/* Header */}
+        <div style={{
+          background: 'linear-gradient(135deg, #DC2626, #B91C1C)',
+          padding: '30px',
+          textAlign: 'center',
+          color: 'white'
+        }}>
+          <div style={{fontSize: '48px', marginBottom: '10px'}}>📋</div>
+          <h1 style={{margin: '0 0 10px 0', fontSize: '24px'}}>Formularz Reklamacji</h1>
+          <p style={{margin: 0, opacity: 0.9}}>Zamówienie: <strong>{orderData.nrWlasny}</strong></p>
+        </div>
+        
+        {/* Info o zamówieniu */}
+        <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+            <div>
+              <span style={{color: '#6B7280', fontSize: '13px'}}>👤 Klient</span>
+              <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.imie}</p>
+            </div>
+            <div>
+              <span style={{color: '#6B7280', fontSize: '13px'}}>📧 Email</span>
+              <p style={{margin: '5px 0 0 0', fontWeight: '600'}}>{orderData.klient?.email}</p>
+            </div>
+            <div style={{gridColumn: '1 / -1'}}>
+              <span style={{color: '#6B7280', fontSize: '13px'}}>📦 Towar</span>
+              <p style={{margin: '5px 0 0 0', fontWeight: '500', fontSize: '14px', whiteSpace: 'pre-wrap'}}>{orderData.towar || '-'}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Formularz */}
+        <form onSubmit={handleSubmit} style={{padding: '25px'}}>
+          {/* Typ reklamacji */}
+          <div style={{marginBottom: '25px'}}>
+            <label style={{display: 'block', fontWeight: '600', marginBottom: '12px', color: '#374151'}}>
+              Rodzaj problemu *
+            </label>
+            <div style={{display: 'grid', gap: '10px'}}>
+              {complaintTypes.map(type => (
+                <label
+                  key={type.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '12px 15px',
+                    border: complaintType === type.id ? '2px solid #DC2626' : '2px solid #E5E7EB',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    background: complaintType === type.id ? '#FEF2F2' : 'white',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="complaintType"
+                    value={type.id}
+                    checked={complaintType === type.id}
+                    onChange={e => setComplaintType(e.target.value)}
+                    style={{marginRight: '12px'}}
+                  />
+                  <div>
+                    <div style={{fontWeight: '500'}}>{type.name}</div>
+                    <div style={{fontSize: '12px', color: '#6B7280'}}>{type.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          
+          {/* Opis problemu */}
+          <div style={{marginBottom: '25px'}}>
+            <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151'}}>
+              Opis problemu *
+            </label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Opisz szczegółowo co się stało..."
+              rows={5}
+              required
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '2px solid #E5E7EB',
+                borderRadius: '10px',
+                fontSize: '15px',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Oczekiwania */}
+          <div style={{marginBottom: '25px'}}>
+            <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151'}}>
+              Czego oczekujesz? (opcjonalne)
+            </label>
+            <textarea
+              value={expectations}
+              onChange={e => setExpectations(e.target.value)}
+              placeholder="Np. wymiana towaru, zwrot pieniędzy, naprawa..."
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '2px solid #E5E7EB',
+                borderRadius: '10px',
+                fontSize: '15px',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Zdjęcia */}
+          <div style={{marginBottom: '25px'}}>
+            <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151'}}>
+              📸 Zdjęcia (opcjonalne, max 5MB każde)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotoUpload}
+              style={{marginBottom: '15px'}}
+            />
+            {photos.length > 0 && (
+              <div style={{display: 'flex', flexWrap: 'wrap', gap: '10px'}}>
+                {photos.map((photo, idx) => (
+                  <div key={idx} style={{position: 'relative'}}>
+                    <img
+                      src={photo}
+                      alt={`Zdjęcie ${idx + 1}`}
+                      style={{
+                        width: '100px',
+                        height: '100px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #E5E7EB'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(idx)}
+                      style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: '#DC2626',
+                        color: 'white',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Przycisk wysyłania */}
+          <button
+            type="submit"
+            disabled={submitting || !description.trim()}
+            style={{
+              width: '100%',
+              padding: '15px',
+              background: submitting ? '#9CA3AF' : 'linear-gradient(135deg, #DC2626, #B91C1C)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {submitting ? '⏳ Wysyłanie...' : '📤 Wyślij reklamację'}
+          </button>
+        </form>
+        
+        {/* Footer */}
+        <div style={{
+          padding: '20px',
+          background: '#F9FAFB',
+          textAlign: 'center',
+          borderTop: '1px solid #E5E7EB'
+        }}>
+          <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
+            Herraton • System obsługi zamówień
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12874,6 +13325,14 @@ Zespół obsługi zamówień
   });
 
   const paymentSums = calcPaymentSums(filteredOrders);
+
+  // Sprawdź czy URL wskazuje na formularz reklamacji (publiczny, bez logowania)
+  const currentPath = window.location.pathname;
+  const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
+  if (complaintMatch) {
+    const complaintToken = complaintMatch[1];
+    return <PublicComplaintForm token={complaintToken} />;
+  }
 
   if (user?.role === 'driver') {
     return (
