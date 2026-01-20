@@ -11828,6 +11828,9 @@ input.margin-negative {
 }
 
 .product-costs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px dashed #F59E0B;
@@ -11839,11 +11842,32 @@ input.margin-negative {
   color: #92400E;
 }
 
+.currency-selector-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currency-selector-main label {
+  font-size: 12px;
+  color: #78350F;
+}
+
+.currency-select-main {
+  padding: 6px 10px;
+  border: 1px solid #F59E0B;
+  border-radius: 6px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400E;
+}
+
 .cost-input-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(245, 158, 11, 0.2);
 }
 
@@ -11875,11 +11899,12 @@ input.margin-negative {
 
 .cost-input {
   width: 100px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border: 1px solid #D1D5DB;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   text-align: right;
+  font-weight: 500;
 }
 
 .cost-input:focus {
@@ -11889,7 +11914,7 @@ input.margin-negative {
 }
 
 .btn-search-price {
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: white;
   border: 1px solid #D1D5DB;
   border-radius: 6px;
@@ -11906,43 +11931,60 @@ input.margin-negative {
   color: #78350F;
   min-width: 30px;
   text-align: center;
+  font-size: 14px;
 }
 
-.cost-input-row.highlight-row {
-  background: rgba(34, 197, 94, 0.1);
-  margin: 8px -12px;
-  padding: 10px 12px;
+/* Zielone tło dla ceny klienta */
+.cost-input-row.highlight-green {
+  background: rgba(34, 197, 94, 0.15);
+  margin: 0 -12px;
+  padding: 12px;
   border-radius: 6px;
   border: none;
+  margin-bottom: 4px;
 }
 
-.cost-input-row.highlight-row label {
+.cost-input-row.highlight-green label {
   color: #166534;
+  font-weight: 600;
 }
 
-.cost-input-row.warning-row {
-  background: rgba(239, 68, 68, 0.1);
-  margin: 8px -12px;
-  padding: 10px 12px;
+.cost-input-row.highlight-green .cost-input {
+  border-color: #22C55E;
+  background: white;
+}
+
+/* Pomarańczowe tło dla do pobrania */
+.cost-input-row.highlight-orange {
+  background: rgba(249, 115, 22, 0.15);
+  margin: 0 -12px;
+  padding: 12px;
   border-radius: 6px;
   border: none;
+  margin-bottom: 8px;
 }
 
-.cost-input-row.warning-row label {
-  color: #991B1B;
+.cost-input-row.highlight-orange label {
+  color: #C2410C;
+  font-weight: 600;
+}
+
+.cost-input-row.highlight-orange .cost-input {
+  border-color: #F97316;
+  background: white;
 }
 
 /* Stawki kierowcy - szybki wybór */
 .driver-rates-quick {
-  margin: 8px 0;
-  padding: 8px;
+  margin: 10px 0;
+  padding: 10px;
   background: white;
   border-radius: 6px;
   border: 1px solid #E2E8F0;
 }
 
 .rates-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748B;
   display: block;
   margin-bottom: 6px;
@@ -11955,11 +11997,11 @@ input.margin-negative {
 }
 
 .rate-quick-btn-small {
-  padding: 4px 10px;
+  padding: 5px 12px;
   background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
   border: 1px solid #C7D2FE;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: #4338CA;
   cursor: pointer;
   transition: all 0.2s;
@@ -11967,4 +12009,49 @@ input.margin-negative {
 
 .rate-quick-btn-small:hover {
   background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
+}
+
+/* Marża produktu */
+.product-margin-display {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-margin-display.positive {
+  background: #DCFCE7;
+  border: 1px solid #86EFAC;
+}
+
+.product-margin-display.positive span {
+  color: #166534;
+}
+
+.product-margin-display.positive strong {
+  color: #15803D;
+  font-size: 18px;
+}
+
+.product-margin-display.negative {
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
+}
+
+.product-margin-display.negative span {
+  color: #991B1B;
+}
+
+.product-margin-display.negative strong {
+  color: #DC2626;
+  font-size: 18px;
+}
+
+.product-margin-display .exchange-info {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 4px;
 }
