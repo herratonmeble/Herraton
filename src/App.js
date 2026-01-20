@@ -6882,11 +6882,46 @@ ${st.team}
     const walutaSymbol = CURRENCIES.find(c => c.code === order.platnosci?.waluta)?.symbol || 'zł';
     const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
     const dataPlatnosci = order.potwierdzenieDostawy?.data || new Date().toISOString();
-    const rabat = order.rabatPrzyDostawie;
-    const hasDiscount = rabat && rabat.kwota > 0;
+    
+    // Pobierz rabat z nowej logiki - preferuj rabatyKierowcow
+    let rabatKwota = 0;
+    let rabatPowod = '';
+    
+    // 1. Sprawdź rabatyKierowcow (główne źródło prawdy)
+    if (order.rabatyKierowcow) {
+      Object.values(order.rabatyKierowcow).forEach(r => {
+        if (r && r.kwota > 0) {
+          rabatKwota += r.kwota;
+          if (!rabatPowod && r.powod) rabatPowod = r.powod;
+        }
+      });
+    }
+    
+    // 2. Jeśli brak, sprawdź produkty (unikalne per kierowca)
+    if (rabatKwota === 0 && order.produkty && order.produkty.length > 0) {
+      const rabatyPerKierowca = {};
+      order.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0 && p.rabat.kierowcaId) {
+          if (!rabatyPerKierowca[p.rabat.kierowcaId]) {
+            rabatyPerKierowca[p.rabat.kierowcaId] = p.rabat;
+          }
+        }
+      });
+      Object.values(rabatyPerKierowca).forEach(r => {
+        rabatKwota += r.kwota;
+        if (!rabatPowod && r.powod) rabatPowod = r.powod;
+      });
+    }
+    
+    // 3. Fallback na stary rabatPrzyDostawie
+    if (rabatKwota === 0 && order.rabatPrzyDostawie?.kwota > 0) {
+      rabatKwota = order.rabatPrzyDostawie.kwota;
+      rabatPowod = order.rabatPrzyDostawie.powod || '';
+    }
+    
+    const hasDiscount = rabatKwota > 0;
     const zaplacono = order.platnosci?.zaplacono || order.platnosci?.zaliczka || 0;
     const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplacono);
-    const rabatKwota = hasDiscount ? rabat.kwota : 0;
     const faktyczniePobrano = Math.max(0, originalDoZaplaty - rabatKwota);
     const clientRemarks = order.umowaOdbioru?.uwagiKlienta || order.uwagiKlienta || '';
     
@@ -6986,7 +7021,7 @@ ${st.team}
               </div>
               ${hasDiscount ? `
               <div class="payment-row discount">
-                <span>🎁 Udzielono rabatu (${rabat.powod || 'brak powodu'}):</span>
+                <span>🎁 Udzielono rabatu (${rabatPowod || 'brak powodu'}):</span>
                 <span><strong>-${rabatKwota.toFixed(2)} ${walutaSymbol}</strong></span>
               </div>
               ` : ''}
@@ -7064,9 +7099,51 @@ ${st.team}
     const hasPhotos = order.zdjeciaDostawy && order.zdjeciaDostawy.length > 0;
     const hasSignature = order.podpisKlienta;
     
-    // Informacje o rabacie
-    const rabat = order.rabatPrzyDostawie;
-    const hasDiscount = rabat && rabat.kwota > 0;
+    // Pobierz rabat z nowej logiki - preferuj rabatyKierowcow
+    let rabatKwota = 0;
+    let rabatPowod = '';
+    let rabatKierowca = '';
+    let rabatData = '';
+    
+    // 1. Sprawdź rabatyKierowcow (główne źródło prawdy)
+    if (order.rabatyKierowcow) {
+      Object.values(order.rabatyKierowcow).forEach(r => {
+        if (r && r.kwota > 0) {
+          rabatKwota += r.kwota;
+          if (!rabatPowod && r.powod) rabatPowod = r.powod;
+          if (!rabatKierowca && r.kierowca) rabatKierowca = r.kierowca;
+          if (!rabatData && r.data) rabatData = r.data;
+        }
+      });
+    }
+    
+    // 2. Jeśli brak, sprawdź produkty (unikalne per kierowca)
+    if (rabatKwota === 0 && order.produkty && order.produkty.length > 0) {
+      const rabatyPerKierowca = {};
+      order.produkty.forEach(p => {
+        if (p.rabat && p.rabat.kwota > 0 && p.rabat.kierowcaId) {
+          if (!rabatyPerKierowca[p.rabat.kierowcaId]) {
+            rabatyPerKierowca[p.rabat.kierowcaId] = p.rabat;
+          }
+        }
+      });
+      Object.values(rabatyPerKierowca).forEach(r => {
+        rabatKwota += r.kwota;
+        if (!rabatPowod && r.powod) rabatPowod = r.powod;
+        if (!rabatKierowca && r.kierowca) rabatKierowca = r.kierowca;
+        if (!rabatData && r.data) rabatData = r.data;
+      });
+    }
+    
+    // 3. Fallback na stary rabatPrzyDostawie
+    if (rabatKwota === 0 && order.rabatPrzyDostawie?.kwota > 0) {
+      rabatKwota = order.rabatPrzyDostawie.kwota;
+      rabatPowod = order.rabatPrzyDostawie.powod || '';
+      rabatKierowca = order.rabatPrzyDostawie.kierowca || '';
+      rabatData = order.rabatPrzyDostawie.data || '';
+    }
+    
+    const hasDiscount = rabatKwota > 0;
     
     // Uwagi klienta - sprawdzamy WSZYSTKIE możliwe pola (w tym umowaOdbioru!)
     const clientRemarks = order.umowaOdbioru?.uwagiKlienta || order.uwagiKlienta || order.uwagiOdKlienta || order.uwagi || order.uwagiPrzyDostawie || '';
@@ -7183,9 +7260,6 @@ ${st.team}
     // Oryginalna kwota do zapłaty (PRZED rabatem) = cena - zaliczka
     const originalDoZaplaty = order.platnosci?.originalDoZaplaty || (cenaCalkowita - zaplaconoPrzedDostawa);
     
-    // Kwota rabatu
-    const rabatKwota = hasDiscount ? rabat.kwota : 0;
-    
     // Faktycznie pobrana kwota (PO rabacie)
     const faktyczniePobrano = Math.max(0, originalDoZaplaty - rabatKwota);
     
@@ -7215,9 +7289,9 @@ ${st.team}
       paymentSummary += `
 
 🎁 Udzielono rabatu: -${rabatKwota.toFixed(2)} ${walutaSymbol}
-   ├─ Udzielony przez: ${rabat.kierowca || user.name}
-   ├─ Data: ${formatDate(rabat.data || dataPlatnosci)}
-   └─ Powód: ${rabat.powod || 'Nie podano'}`;
+   ├─ Udzielony przez: ${rabatKierowca || user.name}
+   ├─ Data: ${formatDate(rabatData || dataPlatnosci)}
+   └─ Powód: ${rabatPowod || 'Nie podano'}`;
     }
     
     // Kwota faktycznie pobrana od klienta
@@ -7248,7 +7322,7 @@ ${pt.product}:
 ${order.towar || '-'}
 
 ${pt.value}: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
-${hasDiscount ? `${pt.discountAmount}: -${rabat.kwota.toFixed(2)} ${walutaSymbol}` : ''}
+${hasDiscount ? `${pt.discountAmount}: -${rabatKwota.toFixed(2)} ${walutaSymbol}` : ''}
 ───────────────────────────────────────────────────────────
 
 ${pt.recipient}: ${order.klient?.imie || '-'}
