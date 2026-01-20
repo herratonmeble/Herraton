@@ -6971,12 +6971,19 @@ ${t.team}
                     let myAmount = 0;
                     let metodaPobrania = null;
                     let notatkaKierowcy = null;
+                    let mojRabat = 0;
+                    let mojRabatInfo = null;
+                    const myProductIndexes = order._myProductIndexes || [];
                     
                     if (order.produkty && order.produkty.length > 0) {
                       // Zamówienie łączone - sumuj tylko produkty tego kierowcy
-                      order.produkty.forEach(p => {
-                        const prodDriverId = p.kierowca || order.przypisanyKierowca;
-                        if (prodDriverId === user.id) {
+                      order.produkty.forEach((p, idx) => {
+                        // Sprawdź czy to mój produkt (używając _myProductIndexes lub fallback)
+                        const isMine = myProductIndexes.length > 0 
+                          ? myProductIndexes.includes(idx)
+                          : (p.kierowca === user.id || (!p.kierowca && order.przypisanyKierowca === user.id));
+                        
+                        if (isMine) {
                           if (p.doPobrania > 0) {
                             myAmount += p.doPobrania;
                           }
@@ -6987,14 +6994,33 @@ ${t.team}
                           if (p.notatkaKierowcy && !notatkaKierowcy) {
                             notatkaKierowcy = p.notatkaKierowcy;
                           }
+                          // Pobierz rabat z produktu
+                          if (p.rabat && p.rabat.kwota > 0) {
+                            mojRabat += p.rabat.kwota;
+                            mojRabatInfo = p.rabat;
+                          }
                         }
                       });
                     } else {
                       // Stare zamówienie - sprawdź czy jest przypisane do tego kierowcy
                       if (order.przypisanyKierowca === user.id) {
                         myAmount = order.platnosci?.doZaplaty || 0;
+                        // Sprawdź rabat ze starej logiki
+                        if (order.rabatPrzyDostawie?.kierowcaId === user.id) {
+                          mojRabat = order.rabatPrzyDostawie.kwota || 0;
+                          mojRabatInfo = order.rabatPrzyDostawie;
+                        }
                       }
                     }
+                    
+                    // Sprawdź też rabat z rabatyKierowcow
+                    if (!mojRabatInfo && order.rabatyKierowcow?.[user.id]) {
+                      mojRabat = order.rabatyKierowcow[user.id].kwota || 0;
+                      mojRabatInfo = order.rabatyKierowcow[user.id];
+                    }
+                    
+                    // Oblicz kwotę po rabacie
+                    const kwotaPoRabacie = Math.max(0, myAmount - mojRabat);
                     
                     // Słownik metod pobrania
                     const metodaLabels = {
@@ -7012,13 +7038,29 @@ ${t.team}
                             <div className="payment-label">
                               {metodaPobrania === 'oplacone' ? '✅ Opłacone' : '💰 Do pobrania od klienta'}
                             </div>
-                            {myAmount > 0 && (
-                              <div className="payment-amount">{formatCurrency(myAmount, order.platnosci?.waluta)}</div>
+                            {kwotaPoRabacie > 0 && (
+                              <div className="payment-amount">
+                                {formatCurrency(kwotaPoRabacie, order.platnosci?.waluta)}
+                                {mojRabat > 0 && (
+                                  <span className="original-amount-strike"> ({formatCurrency(myAmount, order.platnosci?.waluta)})</span>
+                                )}
+                              </div>
+                            )}
+                            {kwotaPoRabacie === 0 && mojRabat > 0 && (
+                              <div className="payment-amount paid">✅ 0 (rabat pokrył całość)</div>
                             )}
                           </div>
                           
+                          {/* Info o rabacie */}
+                          {mojRabat > 0 && mojRabatInfo && (
+                            <div className="payment-discount-applied">
+                              💸 Udzielono rabat: <strong>-{formatCurrency(mojRabat, order.platnosci?.waluta)}</strong>
+                              <span className="discount-reason-small">({mojRabatInfo.powod})</span>
+                            </div>
+                          )}
+                          
                           {/* Metoda pobrania */}
-                          {metodaPobrania && metodaPobrania !== 'oplacone' && (
+                          {metodaPobrania && metodaPobrania !== 'oplacone' && kwotaPoRabacie > 0 && (
                             <div className="payment-method-info">
                               <span className="method-badge">
                                 {metodaLabels[metodaPobrania]?.icon || '💵'} {metodaLabels[metodaPobrania]?.name || 'Gotówka'}
