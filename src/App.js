@@ -432,17 +432,96 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 // MODAL SZCZEGÓŁÓW ZAMÓWIENIA - Z POWIĘKSZANIEM ZDJĘĆ
 // ============================================
 
-const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor }) => {
+const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor, selectedProductIndex, onUpdateOrder }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [showDeliveryEmailModal, setShowDeliveryEmailModal] = useState(false);
   const [deliveryEmailLang, setDeliveryEmailLang] = useState('pl');
+  const [viewMode, setViewMode] = useState(selectedProductIndex !== null && selectedProductIndex !== undefined ? 'product' : 'all'); // 'all' lub 'product'
+  const [activeProductIdx, setActiveProductIdx] = useState(selectedProductIndex || 0);
+  const [expandedProtocols, setExpandedProtocols] = useState({});
+  
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
   const urgency = getUrgencyStyle(days);
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+  
+  const hasMultipleProducts = order.produkty && order.produkty.length > 1;
+  
+  // Grupuj protokoły per kierowca
+  const getProtocolsByDriver = () => {
+    const protocols = {};
+    
+    if (order.produkty && order.produkty.length > 0) {
+      order.produkty.forEach((prod, idx) => {
+        const driverId = prod.kierowca;
+        if (!driverId) return;
+        
+        if (!protocols[driverId]) {
+          const driverInfo = drivers.find(d => d.id === driverId);
+          protocols[driverId] = {
+            driverName: driverInfo?.name || 'Nieznany kierowca',
+            products: [],
+            zdjeciaOdbioru: [],
+            zdjeciaDostawy: [],
+            podpisy: [],
+            uwagi: []
+          };
+        }
+        
+        protocols[driverId].products.push({ ...prod, index: idx });
+        
+        // Zbierz protokoły z produktów
+        if (prod.protokol?.zdjeciaOdbioru) {
+          protocols[driverId].zdjeciaOdbioru.push(...prod.protokol.zdjeciaOdbioru);
+        }
+        if (prod.protokol?.zdjeciaDostawy) {
+          protocols[driverId].zdjeciaDostawy.push(...prod.protokol.zdjeciaDostawy);
+        }
+        if (prod.protokol?.podpis) {
+          protocols[driverId].podpisy.push({ productIdx: idx, podpis: prod.protokol.podpis });
+        }
+        if (prod.protokol?.uwagi) {
+          protocols[driverId].uwagi.push({ productIdx: idx, uwagi: prod.protokol.uwagi });
+        }
+      });
+    }
+    
+    // Dodaj też globalne protokoły zamówienia jeśli istnieją
+    if (order.zdjeciaOdbioru?.length > 0 || order.zdjeciaDostawy?.length > 0 || order.podpisKlienta) {
+      const globalDriverId = order.przypisanyKierowca || 'global';
+      if (!protocols[globalDriverId]) {
+        const driverInfo = drivers.find(d => d.id === globalDriverId);
+        protocols[globalDriverId] = {
+          driverName: driverInfo?.name || 'Protokół główny',
+          products: [],
+          zdjeciaOdbioru: order.zdjeciaOdbioru || [],
+          zdjeciaDostawy: order.zdjeciaDostawy || [],
+          podpisy: order.podpisKlienta ? [{ global: true, podpis: order.podpisKlienta }] : [],
+          uwagi: order.uwagiKierowcy ? [{ global: true, uwagi: order.uwagiKierowcy }] : []
+        };
+      } else {
+        // Dodaj do istniejącego kierowcy
+        if (order.zdjeciaOdbioru?.length > 0) {
+          protocols[globalDriverId].zdjeciaOdbioru.push(...order.zdjeciaOdbioru);
+        }
+        if (order.zdjeciaDostawy?.length > 0) {
+          protocols[globalDriverId].zdjeciaDostawy.push(...order.zdjeciaDostawy);
+        }
+        if (order.podpisKlienta) {
+          protocols[globalDriverId].podpisy.push({ global: true, podpis: order.podpisKlienta });
+        }
+      }
+    }
+    
+    return protocols;
+  };
+  
+  const toggleProtocol = (driverId) => {
+    setExpandedProtocols(prev => ({ ...prev, [driverId]: !prev[driverId] }));
+  };
 
   const handleDelete = () => {
     if (window.confirm(`Czy na pewno chcesz usunąć zamówienie ${order.nrWlasny}?`)) {
@@ -1066,6 +1145,11 @@ Zespół obsługi zamówień`;
             <div className="modal-title-row">
               <span style={{ fontSize: '20px' }}>{country?.flag}</span>
               <h2>{order.nrWlasny || 'Bez numeru'}</h2>
+              {viewMode === 'product' && hasMultipleProducts && (
+                <span className="product-view-badge">
+                  📦 {order.produkty[activeProductIdx]?.nrPodzamowienia || `Produkt #${activeProductIdx + 1}`}
+                </span>
+              )}
               {urgency && <span className={`urgency-badge ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰ {urgency.label}</span>}
             </div>
             <span className="status-badge" style={{ background: status?.bgColor, color: status?.color }}>{status?.icon} {status?.name}</span>
@@ -1074,10 +1158,165 @@ Zespół obsługi zamówień`;
         </div>
 
         <div className="modal-body">
-          <div className="detail-section">
-            <label>📦 TOWAR</label>
-            <p>{order.towar}</p>
-          </div>
+          {/* Przełącznik widoku dla zamówień łączonych */}
+          {hasMultipleProducts && (
+            <div className="view-mode-switcher">
+              <button 
+                className={`view-mode-btn ${viewMode === 'all' ? 'active' : ''}`}
+                onClick={() => setViewMode('all')}
+              >
+                👁️ Całe zamówienie ({order.produkty.length} produktów)
+              </button>
+              {order.produkty.map((prod, idx) => (
+                <button 
+                  key={idx}
+                  className={`view-mode-btn product ${viewMode === 'product' && activeProductIdx === idx ? 'active' : ''}`}
+                  onClick={() => { setViewMode('product'); setActiveProductIdx(idx); }}
+                >
+                  {prod.nrPodzamowienia || `#${idx + 1}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* WIDOK CAŁEGO ZAMÓWIENIA */}
+          {(viewMode === 'all' || !hasMultipleProducts) && (
+            <>
+              <div className="detail-section">
+                <label>📦 TOWAR</label>
+                {hasMultipleProducts ? (
+                  <div className="products-detail-list">
+                    {order.produkty.map((prod, idx) => {
+                      const prodStatus = getStatus(prod.status);
+                      const prodDriver = drivers.find(d => d.id === prod.kierowca);
+                      return (
+                        <div key={idx} className="product-detail-item">
+                          <div className="product-detail-header">
+                            <span className="product-detail-nr">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
+                            <span className="product-detail-status" style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}>
+                              {prodStatus?.icon} {prodStatus?.name}
+                            </span>
+                          </div>
+                          <p className="product-detail-desc">{prod.towar}</p>
+                          <div className="product-detail-tags">
+                            {prodDriver && <span className="mini-tag">🚚 {prodDriver.name}</span>}
+                            {prod.dataOdbioru && <span className="mini-tag">📅 {formatDate(prod.dataOdbioru)}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p>{order.towar}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* WIDOK POJEDYNCZEGO PRODUKTU */}
+          {viewMode === 'product' && hasMultipleProducts && order.produkty[activeProductIdx] && (() => {
+            const prod = order.produkty[activeProductIdx];
+            const prodStatus = getStatus(prod.status);
+            const prodDriver = drivers.find(d => d.id === prod.kierowca);
+            const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
+            
+            return (
+              <div className="single-product-view">
+                <div className="detail-section">
+                  <div className="product-header-detail">
+                    <span className="product-nr-large">{prod.nrPodzamowienia || `Produkt #${activeProductIdx + 1}`}</span>
+                    <span className="status-badge" style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}>
+                      {prodStatus?.icon} {prodStatus?.name}
+                    </span>
+                  </div>
+                  <label>📦 TOWAR</label>
+                  <p>{prod.towar}</p>
+                </div>
+
+                <div className="detail-grid">
+                  {prodProducer && (
+                    <div className="detail-item">
+                      <span className="detail-label">🏭 Producent</span>
+                      <span className="detail-value">{prodProducer.name}</span>
+                    </div>
+                  )}
+                  {prod.producentNazwa && (
+                    <div className="detail-item">
+                      <span className="detail-label">🏭 Producent</span>
+                      <span className="detail-value">{prod.producentNazwa}</span>
+                    </div>
+                  )}
+                  {prodDriver && (
+                    <div className="detail-item">
+                      <span className="detail-label">🚚 Kierowca</span>
+                      <span className="detail-value">{prodDriver.name}</span>
+                    </div>
+                  )}
+                  {prod.dataOdbioru && (
+                    <div className="detail-item">
+                      <span className="detail-label">📅 Data odbioru</span>
+                      <span className="detail-value">{formatDate(prod.dataOdbioru)}</span>
+                    </div>
+                  )}
+                  {prod.dataDostawy && (
+                    <div className="detail-item">
+                      <span className="detail-label">📅 Data dostawy</span>
+                      <span className="detail-value">{formatDate(prod.dataDostawy)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Koszty produktu */}
+                {prod.koszty && (
+                  <div className="detail-card">
+                    <label>💰 KOSZTY PRODUKTU</label>
+                    <div className="costs-mini-grid">
+                      {prod.cenaKlienta && (
+                        <div><span>Cena klienta:</span> <strong>{formatCurrency(prod.cenaKlienta, order.platnosci?.waluta)}</strong></div>
+                      )}
+                      {prod.koszty.zakupNetto && (
+                        <div><span>Zakup netto:</span> <strong>{formatCurrency(prod.koszty.zakupNetto, prod.koszty.waluta)}</strong></div>
+                      )}
+                      {prod.koszty.transportNetto && (
+                        <div><span>Transport:</span> <strong>{formatCurrency(prod.koszty.transportNetto, prod.koszty.transportWaluta)}</strong></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Protokół tego produktu */}
+                {prod.protokol && (prod.protokol.zdjeciaOdbioru?.length > 0 || prod.protokol.zdjeciaDostawy?.length > 0 || prod.protokol.podpis) && (
+                  <div className="detail-section">
+                    <label>📷 PROTOKÓŁ PRODUKTU</label>
+                    <div className="photos-grid">
+                      {prod.protokol.zdjeciaOdbioru?.map((p, i) => (
+                        <div key={`o${i}`} className="photo-item" onClick={() => setPreviewImage(p.url)}>
+                          <img src={p.url} alt={`Odbiór ${i + 1}`} />
+                          <span>Odbiór</span>
+                        </div>
+                      ))}
+                      {prod.protokol.zdjeciaDostawy?.map((p, i) => (
+                        <div key={`d${i}`} className="photo-item" onClick={() => setPreviewImage(p.url)}>
+                          <img src={p.url} alt={`Dostawa ${i + 1}`} />
+                          <span>Dostawa</span>
+                        </div>
+                      ))}
+                      {prod.protokol.podpis && (
+                        <div className="photo-item signature" onClick={() => setPreviewImage(prod.protokol.podpis.url)}>
+                          <img src={prod.protokol.podpis.url} alt="Podpis" />
+                          <span>✍️ Podpis</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* WSPÓLNE DANE KLIENTA - zawsze widoczne */}
+          {(viewMode === 'all' || !hasMultipleProducts) && (
+            <>
 
           <div className="detail-card">
             <label>👤 KLIENT</label>
@@ -1256,6 +1495,103 @@ Zespół obsługi zamówień`;
           )}
 
           <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
+            </>
+          )}
+
+          {/* PROTOKOŁY PER KIEROWCA - dla zamówień łączonych */}
+          {hasMultipleProducts && Object.keys(getProtocolsByDriver()).length > 0 && (
+            <div className="detail-section protocols-by-driver">
+              <label>📋 PROTOKOŁY KIEROWCÓW</label>
+              {Object.entries(getProtocolsByDriver()).map(([driverId, protocol]) => (
+                <div key={driverId} className="driver-protocol-block">
+                  <button 
+                    className={`driver-protocol-header ${expandedProtocols[driverId] ? 'expanded' : ''}`}
+                    onClick={() => toggleProtocol(driverId)}
+                  >
+                    <span className="driver-protocol-name">
+                      🚚 {protocol.driverName}
+                      <span className="protocol-counts">
+                        {protocol.zdjeciaOdbioru.length > 0 && <span>📷O: {protocol.zdjeciaOdbioru.length}</span>}
+                        {protocol.zdjeciaDostawy.length > 0 && <span>📷D: {protocol.zdjeciaDostawy.length}</span>}
+                        {protocol.podpisy.length > 0 && <span>✍️: {protocol.podpisy.length}</span>}
+                      </span>
+                    </span>
+                    <span className="expand-icon">{expandedProtocols[driverId] ? '▼' : '▶'}</span>
+                  </button>
+                  
+                  {expandedProtocols[driverId] && (
+                    <div className="driver-protocol-content">
+                      {/* Produkty tego kierowcy */}
+                      <div className="protocol-products">
+                        <strong>Produkty:</strong>
+                        {protocol.products.map((p, i) => (
+                          <span key={i} className="protocol-product-tag">
+                            {p.nrPodzamowienia || `#${p.index + 1}`}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Zdjęcia odbioru */}
+                      {protocol.zdjeciaOdbioru.length > 0 && (
+                        <div className="protocol-photos-section">
+                          <strong>📷 Zdjęcia odbioru:</strong>
+                          <div className="photos-grid small">
+                            {protocol.zdjeciaOdbioru.map((p, i) => (
+                              <div key={i} className="photo-item small" onClick={() => setPreviewImage(p.url)}>
+                                <img src={p.url} alt={`Odbiór ${i + 1}`} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Zdjęcia dostawy */}
+                      {protocol.zdjeciaDostawy.length > 0 && (
+                        <div className="protocol-photos-section">
+                          <strong>📷 Zdjęcia dostawy:</strong>
+                          <div className="photos-grid small">
+                            {protocol.zdjeciaDostawy.map((p, i) => (
+                              <div key={i} className="photo-item small" onClick={() => setPreviewImage(p.url)}>
+                                <img src={p.url} alt={`Dostawa ${i + 1}`} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Podpisy */}
+                      {protocol.podpisy.length > 0 && (
+                        <div className="protocol-signatures-section">
+                          <strong>✍️ Podpisy:</strong>
+                          <div className="signatures-grid">
+                            {protocol.podpisy.map((p, i) => (
+                              <div key={i} className="signature-item" onClick={() => setPreviewImage(p.podpis.url || p.podpis)}>
+                                <img src={p.podpis.url || p.podpis} alt="Podpis" />
+                                {!p.global && <span>Produkt #{p.productIdx + 1}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Uwagi */}
+                      {protocol.uwagi.length > 0 && (
+                        <div className="protocol-notes-section">
+                          <strong>📝 Uwagi:</strong>
+                          {protocol.uwagi.map((u, i) => (
+                            <div key={i} className="protocol-note">
+                              {!u.global && <span className="note-product">#{u.productIdx + 1}:</span>}
+                              {u.uwagi}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -4687,7 +5023,15 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
               const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
               const prodDriver = drivers.find(d => d.id === prod.kierowca);
               return (
-                <div key={prod.id || idx} className="order-product-item">
+                <div 
+                  key={prod.id || idx} 
+                  className="order-product-item clickable"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Otwórz modal z wybranym produktem
+                    onClick(order, idx);
+                  }}
+                >
                   <div className="product-item-header">
                     <span className="product-item-nr">{prod.nrPodzamowienia || `#${idx + 1}`}</span>
                     <select
@@ -4712,9 +5056,27 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                     {prodDriver && <span className="mini-tag driver">🚚 {prodDriver.name}</span>}
                     {prod.dataOdbioru && <span className="mini-tag date">📅 {formatDate(prod.dataOdbioru)}</span>}
                   </div>
+                  {/* Wskaźnik protokołu dla tego produktu */}
+                  {(prod.protokol?.zdjeciaOdbioru?.length > 0 || prod.protokol?.zdjeciaDostawy?.length > 0 || prod.protokol?.podpis) && (
+                    <div className="product-protocol-indicators">
+                      {prod.protokol?.zdjeciaOdbioru?.length > 0 && <span className="mini-indicator">📷O</span>}
+                      {prod.protokol?.zdjeciaDostawy?.length > 0 && <span className="mini-indicator">📷D</span>}
+                      {prod.protokol?.podpis && <span className="mini-indicator">✍️</span>}
+                    </div>
+                  )}
                 </div>
               );
             })}
+            {/* Przycisk podglądu całego zamówienia */}
+            <button 
+              className="view-all-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick(order, null); // null = wszystkie produkty
+              }}
+            >
+              👁️ Podgląd całego zamówienia
+            </button>
           </div>
         ) : (
           <>
@@ -11659,7 +12021,7 @@ Zespół obsługi zamówień
               onStatusChange={handleStatusChange}
               onProductStatusChange={handleProductStatusChange}
               onEmailClick={(x, p) => setEmailModal({ order: x, producer: p })}
-              onClick={x => setViewingOrder(x)}
+              onClick={(x, productIdx) => setViewingOrder({ order: x, productIndex: productIdx })}
               onDelete={handleDeleteOrder}
               producers={producers}
               drivers={drivers}
@@ -11876,12 +12238,14 @@ Zespół obsługi zamówień
 
       {viewingOrder && (
         <OrderDetailModal
-          order={viewingOrder}
+          order={viewingOrder.order || viewingOrder}
+          selectedProductIndex={viewingOrder.productIndex}
           onClose={() => setViewingOrder(null)}
           producers={producers}
           drivers={drivers}
           onDelete={handleDeleteOrder}
           isContractor={isContractor}
+          onUpdateOrder={handleSaveOrder}
         />
       )}
 
