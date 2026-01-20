@@ -2122,33 +2122,45 @@ Zespół obsługi zamówień`;
                       <div className="product-costs-section">
                         <div className="product-costs-header">
                           <h4>💰 Koszty tego produktu</h4>
-                          <div className="currency-selector-main">
-                            <label>Waluta:</label>
-                            <select 
-                              value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
-                              onChange={e => {
-                                const newCurrency = e.target.value;
-                                // Zmień walutę dla tego produktu
-                                updateProductCost(activeProductIndex, 'waluta', newCurrency);
-                                updateProductCost(activeProductIndex, 'transportWaluta', newCurrency);
-                              }}
-                              className="currency-select-main"
-                            >
-                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
-                            </select>
-                          </div>
                         </div>
 
                         {/* 1. CENA DLA KLIENTA */}
                         <div className="cost-input-row highlight-green">
                           <label>💵 Cena dla klienta (brutto):</label>
                           <div className="cost-input-group">
-                            <span className="currency-label-fixed">{getCurrency(form.produkty[activeProductIndex].koszty?.waluta || 'PLN').symbol}</span>
+                            <select 
+                              value={form.platnosci?.waluta || 'PLN'} 
+                              onChange={e => updatePlatnosci('waluta', e.target.value)}
+                              className="currency-select-small"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
                             <input 
                               type="number" 
                               step="0.01"
                               value={form.produkty[activeProductIndex].cenaKlienta || ''} 
-                              onChange={e => updateProduct(activeProductIndex, 'cenaKlienta', parseFloat(e.target.value) || 0)}
+                              onChange={e => {
+                                const newCena = parseFloat(e.target.value) || 0;
+                                updateProduct(activeProductIndex, 'cenaKlienta', newCena);
+                                
+                                // Automatycznie aktualizuj sumę w płatnościach
+                                const sumaCen = form.produkty.reduce((sum, p, idx) => {
+                                  if (idx === activeProductIndex) return sum + newCena;
+                                  return sum + (p.cenaKlienta || 0);
+                                }, 0);
+                                
+                                setForm(prev => ({
+                                  ...prev,
+                                  produkty: prev.produkty.map((p, idx) => 
+                                    idx === activeProductIndex ? { ...p, cenaKlienta: newCena } : p
+                                  ),
+                                  platnosci: {
+                                    ...prev.platnosci,
+                                    cenaCalkowita: sumaCen,
+                                    doZaplaty: Math.max(0, sumaCen - (prev.platnosci?.zaplacono || 0))
+                                  }
+                                }));
+                              }}
                               placeholder="0.00"
                               className="cost-input"
                             />
@@ -2159,7 +2171,7 @@ Zespół obsługi zamówień`;
                         <div className="cost-input-row highlight-orange">
                           <label>🚚 Do pobrania przez kierowcę:</label>
                           <div className="cost-input-group">
-                            <span className="currency-label-fixed">{getCurrency(form.produkty[activeProductIndex].koszty?.waluta || 'PLN').symbol}</span>
+                            <span className="currency-label-fixed">{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
                             <input 
                               type="number" 
                               step="0.01"
@@ -2171,11 +2183,17 @@ Zespół obsługi zamówień`;
                           </div>
                         </div>
 
-                        {/* 3. KOSZT ZAKUPU */}
+                        {/* 3. KOSZT ZAKUPU - oddzielna waluta */}
                         <div className="cost-input-row">
                           <label>🏭 Koszt zakupu (netto):</label>
                           <div className="cost-input-group">
-                            <span className="currency-label-fixed">{getCurrency(form.produkty[activeProductIndex].koszty?.waluta || 'PLN').symbol}</span>
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.waluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'waluta', e.target.value)}
+                              className="currency-select-small"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
                             <input 
                               type="number" 
                               step="0.01"
@@ -2197,11 +2215,17 @@ Zespół obsługi zamówień`;
                           </div>
                         </div>
 
-                        {/* 4. KOSZT TRANSPORTU */}
+                        {/* 4. KOSZT TRANSPORTU - oddzielna waluta */}
                         <div className="cost-input-row">
                           <label>🚚 Koszt transportu (netto):</label>
                           <div className="cost-input-group">
-                            <span className="currency-label-fixed">{getCurrency(form.produkty[activeProductIndex].koszty?.waluta || 'PLN').symbol}</span>
+                            <select 
+                              value={form.produkty[activeProductIndex].koszty?.transportWaluta || 'PLN'} 
+                              onChange={e => updateProductCost(activeProductIndex, 'transportWaluta', e.target.value)}
+                              className="currency-select-small"
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
                             <input 
                               type="number" 
                               step="0.01"
@@ -2230,6 +2254,7 @@ Zespół obsługi zamówień`;
                                       type="button"
                                       className="rate-quick-btn-small"
                                       onClick={() => {
+                                        updateProductCost(activeProductIndex, 'transportWaluta', rate.currency);
                                         updateProductCost(activeProductIndex, 'transportNetto', rate.priceNetto);
                                       }}
                                     >
@@ -2245,16 +2270,22 @@ Zespół obsługi zamówień`;
 
                         {/* MARŻA - wyliczana w PLN */}
                         {(() => {
-                          const waluta = form.produkty[activeProductIndex].koszty?.waluta || 'PLN';
+                          const walutaKlienta = form.platnosci?.waluta || 'PLN';
+                          const walutaZakupu = form.produkty[activeProductIndex].koszty?.waluta || 'PLN';
+                          const walutaTransportu = form.produkty[activeProductIndex].koszty?.transportWaluta || 'PLN';
+                          
                           const cenaKlienta = form.produkty[activeProductIndex].cenaKlienta || 0;
                           const kosztZakupu = form.produkty[activeProductIndex].koszty?.zakupNetto || 0;
                           const kosztTransportu = form.produkty[activeProductIndex].koszty?.transportNetto || 0;
                           
-                          // Przelicz na PLN
-                          const rate = exchangeRates?.[waluta] || 1;
-                          const cenaKlientaPLN = cenaKlienta * rate;
-                          const kosztZakupuPLN = kosztZakupu * rate;
-                          const kosztTransportuPLN = kosztTransportu * rate;
+                          // Przelicz wszystko na PLN
+                          const rateKlienta = exchangeRates?.[walutaKlienta] || 1;
+                          const rateZakupu = exchangeRates?.[walutaZakupu] || 1;
+                          const rateTransportu = exchangeRates?.[walutaTransportu] || 1;
+                          
+                          const cenaKlientaPLN = cenaKlienta * rateKlienta;
+                          const kosztZakupuPLN = kosztZakupu * rateZakupu;
+                          const kosztTransportuPLN = kosztTransportu * rateTransportu;
                           
                           // Marża netto (zakładamy VAT 23%)
                           const cenaNettoPLN = cenaKlientaPLN / 1.23;
@@ -2264,9 +2295,6 @@ Zespół obsługi zamówień`;
                             <div className={`product-margin-display ${marzaPLN >= 0 ? 'positive' : 'negative'}`}>
                               <span>📊 Marża netto (PLN):</span>
                               <strong>{formatCurrency(marzaPLN, 'PLN')}</strong>
-                              {waluta !== 'PLN' && (
-                                <small className="exchange-info">Kurs {waluta}: {rate.toFixed(4)} PLN</small>
-                              )}
                             </div>
                           );
                         })()}
@@ -2405,28 +2433,49 @@ Zespół obsługi zamówień`;
                   </div>
                 </div>
 
-                {/* Pobranie per kierowca - gdy są różni kierowcy */}
-                {form.produkty && form.produkty.length > 1 && (() => {
-                  const driverAmounts = {};
-                  form.produkty.forEach(p => {
-                    const driverId = p.kierowca || form.przypisanyKierowca;
-                    if (driverId && p.doPobrania > 0) {
-                      if (!driverAmounts[driverId]) driverAmounts[driverId] = 0;
-                      driverAmounts[driverId] += p.doPobrania;
+                {/* Pobranie per kierowca - edytowalne */}
+                {form.produkty && form.produkty.length > 0 && (() => {
+                  // Grupuj produkty per kierowca
+                  const driverProducts = {};
+                  form.produkty.forEach((p, idx) => {
+                    const driverId = p.kierowca;
+                    if (driverId) {
+                      if (!driverProducts[driverId]) driverProducts[driverId] = [];
+                      driverProducts[driverId].push({ ...p, index: idx });
                     }
                   });
-                  const driverIds = Object.keys(driverAmounts);
+                  const driverIds = Object.keys(driverProducts);
                   
-                  if (driverIds.length > 1) {
+                  if (driverIds.length > 0) {
                     return (
                       <div className="driver-collection-info">
                         <h4>🚚 Pobranie per kierowca:</h4>
                         {driverIds.map(dId => {
                           const driver = drivers.find(d => d.id === dId);
+                          const products = driverProducts[dId];
+                          const totalAmount = products.reduce((sum, p) => sum + (p.doPobrania || 0), 0);
+                          
                           return (
-                            <div key={dId} className="driver-collection-row">
-                              <span className="driver-name">{driver?.name || 'Nieznany'}</span>
-                              <span className="driver-amount">{formatCurrency(driverAmounts[dId], form.platnosci?.waluta)}</span>
+                            <div key={dId} className="driver-collection-block">
+                              <div className="driver-collection-header">
+                                <span className="driver-name">{driver?.name || 'Nieznany'}</span>
+                                <span className="driver-total">{formatCurrency(totalAmount, form.platnosci?.waluta)}</span>
+                              </div>
+                              {products.map(p => (
+                                <div key={p.index} className="driver-product-row">
+                                  <span className="product-label">#{p.index + 1}: {p.towar?.substring(0, 20) || 'Produkt'}...</span>
+                                  <div className="product-amount-edit">
+                                    <span>{getCurrency(form.platnosci?.waluta || 'PLN').symbol}</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={p.doPobrania || ''}
+                                      onChange={e => updateProduct(p.index, 'doPobrania', parseFloat(e.target.value) || 0)}
+                                      className="driver-amount-input"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           );
                         })}
@@ -10898,7 +10947,15 @@ Zespół obsługi zamówień
   const creators = [...new Set(visibleOrders.map(o => o.utworzonePrzez?.nazwa).filter(Boolean))];
 
   const filteredOrders = visibleOrders.filter(o => {
-    if (filter !== 'all' && o.status !== filter) return false;
+    // Filtrowanie po statusie - sprawdź główny status LUB statusy produktów
+    if (filter !== 'all') {
+      const mainStatus = o.status;
+      const productStatuses = o.produkty?.map(p => p.status).filter(Boolean) || [];
+      const allStatuses = [mainStatus, ...productStatuses].filter(Boolean);
+      
+      // Zamówienie pasuje jeśli którykolwiek status pasuje
+      if (!allStatuses.includes(filter)) return false;
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const hay = [o.nrWlasny, o.towar, o.klient?.imie, o.klient?.adres, o.klient?.telefon, o.klient?.email].filter(Boolean).join(' ').toLowerCase();
@@ -10908,16 +10965,24 @@ Zespół obsługi zamówień
     if (creatorFilter !== 'all' && (o.utworzonePrzez?.nazwa || '') !== creatorFilter) return false;
     if (driverFilter !== 'all') {
       if (driverFilter === 'unassigned') {
-        if (o.przypisanyKierowca) return false;
+        // Sprawdź czy zamówienie nie ma przypisanego kierowcy ani w głównym polu ani w produktach
+        const hasDriver = o.przypisanyKierowca || o.produkty?.some(p => p.kierowca);
+        if (hasDriver) return false;
       } else {
-        if (o.przypisanyKierowca !== driverFilter) return false;
+        // Sprawdź czy kierowca jest przypisany do zamówienia lub do któregoś produktu
+        const matchesDriver = o.przypisanyKierowca === driverFilter || 
+                             o.produkty?.some(p => p.kierowca === driverFilter);
+        if (!matchesDriver) return false;
       }
     }
     if (producerFilter !== 'all') {
       if (producerFilter === 'unassigned') {
-        if (o.zaladunek) return false;
+        const hasProducer = o.zaladunek || o.produkty?.some(p => p.producent);
+        if (hasProducer) return false;
       } else {
-        if (o.zaladunek !== producerFilter) return false;
+        const matchesProducer = o.zaladunek === producerFilter || 
+                               o.produkty?.some(p => p.producent === producerFilter);
+        if (!matchesProducer) return false;
       }
     }
     if (urgencyFilter !== 'all') {
