@@ -10,6 +10,7 @@ import {
   orderBy,
   addDoc
 } from 'firebase/firestore';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 // ============================================
 // KONFIGURACJA FIREBASE
@@ -27,6 +28,43 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
+
+// ============================================
+// FUNKCJA UPLOAD ZDJĘCIA DO STORAGE
+// ============================================
+
+export const uploadImageToStorage = async (base64Data, folder = 'complaints') => {
+  try {
+    // Generuj unikalną nazwę pliku
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+    const storageRef = ref(storage, fileName);
+    
+    // Upload base64 do Storage
+    await uploadString(storageRef, base64Data, 'data_url');
+    
+    // Pobierz URL do pobrania
+    const downloadURL = await getDownloadURL(storageRef);
+    
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    throw error;
+  }
+};
+
+// Funkcja do uploadu wielu zdjęć
+export const uploadMultipleImages = async (base64Images, folder = 'complaints') => {
+  try {
+    const urls = await Promise.all(
+      base64Images.map(img => uploadImageToStorage(img, folder))
+    );
+    return urls;
+  } catch (error) {
+    console.error('Error uploading multiple images:', error);
+    throw error;
+  }
+};
 
 // ============================================
 // KOLEKCJE
@@ -480,4 +518,4 @@ export const initializeDefaultData = async () => {
   }
 };
 
-export { db };
+export { db, storage };
