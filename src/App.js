@@ -1692,8 +1692,12 @@ Zespół obsługi zamówień`;
               </div>
             );
           })()}
+
+          <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
+            </>
+          )}
           
-          {/* Modal edycji rabatu */}
+          {/* Modal edycji rabatu - POZA blokiem warunkowym viewMode */}
           {editingDiscount && (
             <div className="discount-edit-overlay" onClick={() => setEditingDiscount(null)}>
               <div className="discount-edit-modal" onClick={e => e.stopPropagation()}>
@@ -1721,10 +1725,6 @@ Zespół obsługi zamówień`;
                 </div>
               </div>
             </div>
-          )}
-
-          <HistoryPanel historia={order.historia} utworzonePrzez={order.utworzonePrzez} />
-            </>
           )}
 
           {/* PROTOKOŁY PER KIEROWCA - dla zamówień łączonych */}
