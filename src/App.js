@@ -5644,8 +5644,14 @@ ${st.team}
 
   // Zapisz rabat - per kierowca dla zamówień łączonych
   const saveDiscount = async () => {
-    const order = orders.find(o => o.id === showDiscount);
+    // showDiscount to teraz obiekt order z _myProductIndexes
+    const orderWithIndexes = showDiscount;
+    if (!orderWithIndexes) return;
+    
+    const order = orders.find(o => o.id === orderWithIndexes.id);
     if (!order) return;
+    
+    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
     
     const amount = parseFloat(discountAmount) || 0;
     if (amount <= 0) {
@@ -5653,20 +5659,24 @@ ${st.team}
       return;
     }
 
+    const mojePodzamowienia = myProductIndexes.length > 0 && order.produkty
+      ? myProductIndexes.map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`).join(', ')
+      : null;
+
     const rabat = {
       kwota: amount,
       powod: discountReason || 'Brak podanego powodu',
       data: new Date().toISOString(),
       kierowca: user.name,
-      kierowcaId: user.id
+      kierowcaId: user.id,
+      podzamowienia: mojePodzamowienia
     };
 
     // Sprawdź czy to zamówienie łączone
-    if (order.produkty && order.produkty.length > 0) {
-      // Zapisz rabat do produktów tego kierowcy
-      const updatedProdukty = order.produkty.map((prod) => {
-        const prodDriverId = prod.kierowca || order.przypisanyKierowca;
-        if (prodDriverId === user.id) {
+    if (order.produkty && order.produkty.length > 0 && myProductIndexes.length > 0) {
+      // Zapisz rabat tylko do MOICH produktów
+      const updatedProdukty = order.produkty.map((prod, idx) => {
+        if (myProductIndexes.includes(idx)) {
           return {
             ...prod,
             rabat: rabat
@@ -5700,7 +5710,7 @@ ${st.team}
         historia: [...(order.historia || []), { 
           data: new Date().toISOString(), 
           uzytkownik: user.name, 
-          akcja: `Rabat przy dostawie: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
+          akcja: `Rabat dla ${mojePodzamowienia || 'zamówienia'}: ${formatCurrency(amount, order.platnosci?.waluta)} - ${discountReason || 'brak powodu'}` 
         }]
       });
     } else {
@@ -5843,12 +5853,14 @@ ${st.team}
         return;
       }
 
+      // Użyj _myProductIndexes z przekazanego order (zawiera informację które produkty są moje)
+      const myProductIndexes = order._myProductIndexes || [];
+
       // Sprawdź czy to zamówienie łączone i znajdź produkty tego kierowcy
-      if (currentOrder.produkty && currentOrder.produkty.length > 0) {
-        // Znajdź produkty przypisane do tego kierowcy
+      if (currentOrder.produkty && currentOrder.produkty.length > 0 && myProductIndexes.length > 0) {
+        // Aktualizuj tylko MOJE produkty (używając zapisanych indeksów)
         const updatedProdukty = currentOrder.produkty.map((prod, idx) => {
-          const prodDriverId = prod.kierowca || currentOrder.przypisanyKierowca;
-          if (prodDriverId === user.id) {
+          if (myProductIndexes.includes(idx)) {
             // Ten produkt należy do tego kierowcy - dodaj zdjęcie do protokołu
             const protokol = prod.protokol || {};
             const photos = protokol[field] || [];
@@ -5865,7 +5877,7 @@ ${st.team}
 
         await onUpdateOrder(orderId, {
           produkty: updatedProdukty,
-          historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'}` }]
+          historia: [...(currentOrder.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: `Dodano zdjęcie ${type === 'pickup' ? 'odbioru' : 'dostawy'} (produkt ${myProductIndexes.map(i => currentOrder.produkty[i]?.nrPodzamowienia || `#${i+1}`).join(', ')})` }]
         });
       } else {
         // Stare zamówienie bez produktów - zapisz globalnie
@@ -5946,19 +5958,25 @@ ${st.team}
   };
 
   const saveSignature = async () => {
-    const order = orders.find(o => o.id === showSignature);
+    // showSignature teraz zawiera całe order z _myProductIndexes
+    const orderWithIndexes = showSignature;
+    if (!orderWithIndexes) return;
+    
+    // Pobierz aktualny stan z bazy
+    const order = orders.find(o => o.id === orderWithIndexes.id);
     if (!order) return;
+    
+    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
     const dataUrl = canvasRef.current.toDataURL();
     const now = new Date();
     
     const podpisData = { url: dataUrl, timestamp: now.toISOString(), by: user.name };
     
     // Sprawdź czy to zamówienie łączone
-    if (order.produkty && order.produkty.length > 0) {
-      // Znajdź produkty przypisane do tego kierowcy i dodaj podpis
+    if (order.produkty && order.produkty.length > 0 && myProductIndexes.length > 0) {
+      // Aktualizuj tylko MOJE produkty (używając zapisanych indeksów)
       const updatedProdukty = order.produkty.map((prod, idx) => {
-        const prodDriverId = prod.kierowca || order.przypisanyKierowca;
-        if (prodDriverId === user.id) {
+        if (myProductIndexes.includes(idx)) {
           // Ten produkt należy do tego kierowcy
           const protokol = prod.protokol || {};
           return {
@@ -5978,10 +5996,14 @@ ${st.team}
       });
 
       // Tworzenie umowy odbioru dla produktów tego kierowcy
-      const mojeProduktOpisy = order.produkty
-        .filter(p => (p.kierowca || order.przypisanyKierowca) === user.id)
-        .map(p => p.towar)
+      const mojeProduktOpisy = myProductIndexes
+        .map(idx => order.produkty[idx]?.towar)
+        .filter(Boolean)
         .join('; ');
+      
+      const mojePodzamowienia = myProductIndexes
+        .map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`)
+        .join(', ');
       
       const umowaOdbioru = {
         dataDostawy: now.toISOString(),
@@ -5993,6 +6015,7 @@ ${st.team}
           email: order.klient?.email || ''
         },
         produkt: mojeProduktOpisy,
+        podzamowienia: mojePodzamowienia,
         nrZamowienia: order.nrWlasny || '',
         kierowca: user.name,
         uwagiKlienta: clientRemarks || '',
@@ -6011,7 +6034,7 @@ ${st.team}
         historia: [...(order.historia || []), { 
           data: now.toISOString(), 
           uzytkownik: user.name, 
-          akcja: `Podpis klienta${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
+          akcja: `Podpis klienta dla ${mojePodzamowienia}${clientRemarks ? ` (z uwagami: ${clientRemarks})` : ' (bez uwag)'}` 
         }]
       });
     } else {
@@ -6058,9 +6081,10 @@ ${st.team}
   };
 
   // Otwórz modal podpisu
-  const openSignatureModal = (orderId) => {
+  // Otwórz modal podpisu - przekazuj całe order z _myProductIndexes
+  const openSignatureModal = (order) => {
     setClientRemarks('');
-    setShowSignature(orderId);
+    setShowSignature(order); // Przekazuj całe order zamiast tylko orderId
   };
 
   useEffect(() => {
@@ -7141,16 +7165,20 @@ ${t.team}
                             onChange={(e) => handlePhotoCapture(order, 'delivery', e)} 
                           />
                         </div>
-                        <button className="btn-driver signature" onClick={() => openSignatureModal(order.id)}>✍️ Podpis klienta</button>
+                        <button className="btn-driver signature" onClick={() => openSignatureModal(order)}>✍️ Podpis klienta</button>
                         {/* Rabat - kierowca widzi i edytuje tylko swój */}
                         {(order.platnosci?.doZaplaty > 0 || (order.rabatyKierowcow && order.rabatyKierowcow[user.id]) || order.rabatPrzyDostawie) && (() => {
-                          // Pobierz rabat tego kierowcy
-                          const mojRabat = order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
+                          // Pobierz rabat tego kierowcy (z moich produktów)
+                          const myProductIndexes = order._myProductIndexes || [];
+                          const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
+                            ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                            : null;
+                          const mojRabat = mojRabatZProduktu || order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
                           return (
                             <button className="btn-driver discount" onClick={() => { 
                               setDiscountAmount(mojRabat?.kwota?.toString() || ''); 
                               setDiscountReason(mojRabat?.powod || ''); 
-                              setShowDiscount(order.id); 
+                              setShowDiscount(order); // Przekazuj całe order z _myProductIndexes
                             }}>
                               💸 {mojRabat ? 'Edytuj mój rabat' : 'Udziel rabatu'}
                             </button>
@@ -7176,12 +7204,17 @@ ${t.team}
 
                   {/* Wyświetl info o rabacie TYLKO TEGO KIEROWCY */}
                   {(() => {
-                    const mojRabat = order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
+                    const myProductIndexes = order._myProductIndexes || [];
+                    const mojRabatZProduktu = myProductIndexes.length > 0 && order.produkty
+                      ? order.produkty.find((p, idx) => myProductIndexes.includes(idx) && p.rabat)?.rabat
+                      : null;
+                    const mojRabat = mojRabatZProduktu || order.rabatyKierowcow?.[user.id] || (order.rabatPrzyDostawie?.kierowcaId === user.id ? order.rabatPrzyDostawie : null);
                     if (mojRabat) {
                       return (
                         <div className="discount-info-card">
                           <span className="discount-badge">💸 Mój rabat: {formatCurrency(mojRabat.kwota, order.platnosci?.waluta)}</span>
                           <span className="discount-reason">{mojRabat.powod}</span>
+                          {mojRabat.podzamowienia && <span className="discount-suborders">({mojRabat.podzamowienia})</span>}
                         </div>
                       );
                     }
@@ -7411,10 +7444,23 @@ ${t.team}
             </div>
             <div className="modal-body">
               {(() => {
-                const order = orders.find(o => o.id === showSignature);
+                // showSignature to teraz obiekt order z _myProductIndexes
+                const orderWithIndexes = showSignature;
+                const order = orders.find(o => o.id === orderWithIndexes.id);
+                const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+                const mojePodzamowienia = myProductIndexes.length > 0 && order?.produkty
+                  ? myProductIndexes.map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`).join(', ')
+                  : null;
                 const now = new Date();
                 return order && (
                   <>
+                    {/* Informacja o podzamówieniach */}
+                    {mojePodzamowienia && (
+                      <div className="protocol-suborders-info">
+                        <strong>📦 Protokół dla:</strong> {mojePodzamowienia}
+                      </div>
+                    )}
+
                     {/* Wybór języka protokołu */}
                     <div className="form-group protocol-language-group">
                       <label>🌍 Język protokołu:</label>
