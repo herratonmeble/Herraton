@@ -12245,3 +12245,55 @@ input.margin-negative {
   text-overflow: ellipsis;
   max-width: 200px;
 }
+
+/* Szczegółowe obliczenie marży */
+.margin-calculation {
+  background: white;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+}
+
+.calc-row:last-child {
+  border-bottom: none;
+}
+
+.calc-row.minus span:first-child {
+  color: #DC2626;
+}
+
+.calc-row span:last-child {
+  text-align: right;
+}
+
+.calc-row strong {
+  color: #1E1B4B;
+}
+
+.margin-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 2px solid rgba(0,0,0,0.1);
+}
+
+.margin-result strong {
+  font-size: 18px;
+}
+
+.product-margin-display.positive .margin-result strong {
+  color: #15803D;
+}
+
+.product-margin-display.negative .margin-result strong {
+  color: #DC2626;
+}
