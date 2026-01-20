@@ -6298,12 +6298,24 @@ ${st.team}
         return prod;
       });
 
-      // Zapisz też w zbiorze rabatów per kierowca
-      const rabatyKierowcow = order.rabatyKierowcow || {};
+      // Zapisz też w zbiorze rabatów per kierowca - wyczyść stare null i dodaj nowy
+      const rabatyKierowcow = {};
+      // Przepisz istniejące rabaty (tylko te które nie są null)
+      if (order.rabatyKierowcow) {
+        Object.entries(order.rabatyKierowcow).forEach(([odDriver, r]) => {
+          if (r && r.kwota > 0) {
+            rabatyKierowcow[odDriver] = r;
+          }
+        });
+      }
+      // Dodaj nowy rabat tego kierowcy
       rabatyKierowcow[user.id] = rabat;
 
-      // Oblicz sumę wszystkich rabatów
-      const sumaRabatow = Object.values(rabatyKierowcow).reduce((sum, r) => sum + (r.kwota || 0), 0);
+      // Oblicz sumę wszystkich rabatów (z produktów, bo są bardziej aktualne)
+      let sumaRabatow = 0;
+      updatedProdukty.forEach(p => {
+        if (p.rabat?.kwota > 0) sumaRabatow += p.rabat.kwota;
+      });
       
       // Przelicz kwotę do zapłaty
       const cenaCalkowita = order.platnosci?.cenaCalkowita || 0;
@@ -6335,7 +6347,6 @@ ${st.team}
       const newDoZaplaty = Math.max(0, originalDoZaplaty - amount);
 
       await onUpdateOrder(order.id, {
-        ...order,
         rabatPrzyDostawie: rabat,
         platnosci: {
           ...order.platnosci,
