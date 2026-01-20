@@ -5079,6 +5079,7 @@ Z poważaniem`;
 // ============================================
 
 const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, producers, drivers, onDelete, isAdmin, isContractor, exchangeRates, currentUser, onProductStatusChange }) => {
+  const [showProducerMenu, setShowProducerMenu] = useState(false);
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
   const days = getDaysUntilPickup(order.dataOdbioru);
@@ -5093,6 +5094,18 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   
   // Czy to zamówienie łączone (wiele produktów)?
   const hasMultipleProducts = order.produkty && order.produkty.length > 1;
+  
+  // Pobierz unikalnych producentów z produktów
+  const getUniqueProducers = () => {
+    if (!order.produkty || order.produkty.length === 0) {
+      return producer ? [producer] : [];
+    }
+    
+    const producerIds = [...new Set(order.produkty.map(p => p.producent).filter(Boolean))];
+    return producerIds.map(id => Object.values(producers).find(p => p.id === id)).filter(Boolean);
+  };
+  
+  const uniqueProducers = getUniqueProducers();
 
   // Konwersja do PLN
   const convertToPLN = (amount, currency) => {
@@ -5358,7 +5371,48 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
           <div className="order-actions">
             <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
-            {producer && !isContractor && <button onClick={e => { e.stopPropagation(); onEmailClick(order, producer); }} className="btn-icon btn-email">📧</button>}
+            {/* Przycisk email - obsługa wielu producentów */}
+            {uniqueProducers.length > 0 && !isContractor && (
+              <div className="email-btn-wrapper" style={{ position: 'relative' }}>
+                {uniqueProducers.length === 1 ? (
+                  // Jeden producent - bezpośredni email
+                  <button 
+                    onClick={e => { e.stopPropagation(); onEmailClick(order, uniqueProducers[0]); }} 
+                    className="btn-icon btn-email"
+                    title={`Email do: ${uniqueProducers[0]?.name}`}
+                  >📧</button>
+                ) : (
+                  // Wielu producentów - dropdown
+                  <>
+                    <button 
+                      onClick={e => { e.stopPropagation(); setShowProducerMenu(!showProducerMenu); }} 
+                      className="btn-icon btn-email"
+                      title="Wybierz producenta"
+                    >📧▼</button>
+                    {showProducerMenu && (
+                      <div 
+                        className="producer-email-dropdown"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="dropdown-header">Wybierz producenta:</div>
+                        {uniqueProducers.map(prod => (
+                          <button 
+                            key={prod.id}
+                            className="dropdown-item"
+                            onClick={() => { 
+                              onEmailClick(order, prod); 
+                              setShowProducerMenu(false); 
+                            }}
+                          >
+                            🏭 {prod.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {canDelete && <button onClick={handleDelete} className="btn-icon btn-delete-small">🗑️</button>}
           </div>
         </div>
