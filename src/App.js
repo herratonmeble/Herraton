@@ -2648,11 +2648,11 @@ Zespół obsługi zamówień`;
       setForm(updatedForm);
       
       // Jeśli edytujemy istniejące zamówienie, zaktualizuj w bazie
-      if (editOrder?.id) {
+      if (order?.id) {
         try {
           const { doc, updateDoc } = await import('firebase/firestore');
           const { db } = await import('./firebase');
-          await updateDoc(doc(db, 'orders', editOrder.id), {
+          await updateDoc(doc(db, 'orders', order.id), {
             clientToken,
             wyslanieDoPotwierdzenia: true,
             dataWyslaniaDoPotwierdzenia: new Date().toISOString()
