@@ -2547,28 +2547,125 @@ Zespół obsługi zamówień`;
     return { subject, body };
   };
 
-  // Funkcja wysyłania emaila
-  const handleSendConfirmation = () => {
+  // Generuj unikalny token dla klienta
+  const generateClientToken = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  };
+
+  // Funkcja wysyłania emaila z linkiem do panelu klienta
+  const handleSendConfirmation = async () => {
     if (!form.klient?.email) {
       alert('Brak adresu email klienta!');
       return;
     }
     
-    const { subject, body } = generateConfirmationEmail();
+    // Generuj token jeśli nie istnieje
+    let clientToken = form.clientToken;
+    if (!clientToken) {
+      clientToken = generateClientToken();
+      // Zaktualizuj form z tokenem
+      setForm({ ...form, clientToken });
+    }
     
-    // Wyślij przez MailerSend
-    sendEmailViaMailerSend(
+    const confirmationLink = `${window.location.origin}/zamowienie/${clientToken}`;
+    const customerName = form.klient.imie || 'Kliencie';
+    
+    // HTML email z linkiem do panelu
+    const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 50px; margin-bottom: 10px;">📦</div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">Potwierdź swoje zamówienie</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${form.nrWlasny}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">Szanowny/a <strong>${customerName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px; line-height: 1.6;">
+                Dziękujemy za złożenie zamówienia! Prosimy o sprawdzenie danych i potwierdzenie zamówienia w panelu klienta.
+              </p>
+              
+              <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">📋 Podsumowanie:</p>
+                <p style="margin: 5px 0; color: #6B7280;">Numer zamówienia: <strong>${form.nrWlasny}</strong></p>
+                <p style="margin: 5px 0; color: #6B7280;">Kwota: <strong>${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'PLN'}</strong></p>
+                ${form.dataDostawy ? `<p style="margin: 5px 0; color: #6B7280;">Planowana dostawa: <strong>${new Date(form.dataDostawy).toLocaleDateString('pl-PL')}</strong></p>` : ''}
+              </div>
+              
+              <p style="margin: 20px 0; color: #374151; font-size: 15px; text-align: center;">
+                <strong>👇 Kliknij poniższy przycisk aby sprawdzić szczegóły i potwierdzić zamówienie:</strong>
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${confirmationLink}" style="display: inline-block; background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 18px 50px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 18px;">✅ POTWIERDŹ ZAMÓWIENIE</a>
+              </div>
+              
+              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                <p style="margin: 0; color: #92400E; font-size: 14px;">
+                  💡 <strong>Zachowaj ten email!</strong> Po potwierdzeniu otrzymasz link do śledzenia statusu zamówienia.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System obsługi zamówień</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    // Wyślij email
+    const result = await sendEmailViaMailerSend(
       form.klient.email,
       form.klient.imie,
-      subject,
-      body
-    ).then(result => {
-      if (result.success) {
-        alert('✅ Email z potwierdzeniem zamówienia został wysłany!');
-      } else {
-        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      `Potwierdź zamówienie ${form.nrWlasny}`,
+      `Potwierdź swoje zamówienie: ${confirmationLink}`,
+      htmlEmail
+    );
+    
+    if (result.success) {
+      // Zapisz token i flagę wysłania w zamówieniu
+      const updatedForm = {
+        ...form,
+        clientToken,
+        wyslanieDoPotwierdzenia: true,
+        dataWyslaniaDoPotwierdzenia: new Date().toISOString()
+      };
+      setForm(updatedForm);
+      
+      // Jeśli edytujemy istniejące zamówienie, zaktualizuj w bazie
+      if (editOrder?.id) {
+        try {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          await updateDoc(doc(db, 'orders', editOrder.id), {
+            clientToken,
+            wyslanieDoPotwierdzenia: true,
+            dataWyslaniaDoPotwierdzenia: new Date().toISOString()
+          });
+        } catch (err) {
+          console.error('Błąd aktualizacji zamówienia:', err);
+        }
       }
-    });
+      
+      alert('✅ Email z linkiem do potwierdzenia został wysłany do klienta!');
+    } else {
+      alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+    }
     
     setShowConfirmationModal(false);
   };
@@ -3564,28 +3661,56 @@ Zespół obsługi zamówień`;
         {/* Modal podglądu potwierdzenia dla klienta */}
         {showConfirmationModal && (
           <div className="confirmation-modal-overlay" onClick={() => setShowConfirmationModal(false)}>
-            <div className="confirmation-modal" onClick={e => e.stopPropagation()}>
+            <div className="confirmation-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '550px'}}>
               <div className="confirmation-modal-header">
-                <h3>📧 Podgląd potwierdzenia zamówienia</h3>
+                <h3>📧 Wyślij link do potwierdzenia</h3>
                 <button className="btn-close" onClick={() => setShowConfirmationModal(false)}>×</button>
               </div>
               <div className="confirmation-modal-body">
-                <div className="email-preview">
-                  <div className="email-to">
-                    <strong>Do:</strong> {form.klient?.email}
-                  </div>
-                  <div className="email-subject">
-                    <strong>Temat:</strong> Potwierdzenie zamówienia nr {form.nrWlasny}
-                  </div>
-                  <div className="email-body-preview">
-                    <pre>{generateConfirmationEmail().body}</pre>
+                <div style={{background: '#F0FDF4', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #86EFAC'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px'}}>
+                    <span style={{fontSize: '32px'}}>✉️</span>
+                    <div>
+                      <p style={{margin: 0, fontWeight: '600', color: '#166534'}}>Nowy system potwierdzania</p>
+                      <p style={{margin: '5px 0 0 0', fontSize: '14px', color: '#15803D'}}>
+                        Klient otrzyma link do panelu, gdzie zobaczy szczegóły i potwierdzi zamówienie.
+                      </p>
+                    </div>
                   </div>
                 </div>
+                
+                <div style={{background: '#F9FAFB', padding: '15px', borderRadius: '10px', marginBottom: '15px'}}>
+                  <p style={{margin: '0 0 10px 0', fontSize: '14px', color: '#6B7280'}}>
+                    <strong>Do:</strong> {form.klient?.email}
+                  </p>
+                  <p style={{margin: '0 0 10px 0', fontSize: '14px', color: '#6B7280'}}>
+                    <strong>Temat:</strong> Potwierdź zamówienie {form.nrWlasny}
+                  </p>
+                </div>
+                
+                <div style={{background: '#FEF3C7', padding: '15px', borderRadius: '10px'}}>
+                  <p style={{margin: 0, fontSize: '13px', color: '#92400E'}}>
+                    <strong>💡 Jak to działa:</strong><br/>
+                    1. Klient otrzyma email z przyciskiem "Potwierdź zamówienie"<br/>
+                    2. Po kliknięciu zobaczy panel ze szczegółami zamówienia<br/>
+                    3. Po potwierdzeniu otrzyma link do śledzenia statusu<br/>
+                    4. W systemie zobaczysz ✅ przy potwierdzonym zamówieniu
+                  </p>
+                </div>
+                
+                {form.wyslanieDoPotwierdzenia && (
+                  <div style={{marginTop: '15px', padding: '10px', background: '#DBEAFE', borderRadius: '8px'}}>
+                    <p style={{margin: 0, fontSize: '13px', color: '#1E40AF'}}>
+                      ℹ️ Email był już wysłany {form.dataWyslaniaDoPotwierdzenia ? `dnia ${new Date(form.dataWyslaniaDoPotwierdzenia).toLocaleDateString('pl-PL')}` : ''}
+                      {form.potwierdzoneByClient && ' - ✅ Klient potwierdził!'}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="confirmation-modal-footer">
                 <button className="btn-secondary" onClick={() => setShowConfirmationModal(false)}>Anuluj</button>
-                <button className="btn-primary" onClick={handleSendConfirmation}>
-                  📤 Wyślij email
+                <button className="btn-primary" onClick={handleSendConfirmation} style={{background: 'linear-gradient(135deg, #10B981, #059669)'}}>
+                  📤 {form.wyslanieDoPotwierdzenia ? 'Wyślij ponownie' : 'Wyślij email'}
                 </button>
               </div>
             </div>
@@ -6067,6 +6192,8 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           <span className="country-flag">{country?.flag}</span>
           <span className="order-number">{order.nrWlasny || '—'}</span>
           {hasMultipleProducts && <span className="multi-product-badge">📦 {order.produkty.length}</span>}
+          {order.potwierdzoneByClient && <span style={{background: '#D1FAE5', color: '#065F46', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '600'}}>✓ Potwierdzone</span>}
+          {order.wyslanieDoPotwierdzenia && !order.potwierdzoneByClient && <span style={{background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '600'}}>⏳ Czeka</span>}
           {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
         </div>
         {!hasMultipleProducts && (
@@ -13523,6 +13650,602 @@ const PublicComplaintForm = ({ token }) => {
   );
 };
 
+// ============================================
+// PUBLICZNY PANEL ZAMÓWIENIA DLA KLIENTA
+// ============================================
+
+const PublicOrderPanel = ({ token }) => {
+  const [loading, setLoading] = useState(true);
+  const [orderData, setOrderData] = useState(null);
+  const [error, setError] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  
+  // Helper do formatowania daty
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+  
+  const formatCurrency = (amount, currency = 'PLN') => {
+    if (!amount && amount !== 0) return '-';
+    return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: currency || 'PLN' }).format(amount);
+  };
+  
+  // Statusy zamówienia
+  const getStatusInfo = (status) => {
+    const statuses = {
+      'nowe': { name: 'Nowe zamówienie', color: '#3B82F6', bg: '#DBEAFE', icon: '🆕', step: 1 },
+      'potwierdzone': { name: 'Potwierdzone', color: '#8B5CF6', bg: '#EDE9FE', icon: '✅', step: 2 },
+      'w_produkcji': { name: 'W produkcji', color: '#F59E0B', bg: '#FEF3C7', icon: '�icing', step: 3 },
+      'gotowe': { name: 'Gotowe do wysyłki', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 4 },
+      'wyslane': { name: 'Wysłane', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 5 },
+      'dostarczone': { name: 'Dostarczone', color: '#059669', bg: '#D1FAE5', icon: '✅', step: 6 },
+      'zakonczone': { name: 'Zakończone', color: '#059669', bg: '#D1FAE5', icon: '🎉', step: 7 }
+    };
+    return statuses[status] || { name: status || 'Nieznany', color: '#6B7280', bg: '#F3F4F6', icon: '❓', step: 0 };
+  };
+  
+  // Real-time listener dla zamówienia
+  useEffect(() => {
+    if (!token) {
+      setError('Brak tokenu zamówienia');
+      setLoading(false);
+      return;
+    }
+    
+    let unsubscribe = null;
+    
+    const loadOrder = async () => {
+      try {
+        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        
+        // Szukaj zamówienia po tokenie
+        const q = query(collection(db, 'orders'), where('clientToken', '==', token));
+        
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            setOrderData({ id: doc.id, ...doc.data() });
+            setConfirmed(doc.data().potwierdzoneByClient || false);
+          } else {
+            setError('Nie znaleziono zamówienia');
+          }
+          setLoading(false);
+        }, (err) => {
+          console.error('Błąd ładowania zamówienia:', err);
+          setError('Błąd ładowania zamówienia');
+          setLoading(false);
+        });
+        
+      } catch (err) {
+        console.error('Błąd:', err);
+        setError('Wystąpił błąd');
+        setLoading(false);
+      }
+    };
+    
+    loadOrder();
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [token]);
+  
+  // Potwierdzenie zamówienia przez klienta
+  const handleConfirmOrder = async () => {
+    if (!orderData) return;
+    
+    setConfirming(true);
+    
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      const orderRef = doc(db, 'orders', orderData.id);
+      await updateDoc(orderRef, {
+        potwierdzoneByClient: true,
+        dataPotwierdzenia: new Date().toISOString(),
+        status: orderData.status === 'nowe' ? 'potwierdzone' : orderData.status,
+        historia: [...(orderData.historia || []), {
+          data: new Date().toISOString(),
+          uzytkownik: orderData.klient?.imie || 'Klient',
+          akcja: 'Zamówienie potwierdzone przez klienta'
+        }]
+      });
+      
+      setConfirmed(true);
+      
+      // Wyślij email z podziękowaniem i linkiem do śledzenia
+      const trackingLink = `${window.location.origin}/zamowienie/${token}`;
+      const customerEmail = orderData.klient?.email;
+      const customerName = orderData.klient?.imie || 'Kliencie';
+      
+      if (customerEmail) {
+        const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 50px; margin-bottom: 10px;">✅</div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">Dziękujemy za potwierdzenie!</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${orderData.nrWlasny}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">Szanowny/a <strong>${customerName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px; line-height: 1.6;">
+                Twoje zamówienie zostało potwierdzone i przekazane do realizacji. Możesz śledzić jego status w panelu klienta.
+              </p>
+              
+              <div style="background: #F0FDF4; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #86EFAC;">
+                <p style="margin: 0; color: #166534; font-weight: 600; text-align: center;">
+                  🎉 Zamówienie potwierdzone pomyślnie!
+                </p>
+              </div>
+              
+              <p style="margin: 20px 0; color: #374151; font-size: 15px; text-align: center;">
+                <strong>📦 Pod poniższym linkiem możesz śledzić status swojego zamówienia:</strong>
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${trackingLink}" style="display: inline-block; background: linear-gradient(135deg, #6366F1, #4F46E5); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">🔍 ŚLEDŹ ZAMÓWIENIE</a>
+              </div>
+              
+              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                <p style="margin: 0; color: #92400E; font-size: 14px;">
+                  💡 <strong>Zachowaj ten email!</strong> Link powyżej pozwoli Ci w każdej chwili sprawdzić status zamówienia i pobrać dokumenty.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System obsługi zamówień</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: customerEmail,
+            toName: customerName,
+            subject: `Potwierdzenie zamówienia ${orderData.nrWlasny} - Link do śledzenia`,
+            textContent: `Dziękujemy za potwierdzenie zamówienia ${orderData.nrWlasny}. Śledź status: ${trackingLink}`,
+            htmlContent: htmlEmail
+          })
+        }).catch(err => console.error('Błąd wysyłania emaila:', err));
+      }
+      
+    } catch (err) {
+      console.error('Błąd potwierdzania:', err);
+      alert('Nie udało się potwierdzić zamówienia. Spróbuj ponownie.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+  
+  // Style
+  const containerStyle = {
+    minHeight: '100vh',
+    padding: '20px',
+    fontFamily: "'Segoe UI', Arial, sans-serif",
+    background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)'
+  };
+  
+  const cardStyle = {
+    maxWidth: '700px',
+    margin: '0 auto',
+    background: 'white',
+    borderRadius: '16px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+    overflow: 'hidden'
+  };
+  
+  // Loading
+  if (loading) {
+    return (
+      <div style={{...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{textAlign: 'center', color: 'white'}}>
+          <div style={{fontSize: '48px', marginBottom: '20px'}}>📦</div>
+          <p style={{fontSize: '18px'}}>Ładowanie zamówienia...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Error
+  if (error) {
+    return (
+      <div style={{...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={cardStyle}>
+          <div style={{padding: '40px', textAlign: 'center'}}>
+            <div style={{fontSize: '64px', marginBottom: '20px'}}>❌</div>
+            <h2 style={{margin: '0 0 10px 0', color: '#DC2626'}}>Błąd</h2>
+            <p style={{color: '#6B7280'}}>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!orderData) return null;
+  
+  const statusInfo = getStatusInfo(orderData.status);
+  const isWaitingForConfirmation = !orderData.potwierdzoneByClient && orderData.wyslanieDoPotwierdzenia;
+  
+  // Timeline statusów
+  const statusSteps = [
+    { id: 'nowe', name: 'Złożone', icon: '📝' },
+    { id: 'potwierdzone', name: 'Potwierdzone', icon: '✅' },
+    { id: 'w_produkcji', name: 'W produkcji', icon: '🏭' },
+    { id: 'wyslane', name: 'Wysłane', icon: '🚚' },
+    { id: 'dostarczone', name: 'Dostarczone', icon: '📦' }
+  ];
+  
+  const currentStepIndex = statusSteps.findIndex(s => s.id === orderData.status);
+  
+  return (
+    <div style={containerStyle}>
+      <div style={cardStyle}>
+        {/* Header */}
+        <div style={{background: 'linear-gradient(135deg, #6366F1, #4F46E5)', padding: '25px', color: 'white'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px'}}>
+            <div>
+              <div style={{fontSize: '14px', opacity: 0.9}}>Zamówienie nr</div>
+              <div style={{fontSize: '24px', fontWeight: '700'}}>{orderData.nrWlasny}</div>
+            </div>
+            <div style={{
+              background: confirmed ? '#D1FAE5' : statusInfo.bg, 
+              color: confirmed ? '#059669' : statusInfo.color, 
+              padding: '8px 16px', 
+              borderRadius: '20px', 
+              fontWeight: '600', 
+              fontSize: '14px'
+            }}>
+              {confirmed ? '✅ Potwierdzone' : statusInfo.icon + ' ' + statusInfo.name}
+            </div>
+          </div>
+          {orderData.dataUtworzenia && (
+            <div style={{marginTop: '10px', fontSize: '14px', opacity: 0.9}}>
+              Data zamówienia: {formatDate(orderData.dataUtworzenia)}
+            </div>
+          )}
+        </div>
+        
+        {/* Komunikat o potwierdzeniu */}
+        {isWaitingForConfirmation && !confirmed && (
+          <div style={{background: '#FEF3C7', padding: '20px', borderBottom: '1px solid #FCD34D'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+              <span style={{fontSize: '32px'}}>⏳</span>
+              <div>
+                <p style={{margin: 0, fontWeight: '600', color: '#92400E'}}>Oczekuje na Twoje potwierdzenie</p>
+                <p style={{margin: '5px 0 0 0', fontSize: '14px', color: '#B45309'}}>
+                  Sprawdź dane zamówienia poniżej i potwierdź, jeśli wszystko się zgadza.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Podziękowanie po potwierdzeniu */}
+        {confirmed && (
+          <div style={{background: '#D1FAE5', padding: '20px', borderBottom: '1px solid #86EFAC'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+              <span style={{fontSize: '32px'}}>🎉</span>
+              <div>
+                <p style={{margin: 0, fontWeight: '600', color: '#065F46'}}>Zamówienie potwierdzone!</p>
+                <p style={{margin: '5px 0 0 0', fontSize: '14px', color: '#047857'}}>
+                  Dziękujemy! Twoje zamówienie zostało przekazane do realizacji.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Timeline statusu - tylko po potwierdzeniu */}
+        {confirmed && (
+          <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
+            <h3 style={{margin: '0 0 15px 0', fontSize: '14px', color: '#6B7280', textTransform: 'uppercase'}}>Status realizacji</h3>
+            <div style={{display: 'flex', justifyContent: 'space-between', position: 'relative'}}>
+              {/* Linia łącząca */}
+              <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '20px',
+                right: '20px',
+                height: '3px',
+                background: '#E5E7EB',
+                zIndex: 0
+              }} />
+              <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '20px',
+                width: `${Math.max(0, (currentStepIndex / (statusSteps.length - 1)) * 100)}%`,
+                height: '3px',
+                background: '#10B981',
+                zIndex: 1,
+                transition: 'width 0.5s ease'
+              }} />
+              
+              {statusSteps.map((step, idx) => {
+                const isCompleted = idx <= currentStepIndex;
+                const isCurrent = idx === currentStepIndex;
+                return (
+                  <div key={step.id} style={{textAlign: 'center', zIndex: 2, flex: 1}}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: isCompleted ? '#10B981' : '#E5E7EB',
+                      color: isCompleted ? 'white' : '#9CA3AF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto',
+                      fontSize: '18px',
+                      border: isCurrent ? '3px solid #6366F1' : 'none',
+                      boxShadow: isCurrent ? '0 0 0 4px rgba(99, 102, 241, 0.2)' : 'none'
+                    }}>
+                      {isCompleted ? '✓' : step.icon}
+                    </div>
+                    <p style={{
+                      margin: '8px 0 0 0', 
+                      fontSize: '11px', 
+                      color: isCompleted ? '#059669' : '#9CA3AF',
+                      fontWeight: isCurrent ? '600' : '400'
+                    }}>
+                      {step.name}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Dane zamówienia */}
+        <div style={{padding: '20px'}}>
+          {/* Produkty */}
+          <div style={{marginBottom: '25px'}}>
+            <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              📦 Produkty
+            </h3>
+            <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
+              {orderData.produkty && orderData.produkty.length > 0 ? (
+                orderData.produkty.map((prod, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '10px 0',
+                    borderBottom: idx < orderData.produkty.length - 1 ? '1px solid #E5E7EB' : 'none'
+                  }}>
+                    <div>
+                      <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{prod.towar || 'Produkt'}</p>
+                      {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
+                    </div>
+                    <div style={{textAlign: 'right'}}>
+                      <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
+                        {formatCurrency(prod.cena, prod.waluta || orderData.platnosci?.waluta)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{padding: '10px 0'}}>
+                  <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar || 'Brak szczegółów produktu'}</p>
+                </div>
+              )}
+              
+              {/* Suma */}
+              <div style={{
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginTop: '15px',
+                paddingTop: '15px',
+                borderTop: '2px solid #E5E7EB'
+              }}>
+                <span style={{fontWeight: '600', color: '#374151'}}>Suma:</span>
+                <span style={{fontSize: '20px', fontWeight: '700', color: '#6366F1'}}>
+                  {formatCurrency(orderData.platnosci?.cenaCalkowita, orderData.platnosci?.waluta)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Dostawa */}
+          <div style={{marginBottom: '25px'}}>
+            <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              📍 Adres dostawy
+            </h3>
+            <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
+              {orderData.klient && (
+                <>
+                  <p style={{margin: '0 0 5px 0', fontWeight: '600', color: '#374151'}}>{orderData.klient.imie}</p>
+                  {orderData.klient.adres && <p style={{margin: '0 0 5px 0', color: '#6B7280'}}>{orderData.klient.adres}</p>}
+                  {orderData.klient.telefon && (
+                    <p style={{margin: '10px 0 0 0', color: '#6B7280'}}>
+                      📞 <a href={`tel:${orderData.klient.telefon}`} style={{color: '#6366F1'}}>{orderData.klient.telefon}</a>
+                    </p>
+                  )}
+                  {orderData.klient.email && (
+                    <p style={{margin: '5px 0 0 0', color: '#6B7280'}}>
+                      ✉️ <a href={`mailto:${orderData.klient.email}`} style={{color: '#6366F1'}}>{orderData.klient.email}</a>
+                    </p>
+                  )}
+                </>
+              )}
+              {orderData.dataDostawy && (
+                <div style={{marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #E5E7EB'}}>
+                  <p style={{margin: 0, color: '#6B7280'}}>
+                    📅 Planowana dostawa: <strong style={{color: '#374151'}}>{formatDate(orderData.dataDostawy)}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Dokumenty - po potwierdzeniu */}
+          {confirmed && (
+            <div style={{marginBottom: '25px'}}>
+              <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                📄 Dokumenty
+              </h3>
+              <div style={{display: 'grid', gap: '10px'}}>
+                <button
+                  onClick={() => {/* TODO: generowanie PDF potwierdzenia */}}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '15px',
+                    background: 'white',
+                    border: '2px solid #E5E7EB',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%'
+                  }}
+                >
+                  <span style={{fontSize: '24px'}}>📋</span>
+                  <div>
+                    <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>Potwierdzenie zamówienia</p>
+                    <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>PDF z danymi zamówienia</p>
+                  </div>
+                </button>
+                
+                {orderData.protokolOdbioru && (
+                  <button
+                    onClick={() => {/* TODO: podgląd protokołu */}}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '15px',
+                      background: '#D1FAE5',
+                      border: '2px solid #86EFAC',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                  >
+                    <span style={{fontSize: '24px'}}>✍️</span>
+                    <div>
+                      <p style={{margin: 0, fontWeight: '600', color: '#065F46'}}>Protokół odbioru</p>
+                      <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#047857'}}>Dokument z podpisem klienta</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Historia - po potwierdzeniu */}
+          {confirmed && orderData.historia && orderData.historia.length > 0 && (
+            <div style={{marginBottom: '25px'}}>
+              <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                📜 Historia zamówienia
+              </h3>
+              <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
+                {orderData.historia.slice().reverse().slice(0, 5).map((h, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '10px 0',
+                    borderBottom: idx < Math.min(orderData.historia.length, 5) - 1 ? '1px solid #E5E7EB' : 'none'
+                  }}>
+                    <div style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#10B981',
+                      marginTop: '6px',
+                      flexShrink: 0
+                    }} />
+                    <div>
+                      <p style={{margin: 0, fontSize: '14px', color: '#374151'}}>{h.akcja}</p>
+                      <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>
+                        {formatDateTime(h.data)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Przycisk potwierdzenia */}
+          {isWaitingForConfirmation && !confirmed && (
+            <div style={{marginTop: '20px'}}>
+              <button
+                onClick={handleConfirmOrder}
+                disabled={confirming}
+                style={{
+                  width: '100%',
+                  padding: '18px',
+                  background: confirming ? '#9CA3AF' : 'linear-gradient(135deg, #10B981, #059669)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  cursor: confirming ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+              >
+                {confirming ? (
+                  <>⏳ Potwierdzanie...</>
+                ) : (
+                  <>✅ AKCEPTUJĘ ZAMÓWIENIE</>
+                )}
+              </button>
+              <p style={{margin: '10px 0 0 0', fontSize: '12px', color: '#9CA3AF', textAlign: 'center'}}>
+                Klikając powyższy przycisk potwierdzasz prawidłowość danych zamówienia
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
+          <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
+            Herraton • System obsługi zamówień
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14268,6 +14991,15 @@ Zespół obsługi zamówień
 
   // Sprawdź czy URL wskazuje na formularz reklamacji (publiczny, bez logowania)
   const currentPath = window.location.pathname;
+  
+  // Routing: Panel zamówienia dla klienta
+  const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
+  if (orderMatch) {
+    const orderToken = orderMatch[1];
+    return <PublicOrderPanel token={orderToken} />;
+  }
+  
+  // Routing: Formularz reklamacji
   const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
   if (complaintMatch) {
     const complaintToken = complaintMatch[1];
