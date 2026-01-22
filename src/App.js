@@ -13916,25 +13916,6 @@ const PublicOrderPanel = ({ token }) => {
   const doZaplaty = orderData.platnosci?.doZaplaty || (cenaCalkowita - zaplacono);
   const waluta = orderData.platnosci?.waluta || 'PLN';
   
-  // Data wyjazdu kierowcy (z kraju producenta)
-  const getDriverDepartureInfo = () => {
-    if (!driverData?.trpiHistory) return null;
-    
-    // Znajdź ostatnią trasę
-    const lastTrip = driverData.trpiHistory?.[driverData.trpiHistory.length - 1];
-    if (!lastTrip) return null;
-    
-    // Szukaj daty wyjazdu z kraju zamówienia
-    const departureCountry = orderData.produkty?.[0]?.producentKraj || orderData.kraj;
-    return {
-      date: lastTrip.dataWyjazdu || driverData.dataWyjazdu,
-      country: departureCountry,
-      estimatedDelivery: orderData.szacowanaDataDostawy || lastTrip.szacowanaDataDostawy
-    };
-  };
-  
-  // departureInfo jest używane bezpośrednio w renderze przez driverData
-  
   return (
     <div style={containerStyle}>
       <style>{glowKeyframes}</style>
