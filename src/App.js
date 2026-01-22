@@ -13744,6 +13744,24 @@ const PublicOrderPanel = ({ token }) => {
         }]
       });
       
+      // Dodaj powiadomienie do systemu dla adminów
+      try {
+        const { collection, addDoc } = await import('firebase/firestore');
+        await addDoc(collection(db, 'notifications'), {
+          type: 'order_confirmed',
+          title: `✅ Klient potwierdził zamówienie ${orderData.nrWlasny}`,
+          message: `${orderData.klient?.imie || 'Klient'} potwierdził zamówienie ${orderData.nrWlasny}`,
+          orderId: orderData.id,
+          orderNumber: orderData.nrWlasny,
+          clientName: orderData.klient?.imie,
+          createdAt: new Date().toISOString(),
+          read: false,
+          resolved: false
+        });
+      } catch (notifErr) {
+        console.error('Błąd dodawania powiadomienia:', notifErr);
+      }
+      
       setConfirmed(true);
       
       // Wyślij email z podziękowaniem i linkiem do śledzenia
@@ -13908,7 +13926,17 @@ const PublicOrderPanel = ({ token }) => {
     return mapping[status] ?? 0;
   };
   
-  const currentStepIndex = getStepIndex(orderData.status);
+  // Dla zamówień łączonych - użyj minimalnego statusu produktów, dla pojedynczych - główny status
+  const getOverallStepIndex = () => {
+    if (orderData.produkty && orderData.produkty.length > 1) {
+      // Znajdź najniższy (najmniej zaawansowany) status
+      const productStatuses = orderData.produkty.map(p => getStepIndex(p.status || orderData.status));
+      return Math.min(...productStatuses);
+    }
+    return getStepIndex(orderData.status);
+  };
+  
+  const currentStepIndex = getOverallStepIndex();
   
   // Dane płatności
   const cenaCalkowita = orderData.platnosci?.cenaCalkowita || 0;
@@ -14090,30 +14118,93 @@ const PublicOrderPanel = ({ token }) => {
             </h3>
             <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
               {orderData.produkty && orderData.produkty.length > 0 ? (
-                orderData.produkty.map((prod, idx) => (
-                  <div key={idx} style={{
-                    padding: '12px 0',
-                    borderBottom: idx < orderData.produkty.length - 1 ? '1px solid #E5E7EB' : 'none'
-                  }}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                      <div style={{flex: 1}}>
-                        {/* Numer podzamówienia jeśli jest */}
-                        {prod.nrPodzamowienia && prod.nrPodzamowienia !== orderData.nrWlasny && (
-                          <p style={{margin: '0 0 5px 0', fontSize: '12px', color: '#6366F1', fontWeight: '600'}}>
-                            Nr: {prod.nrPodzamowienia}
+                orderData.produkty.map((prod, idx) => {
+                  const prodStatusInfo = getStatusInfo(prod.status || orderData.status);
+                  const prodStepIndex = getStepIndex(prod.status || orderData.status);
+                  const hasMultipleProducts = orderData.produkty.length > 1;
+                  
+                  return (
+                    <div key={idx} style={{
+                      padding: '15px',
+                      marginBottom: idx < orderData.produkty.length - 1 ? '15px' : '0',
+                      background: 'white',
+                      borderRadius: '10px',
+                      border: '1px solid #E5E7EB'
+                    }}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                        <div style={{flex: 1}}>
+                          {/* Numer podzamówienia jeśli jest */}
+                          {prod.nrPodzamowienia && (
+                            <p style={{margin: '0 0 5px 0', fontSize: '12px', color: '#6366F1', fontWeight: '600'}}>
+                              Nr: {prod.nrPodzamowienia}
+                            </p>
+                          )}
+                          <p style={{margin: 0, fontWeight: '500', color: '#374151', lineHeight: '1.4'}}>{prod.towar || 'Produkt'}</p>
+                          {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
+                        </div>
+                        <div style={{textAlign: 'right', marginLeft: '15px'}}>
+                          <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
+                            {formatCurrency(prod.cenaKlienta || prod.cena, prod.waluta || waluta)}
                           </p>
-                        )}
-                        <p style={{margin: 0, fontWeight: '500', color: '#374151', lineHeight: '1.4'}}>{prod.towar || 'Produkt'}</p>
-                        {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
+                        </div>
                       </div>
-                      <div style={{textAlign: 'right', marginLeft: '15px'}}>
-                        <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
-                          {formatCurrency(prod.cenaKlienta || prod.cena, prod.waluta || waluta)}
-                        </p>
-                      </div>
+                      
+                      {/* Status produktu - pokazuj zawsze dla zamówień łączonych lub gdy status jest inny niż główny */}
+                      {(hasMultipleProducts || prod.status) && confirmed && (
+                        <div style={{marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <span style={{fontSize: '14px'}}>Status:</span>
+                            <span style={{
+                              background: prodStatusInfo.bg,
+                              color: prodStatusInfo.color,
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              {prodStatusInfo.icon} {prodStatusInfo.name}
+                            </span>
+                          </div>
+                          
+                          {/* Mini timeline dla produktu */}
+                          <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '10px'}}>
+                            {statusSteps.map((step, stepIdx) => {
+                              const isStepCompleted = stepIdx < prodStepIndex;
+                              const isStepCurrent = stepIdx === prodStepIndex;
+                              return (
+                                <React.Fragment key={step.id}>
+                                  <div style={{
+                                    width: isStepCurrent ? '24px' : '16px',
+                                    height: isStepCurrent ? '24px' : '16px',
+                                    borderRadius: '50%',
+                                    background: isStepCompleted ? '#10B981' : isStepCurrent ? '#6366F1' : '#E5E7EB',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: isStepCurrent ? '12px' : '10px',
+                                    color: (isStepCompleted || isStepCurrent) ? 'white' : '#9CA3AF',
+                                    transition: 'all 0.3s ease',
+                                    animation: isStepCurrent ? 'glow 2s ease-in-out infinite' : 'none'
+                                  }}>
+                                    {isStepCompleted ? '✓' : (isStepCurrent ? step.icon : '')}
+                                  </div>
+                                  {stepIdx < statusSteps.length - 1 && (
+                                    <div style={{
+                                      flex: 1,
+                                      height: '3px',
+                                      background: isStepCompleted ? '#10B981' : '#E5E7EB',
+                                      transition: 'background 0.3s ease'
+                                    }} />
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : orderData.towar ? (
                 <div style={{padding: '10px 0'}}>
                   <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar}</p>
