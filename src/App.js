@@ -2501,52 +2501,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.nrWlasny]);
 
-  // Funkcja generująca treść emaila z potwierdzeniem
-  const generateConfirmationEmail = () => {
-    const walutaSymbol = CURRENCIES.find(c => c.code === form.platnosci?.waluta)?.symbol || 'zł';
-    const cenaCalkowita = form.platnosci?.cenaCalkowita || 0;
-    const zaplacono = form.platnosci?.zaplacono || 0;
-    const doZaplaty = form.platnosci?.doZaplaty || (cenaCalkowita - zaplacono);
-    
-    const subject = `Potwierdzenie zamówienia nr ${form.nrWlasny}`;
-    
-    const body = `Szanowny/a ${form.klient?.imie || 'Kliencie'},
-
-Dziękujemy za złożenie zamówienia! Poniżej znajdziesz szczegóły:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 POTWIERDZENIE ZAMÓWIENIA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔢 Numer zamówienia: ${form.nrWlasny}
-📅 Data zamówienia: ${formatDate(form.dataZlecenia)}
-
-📦 OPIS PRODUKTÓW:
-${form.towar || 'Brak opisu'}
-
-📍 ADRES DOSTAWY:
-${form.klient?.adres || 'Nie podano'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 PODSUMOWANIE PŁATNOŚCI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Wartość zamówienia: ${cenaCalkowita.toFixed(2)} ${walutaSymbol}
-Wpłacono: ${zaplacono.toFixed(2)} ${walutaSymbol}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DO ZAPŁATY: ${doZaplaty.toFixed(2)} ${walutaSymbol}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${doZaplaty > 0 ? `⚠️ Pozostała kwota do zapłaty: ${doZaplaty.toFixed(2)} ${walutaSymbol}` : '✅ Zamówienie w pełni opłacone!'}
-
-W razie pytań prosimy o kontakt.
-
-Pozdrawiamy,
-Zespół obsługi zamówień`;
-
-    return { subject, body };
-  };
-
   // Generuj unikalny token dla klienta
   const generateClientToken = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
