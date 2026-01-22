@@ -7518,27 +7518,92 @@ ${st.team}
     }
   }, [showSignature]);
 
-  const confirmDelivery = async (order) => {
-    // Zaktualizuj status produktów jeśli są
-    const updatedProdukty = order.produkty?.map(p => ({
-      ...p,
-      status: 'dostarczone'
-    })) || [];
+  const confirmDelivery = async (orderWithIndexes) => {
+    // orderWithIndexes może zawierać _myProductIndexes
+    const order = orders.find(o => o.id === orderWithIndexes.id) || orderWithIndexes;
+    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    const now = new Date();
     
-    await onUpdateOrder(order.id, {
-      ...order,
-      status: 'dostarczone',
-      produkty: updatedProdukty.length > 0 ? updatedProdukty : order.produkty,
-      potwierdzenieDostawy: { data: new Date().toISOString(), kierowca: user.name },
-      dataDostarczenia: new Date().toISOString(),
-      historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Dostawa potwierdzona' }]
-    });
-    onAddNotification({ icon: '✔️', title: `Dostarczono: ${order.nrWlasny}`, message: `Kierowca ${user.name} potwierdził dostawę do ${order.klient?.imie}`, orderId: order.id });
-    
-    // Jeśli klient ma email - pokaż modal z pytaniem o wysłanie potwierdzenia
-    if (order.klient?.email) {
-      setShowDeliveryConfirmation(order);
-      setDeliveryEmailLanguage(protocolLanguage); // Użyj wybranego języka protokołu
+    // Jeśli kierowca ma przypisane produkty - zaktualizuj tylko jego produkty
+    if (myProductIndexes.length > 0 && order.produkty && order.produkty.length > 0) {
+      const mojePodzamowienia = myProductIndexes
+        .map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`)
+        .join(', ');
+      
+      // Zaktualizuj status tylko MOICH produktów
+      const updatedProdukty = order.produkty.map((p, idx) => {
+        if (myProductIndexes.includes(idx)) {
+          return {
+            ...p,
+            status: 'dostarczone',
+            dataDostarczenia: now.toISOString(),
+            dostawaPotwierdzonaPrzez: user.name
+          };
+        }
+        return p;
+      });
+      
+      // Sprawdź czy WSZYSTKIE produkty są teraz dostarczone
+      const allDelivered = updatedProdukty.every(p => p.status === 'dostarczone' || p.status === 'zakonczone');
+      
+      // Dane potwierdzenia dla tego kierowcy
+      const potwierdzenieKierowcy = {
+        data: now.toISOString(),
+        kierowca: user.name,
+        kierowcaId: user.id,
+        produkty: mojePodzamowienia
+      };
+      
+      await onUpdateOrder(order.id, {
+        produkty: updatedProdukty,
+        // Główny status zmień na 'dostarczone' TYLKO jeśli wszystkie produkty są dostarczone
+        status: allDelivered ? 'dostarczone' : order.status,
+        // Zapisz potwierdzenia dla każdego kierowcy osobno
+        potwierdzeniaDostaw: {
+          ...(order.potwierdzeniaDostaw || {}),
+          [user.id]: potwierdzenieKierowcy
+        },
+        // Główne potwierdzenie tylko gdy wszystko dostarczone
+        ...(allDelivered ? {
+          potwierdzenieDostawy: { data: now.toISOString(), kierowca: user.name },
+          dataDostarczenia: now.toISOString()
+        } : {}),
+        historia: [...(order.historia || []), { 
+          data: now.toISOString(), 
+          uzytkownik: user.name, 
+          akcja: `Dostawa potwierdzona (${mojePodzamowienia})${allDelivered ? ' - zamówienie kompletne' : ''}` 
+        }]
+      });
+      
+      onAddNotification({ 
+        icon: '✔️', 
+        title: `Dostarczono: ${order.nrWlasny}`, 
+        message: `Kierowca ${user.name} potwierdził dostawę (${mojePodzamowienia}) do ${order.klient?.imie}${allDelivered ? ' - KOMPLET' : ''}`, 
+        orderId: order.id 
+      });
+      
+      // Jeśli klient ma email - pokaż modal z pytaniem o wysłanie potwierdzenia
+      if (order.klient?.email) {
+        setShowDeliveryConfirmation({ ...order, produkty: updatedProdukty, _deliveredProducts: mojePodzamowienia, _allDelivered: allDelivered });
+        setDeliveryEmailLanguage(protocolLanguage);
+      }
+    } else {
+      // Stare zamówienie bez produktów - zmień cały status
+      await onUpdateOrder(order.id, {
+        ...order,
+        status: 'dostarczone',
+        potwierdzenieDostawy: { data: now.toISOString(), kierowca: user.name },
+        dataDostarczenia: now.toISOString(),
+        historia: [...(order.historia || []), { data: now.toISOString(), uzytkownik: user.name, akcja: 'Dostawa potwierdzona' }]
+      });
+      
+      onAddNotification({ icon: '✔️', title: `Dostarczono: ${order.nrWlasny}`, message: `Kierowca ${user.name} potwierdził dostawę do ${order.klient?.imie}`, orderId: order.id });
+      
+      // Jeśli klient ma email - pokaż modal z pytaniem o wysłanie potwierdzenia
+      if (order.klient?.email) {
+        setShowDeliveryConfirmation(order);
+        setDeliveryEmailLanguage(protocolLanguage);
+      }
     }
   };
 
