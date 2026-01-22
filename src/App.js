@@ -7292,6 +7292,24 @@ ${st.team}
     
     const podpisData = { url: dataUrl, timestamp: now.toISOString(), by: user.name };
     
+    // Dane protokołu odbioru
+    const protokolOdbioruData = {
+      dataDostawy: now.toISOString(),
+      godzinaDostawy: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+      kierowca: user.name,
+      kierowcaId: user.id,
+      podpis: podpisData,
+      uwagiKlienta: clientRemarks || '',
+      jezyk: protocolLanguage,
+      klient: {
+        imie: order.klient?.imie || '',
+        adres: order.klient?.adres || '',
+        telefon: order.klient?.telefon || '',
+        email: order.klient?.email || ''
+      },
+      nrZamowienia: order.nrWlasny || ''
+    };
+    
     // Sprawdź czy to zamówienie łączone
     if (order.produkty && order.produkty.length > 0 && myProductIndexes.length > 0) {
       // Aktualizuj tylko MOJE produkty (używając zapisanych indeksów)
@@ -7343,6 +7361,13 @@ ${st.team}
         podpis: podpisData,
         jezyk: protocolLanguage
       };
+      
+      // Protokół dla tego kierowcy
+      const protokolKierowcy = {
+        ...protokolOdbioruData,
+        produkty: mojePodzamowienia,
+        produktyOpis: mojeProduktOpisy
+      };
 
       await onUpdateOrder(order.id, {
         produkty: updatedProdukty,
@@ -7351,6 +7376,15 @@ ${st.team}
           ...(order.umowyOdbioru || {}),
           [user.id]: umowaOdbioru
         },
+        // Protokoły odbioru dla każdego kierowcy
+        protokolyOdbioru: {
+          ...(order.protokolyOdbioru || {}),
+          [user.id]: protokolKierowcy
+        },
+        // Główny protokół odbioru (dla kompatybilności)
+        protokolOdbioru: protokolOdbioruData,
+        // Główny podpis (dla kompatybilności)
+        podpisKlienta: podpisData,
         historia: [...(order.historia || []), { 
           data: now.toISOString(), 
           uzytkownik: user.name, 
@@ -7382,6 +7416,10 @@ ${st.team}
         ...order,
         podpisKlienta: podpisData,
         umowaOdbioru: umowaOdbioru,
+        protokolOdbioru: {
+          ...protokolOdbioruData,
+          produkt: order.towar || ''
+        },
         historia: [...(order.historia || []), { 
           data: now.toISOString(), 
           uzytkownik: user.name, 
@@ -14163,143 +14201,217 @@ const PublicOrderPanel = ({ token }) => {
         
         {/* Dane zamówienia */}
         <div style={{padding: '20px'}}>
-          {/* Produkty */}
+          {/* Produkty - pogrupowane według kierowców */}
           <div style={{marginBottom: '25px'}}>
             <h3 style={{margin: '0 0 15px 0', fontSize: '16px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px'}}>
               📦 Produkty
             </h3>
-            <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
-              {orderData.produkty && orderData.produkty.length > 0 ? (
-                orderData.produkty.map((prod, idx) => {
-                  const prodStatusInfo = getStatusInfo(prod.status || orderData.status);
-                  const prodStepIndex = getStepIndex(prod.status || orderData.status);
-                  const hasMultipleProducts = orderData.produkty.length > 1;
-                  
-                  return (
-                    <div key={idx} style={{
-                      padding: '15px',
-                      marginBottom: idx < orderData.produkty.length - 1 ? '15px' : '0',
-                      background: 'white',
-                      borderRadius: '10px',
-                      border: '1px solid #E5E7EB'
-                    }}>
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                        <div style={{flex: 1}}>
-                          {/* Numer podzamówienia jeśli jest */}
-                          {prod.nrPodzamowienia && (
-                            <p style={{margin: '0 0 5px 0', fontSize: '12px', color: '#6366F1', fontWeight: '600'}}>
-                              Nr: {prod.nrPodzamowienia}
-                            </p>
-                          )}
-                          <p style={{margin: 0, fontWeight: '500', color: '#374151', lineHeight: '1.4'}}>{prod.towar || 'Produkt'}</p>
-                          {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
-                        </div>
-                        <div style={{textAlign: 'right', marginLeft: '15px'}}>
-                          <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
-                            {formatCurrency(prod.cenaKlienta || prod.cena, prod.waluta || waluta)}
-                          </p>
+            
+            {orderData.produkty && orderData.produkty.length > 0 ? (() => {
+              // Grupuj produkty według kierowców
+              const produktyByKierowca = {};
+              const hasMultipleDrivers = new Set(orderData.produkty.map(p => p.kierowcaNazwa || p.kierowca || 'default')).size > 1;
+              
+              orderData.produkty.forEach((prod, idx) => {
+                const kierowcaKey = prod.kierowca || 'default';
+                const kierowcaNazwa = prod.kierowcaNazwa || 'Kierowca';
+                const kierowcaTelefon = prod.kierowcaTelefon || '';
+                
+                if (!produktyByKierowca[kierowcaKey]) {
+                  produktyByKierowca[kierowcaKey] = {
+                    nazwa: kierowcaNazwa,
+                    telefon: kierowcaTelefon,
+                    produkty: [],
+                    protokol: orderData.protokolyOdbioru?.[kierowcaKey]
+                  };
+                }
+                produktyByKierowca[kierowcaKey].produkty.push({ ...prod, originalIndex: idx });
+              });
+              
+              const kierowcyKeys = Object.keys(produktyByKierowca);
+              
+              return (
+                <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                  {kierowcyKeys.map((kierowcaKey, groupIdx) => {
+                    const group = produktyByKierowca[kierowcaKey];
+                    const showDriverHeader = hasMultipleDrivers && kierowcaKey !== 'default';
+                    
+                    return (
+                      <div key={kierowcaKey} style={{
+                        background: '#F9FAFB', 
+                        borderRadius: '10px', 
+                        overflow: 'hidden',
+                        border: hasMultipleDrivers ? '2px solid #E5E7EB' : 'none'
+                      }}>
+                        {/* Nagłówek kierowcy - tylko gdy wiele kierowców */}
+                        {showDriverHeader && (
+                          <div style={{
+                            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                            padding: '12px 15px',
+                            color: 'white'
+                          }}>
+                            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'}}>
+                              <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                <span style={{fontSize: '20px'}}>🚚</span>
+                                <div>
+                                  <p style={{margin: 0, fontWeight: '600', fontSize: '14px'}}>Transport {groupIdx + 1}</p>
+                                  <p style={{margin: '2px 0 0 0', fontSize: '13px', opacity: 0.9}}>👤 {group.nazwa}</p>
+                                </div>
+                              </div>
+                              {group.telefon && (
+                                <a href={`tel:${group.telefon}`} style={{
+                                  color: 'white',
+                                  fontSize: '13px',
+                                  textDecoration: 'none',
+                                  background: 'rgba(255,255,255,0.2)',
+                                  padding: '5px 10px',
+                                  borderRadius: '15px'
+                                }}>
+                                  📞 {group.telefon}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Produkty w grupie */}
+                        <div style={{padding: '15px'}}>
+                          {group.produkty.map((prod, idx) => {
+                            const prodStatusInfo = getStatusInfo(prod.status || orderData.status);
+                            const prodStepIndex = getStepIndex(prod.status || orderData.status);
+                            
+                            return (
+                              <div key={idx} style={{
+                                padding: '15px',
+                                marginBottom: idx < group.produkty.length - 1 ? '15px' : '0',
+                                background: 'white',
+                                borderRadius: '10px',
+                                border: '1px solid #E5E7EB'
+                              }}>
+                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                                  <div style={{flex: 1}}>
+                                    {prod.nrPodzamowienia && (
+                                      <p style={{margin: '0 0 5px 0', fontSize: '12px', color: '#6366F1', fontWeight: '600'}}>
+                                        Nr: {prod.nrPodzamowienia}
+                                      </p>
+                                    )}
+                                    <p style={{margin: 0, fontWeight: '500', color: '#374151', lineHeight: '1.4'}}>{prod.towar || 'Produkt'}</p>
+                                    {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
+                                  </div>
+                                  <div style={{textAlign: 'right', marginLeft: '15px'}}>
+                                    <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
+                                      {formatCurrency(prod.cenaKlienta || prod.cena, prod.waluta || waluta)}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Status produktu */}
+                                {confirmed && (
+                                  <div style={{marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB'}}>
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                      <span style={{fontSize: '14px'}}>Status:</span>
+                                      <span style={{
+                                        background: prodStatusInfo.bg,
+                                        color: prodStatusInfo.color,
+                                        padding: '4px 10px',
+                                        borderRadius: '12px',
+                                        fontSize: '12px',
+                                        fontWeight: '600'
+                                      }}>
+                                        {prodStatusInfo.icon} {prodStatusInfo.name}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Mini timeline dla produktu */}
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '10px'}}>
+                                      {statusSteps.map((step, stepIdx) => {
+                                        const isStepCompleted = stepIdx < prodStepIndex;
+                                        const isStepCurrent = stepIdx === prodStepIndex;
+                                        return (
+                                          <React.Fragment key={step.id}>
+                                            <div style={{
+                                              width: isStepCurrent ? '24px' : '16px',
+                                              height: isStepCurrent ? '24px' : '16px',
+                                              borderRadius: '50%',
+                                              background: isStepCompleted ? '#10B981' : isStepCurrent ? '#6366F1' : '#E5E7EB',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              fontSize: isStepCurrent ? '12px' : '10px',
+                                              color: (isStepCompleted || isStepCurrent) ? 'white' : '#9CA3AF',
+                                              transition: 'all 0.3s ease',
+                                              animation: isStepCurrent ? 'glow 2s ease-in-out infinite' : 'none'
+                                            }}>
+                                              {isStepCompleted ? '✓' : (isStepCurrent ? step.icon : '')}
+                                            </div>
+                                            {stepIdx < statusSteps.length - 1 && (
+                                              <div style={{
+                                                flex: 1,
+                                                height: '3px',
+                                                background: isStepCompleted ? '#10B981' : '#E5E7EB',
+                                                transition: 'background 0.3s ease'
+                                              }} />
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      
-                      {/* Status produktu - pokazuj zawsze dla zamówień łączonych lub gdy status jest inny niż główny */}
-                      {(hasMultipleProducts || prod.status) && confirmed && (
-                        <div style={{marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB'}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                            <span style={{fontSize: '14px'}}>Status:</span>
-                            <span style={{
-                              background: prodStatusInfo.bg,
-                              color: prodStatusInfo.color,
-                              padding: '4px 10px',
-                              borderRadius: '12px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              {prodStatusInfo.icon} {prodStatusInfo.name}
-                            </span>
-                          </div>
-                          
-                          {/* Mini timeline dla produktu */}
-                          <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '10px'}}>
-                            {statusSteps.map((step, stepIdx) => {
-                              const isStepCompleted = stepIdx < prodStepIndex;
-                              const isStepCurrent = stepIdx === prodStepIndex;
-                              return (
-                                <React.Fragment key={step.id}>
-                                  <div style={{
-                                    width: isStepCurrent ? '24px' : '16px',
-                                    height: isStepCurrent ? '24px' : '16px',
-                                    borderRadius: '50%',
-                                    background: isStepCompleted ? '#10B981' : isStepCurrent ? '#6366F1' : '#E5E7EB',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: isStepCurrent ? '12px' : '10px',
-                                    color: (isStepCompleted || isStepCurrent) ? 'white' : '#9CA3AF',
-                                    transition: 'all 0.3s ease',
-                                    animation: isStepCurrent ? 'glow 2s ease-in-out infinite' : 'none'
-                                  }}>
-                                    {isStepCompleted ? '✓' : (isStepCurrent ? step.icon : '')}
-                                  </div>
-                                  {stepIdx < statusSteps.length - 1 && (
-                                    <div style={{
-                                      flex: 1,
-                                      height: '3px',
-                                      background: isStepCompleted ? '#10B981' : '#E5E7EB',
-                                      transition: 'background 0.3s ease'
-                                    }} />
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : orderData.towar ? (
-                <div style={{padding: '10px 0'}}>
-                  <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar}</p>
+                    );
+                  })}
                 </div>
-              ) : (
+              );
+            })() : orderData.towar ? (
+              <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
+                <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar}</p>
+              </div>
+            ) : (
+              <div style={{background: '#F9FAFB', borderRadius: '10px', padding: '15px'}}>
                 <p style={{margin: 0, color: '#9CA3AF'}}>Brak szczegółów produktu</p>
-              )}
-              
-              {/* PODSUMOWANIE PŁATNOŚCI */}
+              </div>
+            )}
+            
+            {/* PODSUMOWANIE PŁATNOŚCI */}
+            <div style={{
+              marginTop: '15px',
+              padding: '15px',
+              background: '#F9FAFB',
+              borderRadius: '10px'
+            }}>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                <span style={{color: '#6B7280'}}>Wartość zamówienia:</span>
+                <span style={{fontWeight: '600', color: '#374151'}}>{formatCurrency(cenaCalkowita, waluta)}</span>
+              </div>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                <span style={{color: '#6B7280'}}>Wpłacono:</span>
+                <span style={{fontWeight: '600', color: '#10B981'}}>{formatCurrency(zaplacono, waluta)}</span>
+              </div>
               <div style={{
-                marginTop: '15px',
-                paddingTop: '15px',
-                borderTop: '2px solid #E5E7EB'
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '12px',
+                background: doZaplaty > 0 ? '#FEF3C7' : '#D1FAE5',
+                borderRadius: '8px',
+                marginTop: '10px'
               }}>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
-                  <span style={{color: '#6B7280'}}>Wartość zamówienia:</span>
-                  <span style={{fontWeight: '600', color: '#374151'}}>{formatCurrency(cenaCalkowita, waluta)}</span>
-                </div>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
-                  <span style={{color: '#6B7280'}}>Wpłacono:</span>
-                  <span style={{fontWeight: '600', color: '#10B981'}}>{formatCurrency(zaplacono, waluta)}</span>
-                </div>
-                <div style={{
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '12px',
-                  background: doZaplaty > 0 ? '#FEF3C7' : '#D1FAE5',
-                  borderRadius: '8px',
-                  marginTop: '10px'
-                }}>
-                  <span style={{fontWeight: '600', color: doZaplaty > 0 ? '#92400E' : '#065F46'}}>
-                    {doZaplaty > 0 ? 'Do zapłaty:' : 'Opłacono w całości'}
+                <span style={{fontWeight: '600', color: doZaplaty > 0 ? '#92400E' : '#065F46'}}>
+                  {doZaplaty > 0 ? 'Do zapłaty:' : 'Opłacono w całości'}
+                </span>
+                {doZaplaty > 0 && (
+                  <span style={{fontSize: '20px', fontWeight: '700', color: '#DC2626'}}>
+                    {formatCurrency(doZaplaty, waluta)}
                   </span>
-                  {doZaplaty > 0 && (
-                    <span style={{fontSize: '20px', fontWeight: '700', color: '#DC2626'}}>
-                      {formatCurrency(doZaplaty, waluta)}
-                    </span>
-                  )}
-                  {doZaplaty <= 0 && (
-                    <span style={{fontSize: '18px'}}>✅</span>
-                  )}
-                </div>
+                )}
+                {doZaplaty <= 0 && (
+                  <span style={{fontSize: '18px'}}>✅</span>
+                )}
               </div>
             </div>
           </div>
@@ -14343,8 +14455,72 @@ const PublicOrderPanel = ({ token }) => {
                 📄 Dokumenty
               </h3>
               <div style={{display: 'grid', gap: '10px'}}>
+                {/* Potwierdzenie zamówienia - zawsze dostępne */}
                 <button
-                  onClick={() => {/* TODO: generowanie PDF potwierdzenia */}}
+                  onClick={() => {
+                    // Generuj HTML potwierdzenia zamówienia
+                    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Potwierdzenie zamówienia ${orderData.nrWlasny}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 2px solid #6366F1; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { color: #6366F1; margin: 0; }
+    .section { margin-bottom: 25px; }
+    .section h2 { color: #374151; font-size: 16px; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .label { color: #6B7280; font-size: 14px; }
+    .value { font-weight: 600; color: #374151; }
+    .product { padding: 10px; background: #F9FAFB; border-radius: 8px; margin-bottom: 10px; }
+    .total { background: #6366F1; color: white; padding: 15px; border-radius: 8px; text-align: center; font-size: 18px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 Potwierdzenie zamówienia</h1>
+    <p style="color: #6B7280; margin: 10px 0 0 0;">Nr: ${orderData.nrWlasny}</p>
+  </div>
+  
+  <div class="section">
+    <h2>👤 Dane klienta</h2>
+    <p class="value">${orderData.klient?.imie || '-'}</p>
+    <p class="label">${orderData.klient?.adres || '-'}</p>
+    <p class="label">📞 ${orderData.klient?.telefon || '-'} | ✉️ ${orderData.klient?.email || '-'}</p>
+  </div>
+  
+  <div class="section">
+    <h2>📦 Produkty</h2>
+    ${orderData.produkty?.map(p => `
+      <div class="product">
+        <p class="value">${p.towar || 'Produkt'}</p>
+        ${p.nrPodzamowienia ? `<p class="label">Nr: ${p.nrPodzamowienia}</p>` : ''}
+        <p class="label">Cena: ${formatCurrency(p.cenaKlienta || p.cena, p.waluta || waluta)}</p>
+      </div>
+    `).join('') || `<p>${orderData.towar || 'Brak produktów'}</p>`}
+  </div>
+  
+  <div class="total">
+    💰 Wartość zamówienia: ${formatCurrency(cenaCalkowita, waluta)}
+  </div>
+  
+  <div class="section" style="margin-top: 20px;">
+    <p class="label">Data zamówienia: ${formatDate(orderData.dataUtworzenia || orderData.dataZlecenia)}</p>
+    <p class="label">Data potwierdzenia: ${formatDate(orderData.dataPotwierdzenia)}</p>
+  </div>
+</body>
+</html>`;
+                    const blob = new Blob([html], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `potwierdzenie-${orderData.nrWlasny}.html`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -14361,13 +14537,110 @@ const PublicOrderPanel = ({ token }) => {
                   <span style={{fontSize: '24px'}}>📋</span>
                   <div>
                     <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>Potwierdzenie zamówienia</p>
-                    <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>PDF z danymi zamówienia</p>
+                    <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Pobierz dokument z danymi zamówienia</p>
                   </div>
                 </button>
                 
-                {orderData.protokolOdbioru && (
+                {/* Protokół odbioru - tylko gdy jest podpis/dostawa potwierdzona */}
+                {(orderData.protokolOdbioru || orderData.podpisKlienta || orderData.potwierdzenieDostawy) && (
                   <button
-                    onClick={() => {/* TODO: podgląd protokołu */}}
+                    onClick={() => {
+                      const protokol = orderData.protokolOdbioru || {};
+                      const podpis = orderData.podpisKlienta || protokol.podpis;
+                      
+                      // Generuj HTML protokołu odbioru
+                      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Protokół odbioru ${orderData.nrWlasny}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 3px solid #10B981; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { color: #10B981; margin: 0; }
+    .section { margin-bottom: 25px; }
+    .section h2 { color: #374151; font-size: 16px; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .label { color: #6B7280; font-size: 14px; margin: 5px 0; }
+    .value { font-weight: 600; color: #374151; }
+    .product { padding: 10px; background: #F9FAFB; border-radius: 8px; margin-bottom: 10px; }
+    .signature-box { border: 2px solid #10B981; border-radius: 10px; padding: 20px; text-align: center; margin-top: 30px; background: #F0FDF4; }
+    .signature-img { max-width: 300px; margin: 15px auto; display: block; }
+    .success-badge { background: #10B981; color: white; padding: 15px 30px; border-radius: 8px; display: inline-block; font-size: 18px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>✅ Protokół odbioru towaru</h1>
+    <p style="color: #6B7280; margin: 10px 0 0 0;">Zamówienie nr: ${orderData.nrWlasny}</p>
+  </div>
+  
+  <div class="section">
+    <h2>👤 Odbiorca</h2>
+    <p class="value">${orderData.klient?.imie || '-'}</p>
+    <p class="label">${orderData.klient?.adres || '-'}</p>
+    <p class="label">📞 ${orderData.klient?.telefon || '-'}</p>
+  </div>
+  
+  <div class="section">
+    <h2>📦 Odebrany towar</h2>
+    ${orderData.produkty?.map(p => `
+      <div class="product">
+        <p class="value">${p.towar || 'Produkt'}</p>
+        ${p.nrPodzamowienia ? `<p class="label">Nr: ${p.nrPodzamowienia}</p>` : ''}
+      </div>
+    `).join('') || `<p>${orderData.towar || 'Brak produktów'}</p>`}
+  </div>
+  
+  <div class="section">
+    <h2>🚚 Dane dostawy</h2>
+    <div class="grid">
+      <div>
+        <p class="label">Data dostawy:</p>
+        <p class="value">${formatDateTime(protokol.dataDostawy || orderData.potwierdzenieDostawy?.data || orderData.dataDostarczenia)}</p>
+      </div>
+      <div>
+        <p class="label">Kierowca:</p>
+        <p class="value">${protokol.kierowca || orderData.potwierdzenieDostawy?.kierowca || '-'}</p>
+      </div>
+    </div>
+    ${protokol.uwagiKlienta ? `
+      <div style="margin-top: 15px; padding: 10px; background: #FEF3C7; border-radius: 8px;">
+        <p class="label" style="margin: 0;">⚠️ Uwagi klienta:</p>
+        <p class="value" style="margin: 5px 0 0 0;">${protokol.uwagiKlienta}</p>
+      </div>
+    ` : `
+      <div style="margin-top: 15px; padding: 10px; background: #D1FAE5; border-radius: 8px;">
+        <p style="margin: 0; color: #065F46;">✅ Towar odebrany bez uwag</p>
+      </div>
+    `}
+  </div>
+  
+  <div class="signature-box">
+    <h2 style="margin: 0 0 15px 0; color: #065F46;">✍️ Podpis klienta</h2>
+    ${podpis?.url ? `
+      <img src="${podpis.url}" alt="Podpis klienta" class="signature-img" />
+      <p class="label">Podpisano elektronicznie: ${formatDateTime(podpis.timestamp)}</p>
+    ` : `
+      <p class="label">Potwierdzono dostawę: ${formatDateTime(orderData.potwierdzenieDostawy?.data)}</p>
+    `}
+  </div>
+  
+  <div style="text-align: center; margin-top: 30px;">
+    <span class="success-badge">🎉 Dostawa zakończona pomyślnie</span>
+  </div>
+</body>
+</html>`;
+                      const blob = new Blob([html], { type: 'text/html' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `protokol-odbioru-${orderData.nrWlasny}.html`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -14384,7 +14657,9 @@ const PublicOrderPanel = ({ token }) => {
                     <span style={{fontSize: '24px'}}>✍️</span>
                     <div>
                       <p style={{margin: 0, fontWeight: '600', color: '#065F46'}}>Protokół odbioru</p>
-                      <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#047857'}}>Dokument z podpisem klienta</p>
+                      <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#047857'}}>
+                        Dokument z podpisem klienta • {formatDate(orderData.protokolOdbioru?.dataDostawy || orderData.potwierdzenieDostawy?.data)}
+                      </p>
                     </div>
                   </button>
                 )}
