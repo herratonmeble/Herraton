@@ -13649,11 +13649,14 @@ const PublicOrderPanel = ({ token }) => {
       'nowe': { name: 'Nowe zamówienie', color: '#3B82F6', bg: '#DBEAFE', icon: '📝', step: 0 },
       'potwierdzone': { name: 'Potwierdzone', color: '#8B5CF6', bg: '#EDE9FE', icon: '✅', step: 1 },
       'w_produkcji': { name: 'W produkcji', color: '#F59E0B', bg: '#FEF3C7', icon: '🏭', step: 2 },
-      'gotowe': { name: 'Gotowe do wysyłki', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 3 },
-      'w_transporcie': { name: 'W transporcie', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 4 },
-      'wyslane': { name: 'Wysłane', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 4 },
-      'dostarczone': { name: 'Dostarczone', color: '#059669', bg: '#D1FAE5', icon: '✅', step: 5 },
-      'zakonczone': { name: 'Zakończone', color: '#059669', bg: '#D1FAE5', icon: '🎉', step: 5 }
+      'gotowe': { name: 'Gotowe do odbioru', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 3 },
+      'gotowe_do_odbioru': { name: 'Gotowe do odbioru', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 3 },
+      'odebrane': { name: 'Odebrane od producenta', color: '#059669', bg: '#D1FAE5', icon: '✓', step: 4 },
+      'odebrane_od_producenta': { name: 'Odebrane od producenta', color: '#059669', bg: '#D1FAE5', icon: '✓', step: 4 },
+      'w_transporcie': { name: 'W transporcie', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 5 },
+      'wyslane': { name: 'W transporcie', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 5 },
+      'dostarczone': { name: 'Dostarczone', color: '#059669', bg: '#D1FAE5', icon: '🏠', step: 6 },
+      'zakonczone': { name: 'Zakończone', color: '#059669', bg: '#D1FAE5', icon: '🎉', step: 6 }
     };
     return statuses[status] || { name: status || 'Nieznany', color: '#6B7280', bg: '#F3F4F6', icon: '❓', step: 0 };
   };
@@ -13908,20 +13911,31 @@ const PublicOrderPanel = ({ token }) => {
   const statusInfo = getStatusInfo(orderData.status);
   const isWaitingForConfirmation = !orderData.potwierdzoneByClient && orderData.wyslanieDoPotwierdzenia;
   
-  // Timeline statusów
+  // Timeline statusów - pełna ścieżka
   const statusSteps = [
     { id: 'nowe', name: 'Złożone', icon: '📝' },
     { id: 'potwierdzone', name: 'Potwierdzone', icon: '✅' },
     { id: 'w_produkcji', name: 'W produkcji', icon: '🏭' },
+    { id: 'gotowe', name: 'Gotowe do odbioru', icon: '📦' },
+    { id: 'odebrane', name: 'Odebrane', icon: '✓' },
     { id: 'w_transporcie', name: 'W transporcie', icon: '🚚' },
-    { id: 'dostarczone', name: 'Dostarczone', icon: '📦' }
+    { id: 'dostarczone', name: 'Dostarczone', icon: '🏠' }
   ];
   
   // Mapuj status na index
   const getStepIndex = (status) => {
     const mapping = {
-      'nowe': 0, 'potwierdzone': 1, 'w_produkcji': 2, 'gotowe': 2,
-      'w_transporcie': 3, 'wyslane': 3, 'dostarczone': 4, 'zakonczone': 4
+      'nowe': 0, 
+      'potwierdzone': 1, 
+      'w_produkcji': 2, 
+      'gotowe': 3,
+      'gotowe_do_odbioru': 3,
+      'odebrane': 4,
+      'odebrane_od_producenta': 4,
+      'w_transporcie': 5, 
+      'wyslane': 5, 
+      'dostarczone': 6, 
+      'zakonczone': 6
     };
     return mapping[status] ?? 0;
   };
@@ -14006,7 +14020,7 @@ const PublicOrderPanel = ({ token }) => {
         {/* INFORMACJA O TRANSPORCIE */}
         {isInTransport && (
           <div style={{background: 'linear-gradient(135deg, #6366F1, #4F46E5)', padding: '20px', borderBottom: '1px solid #4F46E5'}}>
-            <div style={{display: 'flex', alignItems: 'center', gap: '15px', color: 'white'}}>
+            <div style={{display: 'flex', alignItems: 'flex-start', gap: '15px', color: 'white'}}>
               <div style={{
                 fontSize: '48px',
                 animation: 'pulse 2s infinite'
@@ -14015,30 +14029,35 @@ const PublicOrderPanel = ({ token }) => {
                 <p style={{margin: 0, fontWeight: '700', fontSize: '18px'}}>Twoje zamówienie jest w drodze!</p>
                 
                 {driverData && (
-                  <div style={{marginTop: '10px', fontSize: '14px', opacity: 0.95}}>
-                    <p style={{margin: '5px 0'}}>
-                      👤 Kierowca: <strong>{driverData.name}</strong>
+                  <div style={{
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    background: 'rgba(255,255,255,0.15)', 
+                    borderRadius: '10px',
+                    backdropFilter: 'blur(10px)'
+                  }}>
+                    <p style={{margin: 0, fontSize: '16px', fontWeight: '600'}}>
+                      👤 {driverData.name}
                     </p>
+                    
                     {driverData.phone && (
-                      <p style={{margin: '5px 0'}}>
-                        📞 Telefon: <a href={`tel:${driverData.phone}`} style={{color: 'white', fontWeight: '600'}}>{driverData.phone}</a>
+                      <p style={{margin: '8px 0 0 0', fontSize: '14px'}}>
+                        📞 <a href={`tel:${driverData.phone}`} style={{color: 'white', fontWeight: '500', textDecoration: 'none'}}>{driverData.phone}</a>
+                      </p>
+                    )}
+                    
+                    {(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy) && (
+                      <p style={{margin: '8px 0 0 0', fontSize: '14px'}}>
+                        📅 Szacowana dostawa: <strong>{formatDate(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy)}</strong>
                       </p>
                     )}
                   </div>
                 )}
                 
-                {(driverData?.dataWyjazdu || orderData.dataWyjazdu) && (
-                  <p style={{margin: '8px 0 0 0', fontSize: '14px', opacity: 0.95}}>
-                    🚀 Wyjazd z {getCountryName(orderData.produkty?.[0]?.producentKraj || 'DE')}: <strong>{formatDate(driverData?.dataWyjazdu || orderData.dataWyjazdu)}</strong>
+                {(driverData?.dataWyjazdu || orderData.dataWyjazdu || orderData.produkty?.[0]?.dataWyjazdu) && (
+                  <p style={{margin: '12px 0 0 0', fontSize: '14px', opacity: 0.95}}>
+                    🚀 Wyjazd z {getCountryName(orderData.produkty?.[0]?.producentKraj || orderData.kraj || 'DE')}: <strong>{formatDate(driverData?.dataWyjazdu || orderData.dataWyjazdu || orderData.produkty?.[0]?.dataWyjazdu)}</strong>
                   </p>
-                )}
-                
-                {(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy) && (
-                  <div style={{marginTop: '10px', padding: '10px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px'}}>
-                    <p style={{margin: 0, fontSize: '14px'}}>
-                      📅 Szacowana dostawa: <strong style={{fontSize: '16px'}}>{formatDate(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy)}</strong>
-                    </p>
-                  </div>
                 )}
               </div>
             </div>
