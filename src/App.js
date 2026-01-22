@@ -13611,6 +13611,7 @@ const PublicComplaintForm = ({ token }) => {
 const PublicOrderPanel = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [orderData, setOrderData] = useState(null);
+  const [driverData, setDriverData] = useState(null);
   const [error, setError] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -13633,19 +13634,32 @@ const PublicOrderPanel = ({ token }) => {
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: currency || 'PLN' }).format(amount);
   };
   
+  // Pobierz nazwę kraju
+  const getCountryName = (code) => {
+    const countries = {
+      'PL': 'Polski', 'DE': 'Niemiec', 'NL': 'Holandii', 'BE': 'Belgii', 
+      'FR': 'Francji', 'AT': 'Austrii', 'IT': 'Włoch', 'ES': 'Hiszpanii'
+    };
+    return countries[code] || code;
+  };
+  
   // Statusy zamówienia
   const getStatusInfo = (status) => {
     const statuses = {
-      'nowe': { name: 'Nowe zamówienie', color: '#3B82F6', bg: '#DBEAFE', icon: '🆕', step: 1 },
-      'potwierdzone': { name: 'Potwierdzone', color: '#8B5CF6', bg: '#EDE9FE', icon: '✅', step: 2 },
-      'w_produkcji': { name: 'W produkcji', color: '#F59E0B', bg: '#FEF3C7', icon: '�icing', step: 3 },
-      'gotowe': { name: 'Gotowe do wysyłki', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 4 },
-      'wyslane': { name: 'Wysłane', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 5 },
-      'dostarczone': { name: 'Dostarczone', color: '#059669', bg: '#D1FAE5', icon: '✅', step: 6 },
-      'zakonczone': { name: 'Zakończone', color: '#059669', bg: '#D1FAE5', icon: '🎉', step: 7 }
+      'nowe': { name: 'Nowe zamówienie', color: '#3B82F6', bg: '#DBEAFE', icon: '📝', step: 0 },
+      'potwierdzone': { name: 'Potwierdzone', color: '#8B5CF6', bg: '#EDE9FE', icon: '✅', step: 1 },
+      'w_produkcji': { name: 'W produkcji', color: '#F59E0B', bg: '#FEF3C7', icon: '🏭', step: 2 },
+      'gotowe': { name: 'Gotowe do wysyłki', color: '#10B981', bg: '#D1FAE5', icon: '📦', step: 3 },
+      'w_transporcie': { name: 'W transporcie', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 4 },
+      'wyslane': { name: 'Wysłane', color: '#6366F1', bg: '#E0E7FF', icon: '🚚', step: 4 },
+      'dostarczone': { name: 'Dostarczone', color: '#059669', bg: '#D1FAE5', icon: '✅', step: 5 },
+      'zakonczone': { name: 'Zakończone', color: '#059669', bg: '#D1FAE5', icon: '🎉', step: 5 }
     };
     return statuses[status] || { name: status || 'Nieznany', color: '#6B7280', bg: '#F3F4F6', icon: '❓', step: 0 };
   };
+  
+  // Czy zamówienie jest w transporcie
+  const isInTransport = orderData?.status === 'w_transporcie' || orderData?.status === 'wyslane';
   
   // Real-time listener dla zamówienia
   useEffect(() => {
@@ -13655,21 +13669,34 @@ const PublicOrderPanel = ({ token }) => {
       return;
     }
     
-    let unsubscribe = null;
+    let unsubscribeOrder = null;
+    let unsubscribeDriver = null;
     
     const loadOrder = async () => {
       try {
-        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const { collection, query, where, onSnapshot, doc } = await import('firebase/firestore');
         const { db } = await import('./firebase');
         
         // Szukaj zamówienia po tokenie
         const q = query(collection(db, 'orders'), where('clientToken', '==', token));
         
-        unsubscribe = onSnapshot(q, (snapshot) => {
+        unsubscribeOrder = onSnapshot(q, async (snapshot) => {
           if (!snapshot.empty) {
-            const doc = snapshot.docs[0];
-            setOrderData({ id: doc.id, ...doc.data() });
-            setConfirmed(doc.data().potwierdzoneByClient || false);
+            const orderDoc = snapshot.docs[0];
+            const order = { id: orderDoc.id, ...orderDoc.data() };
+            setOrderData(order);
+            setConfirmed(order.potwierdzoneByClient || false);
+            
+            // Pobierz dane kierowcy jeśli jest przypisany
+            const driverId = order.przypisanyKierowca || order.produkty?.[0]?.kierowca;
+            if (driverId) {
+              const driverRef = doc(db, 'users', driverId);
+              unsubscribeDriver = onSnapshot(driverRef, (driverSnap) => {
+                if (driverSnap.exists()) {
+                  setDriverData({ id: driverSnap.id, ...driverSnap.data() });
+                }
+              });
+            }
           } else {
             setError('Nie znaleziono zamówienia');
           }
@@ -13690,7 +13717,8 @@ const PublicOrderPanel = ({ token }) => {
     loadOrder();
     
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeOrder) unsubscribeOrder();
+      if (unsubscribeDriver) unsubscribeDriver();
     };
   }, [token]);
   
@@ -13818,6 +13846,18 @@ const PublicOrderPanel = ({ token }) => {
     overflow: 'hidden'
   };
   
+  // CSS dla animacji świecenia
+  const glowKeyframes = `
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.5), 0 0 10px rgba(99, 102, 241, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8), 0 0 30px rgba(99, 102, 241, 0.5), 0 0 40px rgba(99, 102, 241, 0.3); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+  `;
+  
   // Loading
   if (loading) {
     return (
@@ -13855,14 +13895,49 @@ const PublicOrderPanel = ({ token }) => {
     { id: 'nowe', name: 'Złożone', icon: '📝' },
     { id: 'potwierdzone', name: 'Potwierdzone', icon: '✅' },
     { id: 'w_produkcji', name: 'W produkcji', icon: '🏭' },
-    { id: 'wyslane', name: 'Wysłane', icon: '🚚' },
+    { id: 'w_transporcie', name: 'W transporcie', icon: '🚚' },
     { id: 'dostarczone', name: 'Dostarczone', icon: '📦' }
   ];
   
-  const currentStepIndex = statusSteps.findIndex(s => s.id === orderData.status);
+  // Mapuj status na index
+  const getStepIndex = (status) => {
+    const mapping = {
+      'nowe': 0, 'potwierdzone': 1, 'w_produkcji': 2, 'gotowe': 2,
+      'w_transporcie': 3, 'wyslane': 3, 'dostarczone': 4, 'zakonczone': 4
+    };
+    return mapping[status] ?? 0;
+  };
+  
+  const currentStepIndex = getStepIndex(orderData.status);
+  
+  // Dane płatności
+  const cenaCalkowita = orderData.platnosci?.cenaCalkowita || 0;
+  const zaplacono = orderData.platnosci?.zaplacono || 0;
+  const doZaplaty = orderData.platnosci?.doZaplaty || (cenaCalkowita - zaplacono);
+  const waluta = orderData.platnosci?.waluta || 'PLN';
+  
+  // Data wyjazdu kierowcy (z kraju producenta)
+  const getDriverDepartureInfo = () => {
+    if (!driverData?.trpiHistory) return null;
+    
+    // Znajdź ostatnią trasę
+    const lastTrip = driverData.trpiHistory?.[driverData.trpiHistory.length - 1];
+    if (!lastTrip) return null;
+    
+    // Szukaj daty wyjazdu z kraju zamówienia
+    const departureCountry = orderData.produkty?.[0]?.producentKraj || orderData.kraj;
+    return {
+      date: lastTrip.dataWyjazdu || driverData.dataWyjazdu,
+      country: departureCountry,
+      estimatedDelivery: orderData.szacowanaDataDostawy || lastTrip.szacowanaDataDostawy
+    };
+  };
+  
+  const departureInfo = isInTransport ? getDriverDepartureInfo() : null;
   
   return (
     <div style={containerStyle}>
+      <style>{glowKeyframes}</style>
       <div style={cardStyle}>
         {/* Header */}
         <div style={{background: 'linear-gradient(135deg, #6366F1, #4F46E5)', padding: '25px', color: 'white'}}>
@@ -13884,7 +13959,7 @@ const PublicOrderPanel = ({ token }) => {
           </div>
           {orderData.dataUtworzenia && (
             <div style={{marginTop: '10px', fontSize: '14px', opacity: 0.9}}>
-              Data zamówienia: {formatDate(orderData.dataUtworzenia)}
+              Data zamówienia: {formatDate(orderData.dataUtworzenia || orderData.dataZlecenia)}
             </div>
           )}
         </div>
@@ -13905,7 +13980,7 @@ const PublicOrderPanel = ({ token }) => {
         )}
         
         {/* Podziękowanie po potwierdzeniu */}
-        {confirmed && (
+        {confirmed && !isInTransport && (
           <div style={{background: '#D1FAE5', padding: '20px', borderBottom: '1px solid #86EFAC'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
               <span style={{fontSize: '32px'}}>🎉</span>
@@ -13919,58 +13994,102 @@ const PublicOrderPanel = ({ token }) => {
           </div>
         )}
         
+        {/* INFORMACJA O TRANSPORCIE */}
+        {isInTransport && (
+          <div style={{background: 'linear-gradient(135deg, #6366F1, #4F46E5)', padding: '20px', borderBottom: '1px solid #4F46E5'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '15px', color: 'white'}}>
+              <div style={{
+                fontSize: '48px',
+                animation: 'pulse 2s infinite'
+              }}>🚚</div>
+              <div style={{flex: 1}}>
+                <p style={{margin: 0, fontWeight: '700', fontSize: '18px'}}>Twoje zamówienie jest w drodze!</p>
+                
+                {driverData && (
+                  <div style={{marginTop: '10px', fontSize: '14px', opacity: 0.95}}>
+                    <p style={{margin: '5px 0'}}>
+                      👤 Kierowca: <strong>{driverData.name}</strong>
+                    </p>
+                    {driverData.phone && (
+                      <p style={{margin: '5px 0'}}>
+                        📞 Telefon: <a href={`tel:${driverData.phone}`} style={{color: 'white', fontWeight: '600'}}>{driverData.phone}</a>
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {(driverData?.dataWyjazdu || orderData.dataWyjazdu) && (
+                  <p style={{margin: '8px 0 0 0', fontSize: '14px', opacity: 0.95}}>
+                    🚀 Wyjazd z {getCountryName(orderData.produkty?.[0]?.producentKraj || 'DE')}: <strong>{formatDate(driverData?.dataWyjazdu || orderData.dataWyjazdu)}</strong>
+                  </p>
+                )}
+                
+                {(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy) && (
+                  <div style={{marginTop: '10px', padding: '10px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px'}}>
+                    <p style={{margin: 0, fontSize: '14px'}}>
+                      📅 Szacowana dostawa: <strong style={{fontSize: '16px'}}>{formatDate(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy)}</strong>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Timeline statusu - tylko po potwierdzeniu */}
         {confirmed && (
           <div style={{padding: '20px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB'}}>
-            <h3 style={{margin: '0 0 15px 0', fontSize: '14px', color: '#6B7280', textTransform: 'uppercase'}}>Status realizacji</h3>
+            <h3 style={{margin: '0 0 20px 0', fontSize: '14px', color: '#6B7280', textTransform: 'uppercase'}}>Status realizacji</h3>
             <div style={{display: 'flex', justifyContent: 'space-between', position: 'relative'}}>
               {/* Linia łącząca */}
               <div style={{
                 position: 'absolute',
-                top: '20px',
-                left: '20px',
-                right: '20px',
-                height: '3px',
+                top: '24px',
+                left: '30px',
+                right: '30px',
+                height: '4px',
                 background: '#E5E7EB',
                 zIndex: 0
               }} />
               <div style={{
                 position: 'absolute',
-                top: '20px',
-                left: '20px',
-                width: `${Math.max(0, (currentStepIndex / (statusSteps.length - 1)) * 100)}%`,
-                height: '3px',
-                background: '#10B981',
+                top: '24px',
+                left: '30px',
+                width: `calc(${Math.max(0, (currentStepIndex / (statusSteps.length - 1)) * 100)}% - 60px)`,
+                height: '4px',
+                background: 'linear-gradient(90deg, #10B981, #6366F1)',
                 zIndex: 1,
                 transition: 'width 0.5s ease'
               }} />
               
               {statusSteps.map((step, idx) => {
-                const isCompleted = idx <= currentStepIndex;
+                const isCompleted = idx < currentStepIndex;
                 const isCurrent = idx === currentStepIndex;
                 return (
                   <div key={step.id} style={{textAlign: 'center', zIndex: 2, flex: 1}}>
                     <div style={{
-                      width: '40px',
-                      height: '40px',
+                      width: '50px',
+                      height: '50px',
                       borderRadius: '50%',
-                      background: isCompleted ? '#10B981' : '#E5E7EB',
-                      color: isCompleted ? 'white' : '#9CA3AF',
+                      background: isCompleted ? '#10B981' : isCurrent ? 'linear-gradient(135deg, #6366F1, #4F46E5)' : '#E5E7EB',
+                      color: (isCompleted || isCurrent) ? 'white' : '#9CA3AF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       margin: '0 auto',
-                      fontSize: '18px',
-                      border: isCurrent ? '3px solid #6366F1' : 'none',
-                      boxShadow: isCurrent ? '0 0 0 4px rgba(99, 102, 241, 0.2)' : 'none'
+                      fontSize: isCurrent ? '24px' : '20px',
+                      fontWeight: '600',
+                      animation: isCurrent ? 'glow 2s ease-in-out infinite' : 'none',
+                      border: isCurrent ? '3px solid white' : 'none',
+                      boxShadow: isCurrent ? '0 0 20px rgba(99, 102, 241, 0.6)' : isCompleted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                     }}>
                       {isCompleted ? '✓' : step.icon}
                     </div>
                     <p style={{
-                      margin: '8px 0 0 0', 
-                      fontSize: '11px', 
-                      color: isCompleted ? '#059669' : '#9CA3AF',
-                      fontWeight: isCurrent ? '600' : '400'
+                      margin: '10px 0 0 0', 
+                      fontSize: '12px', 
+                      color: isCurrent ? '#6366F1' : isCompleted ? '#059669' : '#9CA3AF',
+                      fontWeight: isCurrent ? '700' : isCompleted ? '500' : '400'
                     }}>
                       {step.name}
                     </p>
@@ -13992,42 +14111,71 @@ const PublicOrderPanel = ({ token }) => {
               {orderData.produkty && orderData.produkty.length > 0 ? (
                 orderData.produkty.map((prod, idx) => (
                   <div key={idx} style={{
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    padding: '10px 0',
+                    padding: '12px 0',
                     borderBottom: idx < orderData.produkty.length - 1 ? '1px solid #E5E7EB' : 'none'
                   }}>
-                    <div>
-                      <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{prod.towar || 'Produkt'}</p>
-                      {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
-                    </div>
-                    <div style={{textAlign: 'right'}}>
-                      <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
-                        {formatCurrency(prod.cena, prod.waluta || orderData.platnosci?.waluta)}
-                      </p>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                      <div style={{flex: 1}}>
+                        {/* Numer podzamówienia jeśli jest */}
+                        {prod.nrPodzamowienia && prod.nrPodzamowienia !== orderData.nrWlasny && (
+                          <p style={{margin: '0 0 5px 0', fontSize: '12px', color: '#6366F1', fontWeight: '600'}}>
+                            Nr: {prod.nrPodzamowienia}
+                          </p>
+                        )}
+                        <p style={{margin: 0, fontWeight: '500', color: '#374151', lineHeight: '1.4'}}>{prod.towar || 'Produkt'}</p>
+                        {prod.kod && <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#9CA3AF'}}>Kod: {prod.kod}</p>}
+                      </div>
+                      <div style={{textAlign: 'right', marginLeft: '15px'}}>
+                        <p style={{margin: 0, fontWeight: '600', color: '#374151'}}>
+                          {formatCurrency(prod.cenaKlienta || prod.cena, prod.waluta || waluta)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))
-              ) : (
+              ) : orderData.towar ? (
                 <div style={{padding: '10px 0'}}>
-                  <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar || 'Brak szczegółów produktu'}</p>
+                  <p style={{margin: 0, fontWeight: '500', color: '#374151'}}>{orderData.towar}</p>
                 </div>
+              ) : (
+                <p style={{margin: 0, color: '#9CA3AF'}}>Brak szczegółów produktu</p>
               )}
               
-              {/* Suma */}
+              {/* PODSUMOWANIE PŁATNOŚCI */}
               <div style={{
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
                 marginTop: '15px',
                 paddingTop: '15px',
                 borderTop: '2px solid #E5E7EB'
               }}>
-                <span style={{fontWeight: '600', color: '#374151'}}>Suma:</span>
-                <span style={{fontSize: '20px', fontWeight: '700', color: '#6366F1'}}>
-                  {formatCurrency(orderData.platnosci?.cenaCalkowita, orderData.platnosci?.waluta)}
-                </span>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                  <span style={{color: '#6B7280'}}>Wartość zamówienia:</span>
+                  <span style={{fontWeight: '600', color: '#374151'}}>{formatCurrency(cenaCalkowita, waluta)}</span>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                  <span style={{color: '#6B7280'}}>Wpłacono:</span>
+                  <span style={{fontWeight: '600', color: '#10B981'}}>{formatCurrency(zaplacono, waluta)}</span>
+                </div>
+                <div style={{
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '12px',
+                  background: doZaplaty > 0 ? '#FEF3C7' : '#D1FAE5',
+                  borderRadius: '8px',
+                  marginTop: '10px'
+                }}>
+                  <span style={{fontWeight: '600', color: doZaplaty > 0 ? '#92400E' : '#065F46'}}>
+                    {doZaplaty > 0 ? 'Do zapłaty:' : 'Opłacono w całości'}
+                  </span>
+                  {doZaplaty > 0 && (
+                    <span style={{fontSize: '20px', fontWeight: '700', color: '#DC2626'}}>
+                      {formatCurrency(doZaplaty, waluta)}
+                    </span>
+                  )}
+                  {doZaplaty <= 0 && (
+                    <span style={{fontSize: '18px'}}>✅</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
