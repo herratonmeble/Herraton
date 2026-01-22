@@ -7419,10 +7419,18 @@ ${st.team}
   }, [showSignature]);
 
   const confirmDelivery = async (order) => {
+    // Zaktualizuj status produktów jeśli są
+    const updatedProdukty = order.produkty?.map(p => ({
+      ...p,
+      status: 'dostarczone'
+    })) || [];
+    
     await onUpdateOrder(order.id, {
       ...order,
       status: 'dostarczone',
+      produkty: updatedProdukty.length > 0 ? updatedProdukty : order.produkty,
       potwierdzenieDostawy: { data: new Date().toISOString(), kierowca: user.name },
+      dataDostarczenia: new Date().toISOString(),
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user.name, akcja: 'Dostawa potwierdzona' }]
     });
     onAddNotification({ icon: '✔️', title: `Dostarczono: ${order.nrWlasny}`, message: `Kierowca ${user.name} potwierdził dostawę do ${order.klient?.imie}`, orderId: order.id });
@@ -14002,8 +14010,33 @@ const PublicOrderPanel = ({ token }) => {
           </div>
         )}
         
-        {/* Podziękowanie po potwierdzeniu */}
-        {confirmed && !isInTransport && (
+        {/* KOMUNIKAT O DOSTARCZENIU */}
+        {(orderData.status === 'dostarczone' || orderData.status === 'zakonczone') && (
+          <div style={{background: 'linear-gradient(135deg, #10B981, #059669)', padding: '25px', borderBottom: '1px solid #059669'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '15px', color: 'white'}}>
+              <div style={{fontSize: '48px'}}>🎉</div>
+              <div>
+                <p style={{margin: 0, fontWeight: '700', fontSize: '20px'}}>Twoje zamówienie zostało dostarczone!</p>
+                <p style={{margin: '8px 0 0 0', fontSize: '15px', opacity: 0.95}}>
+                  Dziękujemy za zakupy! Mamy nadzieję, że jesteś zadowolony/a z produktów.
+                </p>
+                {orderData.potwierdzenieDostawy?.data && (
+                  <p style={{margin: '10px 0 0 0', fontSize: '14px', opacity: 0.9}}>
+                    📅 Data dostawy: {formatDateTime(orderData.potwierdzenieDostawy.data)}
+                  </p>
+                )}
+                {orderData.potwierdzenieDostawy?.kierowca && (
+                  <p style={{margin: '5px 0 0 0', fontSize: '14px', opacity: 0.9}}>
+                    👤 Kierowca: {orderData.potwierdzenieDostawy.kierowca}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Podziękowanie po potwierdzeniu - ale nie gdy dostarczone lub w transporcie */}
+        {confirmed && !isInTransport && orderData.status !== 'dostarczone' && orderData.status !== 'zakonczone' && (
           <div style={{background: '#D1FAE5', padding: '20px', borderBottom: '1px solid #86EFAC'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
               <span style={{fontSize: '32px'}}>🎉</span>
@@ -14046,9 +14079,9 @@ const PublicOrderPanel = ({ token }) => {
                       </p>
                     )}
                     
-                    {(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy) && (
+                    {(orderData.szacowanaDataDostawy || orderData.szacowanaDostwa || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDostwa) && (
                       <p style={{margin: '8px 0 0 0', fontSize: '14px'}}>
-                        📅 Szacowana dostawa: <strong>{formatDate(orderData.szacowanaDataDostawy || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy)}</strong>
+                        📅 Szacowana dostawa: <strong>{formatDate(orderData.szacowanaDataDostawy || orderData.szacowanaDostwa || driverData?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDataDostawy || orderData.produkty?.[0]?.szacowanaDostwa)}</strong>
                       </p>
                     )}
                   </div>
