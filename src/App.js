@@ -7211,25 +7211,87 @@ ${st.team}
     e.target.value = '';
   };
 
-  const openNotes = (order) => {
-    setShowNotes(order.id);
-    setNotes(order.uwagiKierowcy || '');
-    setEstPickup(order.szacowanyOdbior || '');
-    setEstDelivery(order.szacowanaDostwa || '');
+  const openNotes = (orderWithIndexes) => {
+    // orderWithIndexes może zawierać _myProductIndexes
+    const order = orders.find(o => o.id === orderWithIndexes.id) || orderWithIndexes;
+    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
+    
+    setShowNotes({ ...order, _myProductIndexes: myProductIndexes });
+    
+    // Pobierz dane z produktów kierowcy lub z głównego zamówienia
+    if (myProductIndexes.length > 0 && order.produkty) {
+      const myProduct = order.produkty[myProductIndexes[0]];
+      setNotes(myProduct?.uwagiKierowcy || order.uwagiKierowcow?.[user.id] || '');
+      setEstPickup(myProduct?.szacowanyOdbior || '');
+      setEstDelivery(myProduct?.szacowanaDostwa || '');
+    } else {
+      setNotes(order.uwagiKierowcy || '');
+      setEstPickup(order.szacowanyOdbior || '');
+      setEstDelivery(order.szacowanaDostwa || '');
+    }
   };
 
   const saveNotes = async () => {
-    const order = orders.find(o => o.id === showNotes);
+    if (!showNotes) return;
+    const orderWithIndexes = showNotes;
+    const order = orders.find(o => o.id === orderWithIndexes.id);
     if (!order) return;
+    
+    const myProductIndexes = orderWithIndexes._myProductIndexes || [];
     const hist = [...(order.historia || [])];
-    if (notes !== order.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
-    if (estPickup !== order.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
-    if (estDelivery !== order.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
+    
+    // Jeśli kierowca ma przypisane produkty - zapisz dla nich
+    if (myProductIndexes.length > 0 && order.produkty) {
+      const mojePodzamowienia = myProductIndexes
+        .map(idx => order.produkty[idx]?.nrPodzamowienia || `#${idx+1}`)
+        .join(', ');
+      
+      const updatedProdukty = order.produkty.map((prod, idx) => {
+        if (myProductIndexes.includes(idx)) {
+          return {
+            ...prod,
+            uwagiKierowcy: notes,
+            szacowanyOdbior: estPickup,
+            szacowanaDostwa: estDelivery,
+            kierowcaNazwa: user.name,
+            kierowcaTelefon: user.phone || ''
+          };
+        }
+        return prod;
+      });
+      
+      if (notes) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi (${mojePodzamowienia}): ${notes}` });
+      if (estPickup) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór (${mojePodzamowienia}): ${formatDate(estPickup)}` });
+      if (estDelivery) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa (${mojePodzamowienia}): ${formatDate(estDelivery)}` });
+      
+      await onUpdateOrder(order.id, { 
+        produkty: updatedProdukty,
+        // Zapisz też w głównym dla kompatybilności (jeśli jeden kierowca)
+        uwagiKierowcow: {
+          ...(order.uwagiKierowcow || {}),
+          [user.id]: notes
+        },
+        szacowaneDostawyKierowcow: {
+          ...(order.szacowaneDostawyKierowcow || {}),
+          [user.id]: { szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery }
+        },
+        historia: hist 
+      });
+      
+      if (notes) {
+        onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name} (${mojePodzamowienia}): ${notes}`, orderId: order.id });
+      }
+    } else {
+      // Stare zamówienie bez produktów
+      if (notes !== order.uwagiKierowcy) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Uwagi: ${notes}` });
+      if (estPickup !== order.szacowanyOdbior) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowany odbiór: ${formatDate(estPickup)}` });
+      if (estDelivery !== order.szacowanaDostwa) hist.push({ data: new Date().toISOString(), uzytkownik: user.name, akcja: `Szacowana dostawa: ${formatDate(estDelivery)}` });
 
-    await onUpdateOrder(order.id, { ...order, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
+      await onUpdateOrder(order.id, { ...order, uwagiKierowcy: notes, szacowanyOdbior: estPickup, szacowanaDostwa: estDelivery, historia: hist });
 
-    if (notes && notes !== order.uwagiKierowcy) {
-      onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: order.id });
+      if (notes && notes !== order.uwagiKierowcy) {
+        onAddNotification({ icon: '📝', title: `Uwagi: ${order.nrWlasny}`, message: `Kierowca ${user.name}: ${notes}`, orderId: order.id });
+      }
     }
     setShowNotes(null);
   };
@@ -8754,6 +8816,16 @@ ${t.team}`;
               <button className="btn-close" onClick={() => setShowNotes(null)}>×</button>
             </div>
             <div className="modal-body">
+              {/* Info o produktach kierowcy */}
+              {showNotes._myProductIndexes?.length > 0 && showNotes.produkty && (
+                <div style={{background: '#EEF2FF', padding: '12px', borderRadius: '8px', marginBottom: '15px'}}>
+                  <p style={{margin: 0, fontSize: '13px', color: '#4F46E5', fontWeight: '600'}}>
+                    📦 Twoje produkty: {showNotes._myProductIndexes.map(idx => 
+                      showNotes.produkty[idx]?.nrPodzamowienia || `#${idx+1}`
+                    ).join(', ')}
+                  </p>
+                </div>
+              )}
               <div className="form-group">
                 <label>Szacowana data odbioru od producenta</label>
                 <input type="date" value={estPickup} onChange={e => setEstPickup(e.target.value)} />
@@ -14234,7 +14306,21 @@ const PublicOrderPanel = ({ token }) => {
                 <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
                   {kierowcyKeys.map((kierowcaKey, groupIdx) => {
                     const group = produktyByKierowca[kierowcaKey];
-                    const showDriverHeader = hasMultipleDrivers && kierowcaKey !== 'default';
+                    const showDriverHeader = hasMultipleDrivers || kierowcaKey !== 'default';
+                    
+                    // Sprawdź czy produkty tego kierowcy są w transporcie
+                    const isGroupInTransport = group.produkty.some(p => 
+                      p.status === 'w_transporcie' || p.status === 'wyslane'
+                    );
+                    
+                    // Pobierz szacowaną datę dostawy dla produktów tego kierowcy
+                    const groupEstDelivery = group.produkty[0]?.szacowanaDostwa || 
+                                             orderData.szacowaneDostawyKierowcow?.[kierowcaKey]?.szacowanaDostwa;
+                    
+                    // Sprawdź czy grupa jest dostarczona
+                    const isGroupDelivered = group.produkty.every(p => 
+                      p.status === 'dostarczone' || p.status === 'zakonczone'
+                    );
                     
                     return (
                       <div key={kierowcaKey} style={{
@@ -14243,33 +14329,46 @@ const PublicOrderPanel = ({ token }) => {
                         overflow: 'hidden',
                         border: hasMultipleDrivers ? '2px solid #E5E7EB' : 'none'
                       }}>
-                        {/* Nagłówek kierowcy - tylko gdy wiele kierowców */}
-                        {showDriverHeader && (
+                        {/* Nagłówek kierowcy z info o transporcie */}
+                        {showDriverHeader && group.nazwa && group.nazwa !== 'Kierowca' && (
                           <div style={{
-                            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-                            padding: '12px 15px',
+                            background: isGroupInTransport 
+                              ? 'linear-gradient(135deg, #6366F1, #4F46E5)' 
+                              : isGroupDelivered 
+                                ? 'linear-gradient(135deg, #10B981, #059669)'
+                                : '#6B7280',
+                            padding: '15px',
                             color: 'white'
                           }}>
-                            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'}}>
-                              <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                                <span style={{fontSize: '20px'}}>🚚</span>
+                            <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'}}>
+                              <div style={{display: 'flex', alignItems: 'flex-start', gap: '12px'}}>
+                                <span style={{fontSize: '28px'}}>
+                                  {isGroupInTransport ? '🚚' : isGroupDelivered ? '✅' : '📦'}
+                                </span>
                                 <div>
-                                  <p style={{margin: 0, fontWeight: '600', fontSize: '14px'}}>Transport {groupIdx + 1}</p>
-                                  <p style={{margin: '2px 0 0 0', fontSize: '13px', opacity: 0.9}}>👤 {group.nazwa}</p>
+                                  <p style={{margin: 0, fontWeight: '700', fontSize: '15px'}}>
+                                    {isGroupInTransport ? 'W transporcie' : isGroupDelivered ? 'Dostarczone' : `Transport ${groupIdx + 1}`}
+                                  </p>
+                                  <p style={{margin: '4px 0 0 0', fontSize: '14px', opacity: 0.95}}>
+                                    👤 {group.nazwa}
+                                  </p>
+                                  {group.telefon && (
+                                    <p style={{margin: '4px 0 0 0', fontSize: '13px'}}>
+                                      📞 <a href={`tel:${group.telefon}`} style={{color: 'white', textDecoration: 'none'}}>{group.telefon}</a>
+                                    </p>
+                                  )}
+                                  {groupEstDelivery && isGroupInTransport && (
+                                    <p style={{margin: '6px 0 0 0', fontSize: '13px', background: 'rgba(255,255,255,0.2)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block'}}>
+                                      📅 Szacowana dostawa: <strong>{formatDate(groupEstDelivery)}</strong>
+                                    </p>
+                                  )}
+                                  {group.protokol?.dataDostawy && isGroupDelivered && (
+                                    <p style={{margin: '6px 0 0 0', fontSize: '13px'}}>
+                                      📅 Dostarczono: {formatDate(group.protokol.dataDostawy)}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
-                              {group.telefon && (
-                                <a href={`tel:${group.telefon}`} style={{
-                                  color: 'white',
-                                  fontSize: '13px',
-                                  textDecoration: 'none',
-                                  background: 'rgba(255,255,255,0.2)',
-                                  padding: '5px 10px',
-                                  borderRadius: '15px'
-                                }}>
-                                  📞 {group.telefon}
-                                </a>
-                              )}
                             </div>
                           </div>
                         )}
