@@ -13933,7 +13933,7 @@ const PublicOrderPanel = ({ token }) => {
     };
   };
   
-  const departureInfo = isInTransport ? getDriverDepartureInfo() : null;
+  // departureInfo jest używane bezpośrednio w renderze przez driverData
   
   return (
     <div style={containerStyle}>
