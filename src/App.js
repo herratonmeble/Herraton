@@ -13099,7 +13099,7 @@ const PublicComplaintForm = ({ token }) => {
     };
     
     loadData();
-  }, [token]);
+  }, [token, isProducerView]);
   
   // Obsługa zdjęć - ULEPSZONA KOMPRESJA
   const handlePhotoUpload = (e) => {
