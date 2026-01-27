@@ -207,81 +207,6 @@ input.unpaid { background: #FEE2E2; color: #DC2626; font-weight: 700; }
   .detail-grid { grid-template-columns: 1fr; }
   .filters-row { flex-direction: column; }
   .btn-new { width: 100%; }
-  
-  /* Modalne - mobilna responsywność */
-  .modal-overlay { padding: 10px; align-items: flex-start; padding-top: 50px; }
-  .modal-content { max-height: 85vh; border-radius: 16px; }
-  .modal-content.modal-large { max-height: 90vh; max-width: 100%; }
-  .modal-content.modal-form { max-width: 100%; }
-  .modal-content.modal-xlarge { max-width: 100%; }
-  .modal-header { padding: 16px; position: sticky; top: 0; z-index: 10; }
-  .modal-header h2 { font-size: 16px; }
-  .modal-body { padding: 16px; overflow-x: hidden; }
-  .modal-footer { 
-    padding: 12px 16px; 
-    flex-wrap: wrap; 
-    gap: 8px;
-    position: sticky;
-    bottom: 0;
-    background: white;
-    border-top: 1px solid #E5E7EB;
-  }
-  .modal-footer button { flex: 1; min-width: 120px; }
-  
-  /* Panel kierowcy - mobilna responsywność */
-  .driver-panel { padding: 12px; }
-  .driver-order-card { padding: 12px; }
-  .driver-section { padding: 10px; }
-  .driver-buttons { flex-wrap: wrap; }
-  .driver-buttons button { flex: 1; min-width: 100px; font-size: 12px; padding: 10px 8px; }
-  
-  /* Formularz zamówienia */
-  .order-form-layout { flex-direction: column; }
-  .order-form-layout .form-main { width: 100%; }
-  .order-form-layout .form-sidebar { width: 100%; position: relative; top: auto; }
-  
-  /* Tabele - scroll poziomy */
-  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { min-width: 600px; }
-  
-  /* Produkty - karuzela */
-  .products-tabs { 
-    overflow-x: auto; 
-    -webkit-overflow-scrolling: touch; 
-    padding-bottom: 5px;
-    scrollbar-width: thin;
-  }
-  .product-tab { white-space: nowrap; min-width: fit-content; }
-}
-
-@media (max-width: 480px) {
-  .modal-overlay { padding: 0; align-items: flex-end; }
-  .modal-content { 
-    max-height: 92vh; 
-    border-radius: 20px 20px 0 0; 
-    margin-top: auto;
-  }
-  .modal-content.modal-large { max-height: 95vh; }
-  .modal-header { padding: 14px; }
-  .modal-header h2 { font-size: 15px; }
-  .modal-body { padding: 12px; }
-  
-  /* Przyciski - pełna szerokość */
-  .modal-footer { flex-direction: column; }
-  .modal-footer button { width: 100%; }
-  
-  /* Mniejsze paddingi */
-  .form-group { margin-bottom: 12px; }
-  .form-group label { font-size: 11px; }
-  .form-group input, .form-group select, .form-group textarea { 
-    padding: 10px 12px; 
-    font-size: 14px; 
-  }
-  
-  /* Kierowca - kompaktowy widok */
-  .driver-payment-alert { padding: 10px; }
-  .driver-payment-alert .payment-amount { font-size: 18px; }
-  .stats-grid { grid-template-columns: 1fr; }
 }
 /* ============================================
    HERRATON v2 - DODATKOWE STYLE CSS
@@ -11458,8 +11383,7 @@ input.margin-negative {
 
 .modal-content.modal-form.modal-fullscreen .modal-body {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 0;
 }
 
@@ -11876,24 +11800,6 @@ input.margin-negative {
     max-height: 100vh !important;
     border-radius: 0;
     margin: 0;
-  }
-  
-  .modal-content.modal-form.modal-fullscreen .modal-body {
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 100px; /* Dodatkowe miejsce na scroll */
-  }
-  
-  .modal-body-sections {
-    overflow-y: visible !important;
-    height: auto !important;
-    padding-bottom: 20px;
-  }
-  
-  .modal-column {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
   }
   
   .form-row {
@@ -13055,16 +12961,103 @@ input.margin-negative {
   color: white;
 }
 
-/* Animacja pilności dla całej karty */
-.order-card.urgency-blink {
-  animation: card-urgency-pulse 1.5s ease-in-out infinite;
+/* ============================================ */
+/* PASEK PILNOŚCI - SZYBKI PODGLĄD */
+/* ============================================ */
+
+.urgency-summary-bar {
+  display: flex;
+  gap: 12px;
+  padding: 15px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin: 0 20px 15px 20px;
+  flex-wrap: wrap;
 }
 
-@keyframes card-urgency-pulse {
-  0%, 100% { 
-    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+.urgency-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 140px;
+}
+
+.urgency-summary-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.urgency-summary-item.active {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.urgency-summary-item .urgency-count {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.urgency-summary-item .urgency-label {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.urgency-summary-item.urgent.active {
+  background: #DC2626 !important;
+  border-color: #B91C1C !important;
+}
+.urgency-summary-item.urgent.active .urgency-count,
+.urgency-summary-item.urgent.active .urgency-label {
+  color: white !important;
+}
+
+.urgency-summary-item.warning.active {
+  background: #F59E0B !important;
+  border-color: #D97706 !important;
+}
+.urgency-summary-item.warning.active .urgency-count,
+.urgency-summary-item.warning.active .urgency-label {
+  color: white !important;
+}
+
+.urgency-summary-item.ok.active {
+  background: #10B981 !important;
+  border-color: #059669 !important;
+}
+.urgency-summary-item.ok.active .urgency-count,
+.urgency-summary-item.ok.active .urgency-label {
+  color: white !important;
+}
+
+@media (max-width: 768px) {
+  .urgency-summary-bar {
+    margin: 0 10px 10px 10px;
+    padding: 10px;
+    gap: 8px;
   }
-  50% { 
-    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.5);
+  
+  .urgency-summary-item {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 12px;
+    flex-direction: column;
+    text-align: center;
+    gap: 4px;
+  }
+  
+  .urgency-summary-item .urgency-count {
+    font-size: 24px;
+  }
+  
+  .urgency-summary-item .urgency-label {
+    font-size: 11px;
   }
 }
