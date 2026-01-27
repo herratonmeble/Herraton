@@ -1051,27 +1051,101 @@ Zespół obsługi zamówień`;
     return { subject, body };
   };
 
-  const handleSendConfirmation = () => {
+  const handleSendConfirmation = async () => {
     if (!order.klient?.email) {
       alert('Brak adresu email klienta!');
       return;
     }
     
-    const { subject, body } = generateConfirmationEmail();
+    // Generuj token jeśli nie istnieje
+    let clientToken = order.clientToken;
+    if (!clientToken) {
+      clientToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
     
-    // Wyślij przez MailerSend
-    sendEmailViaMailerSend(
+    const confirmationLink = `${window.location.origin}/zamowienie/${clientToken}`;
+    const customerName = order.klient.imie || 'Kliencie';
+    
+    // HTML email z linkiem do panelu - identyczny jak przy tworzeniu zamówienia
+    const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 50px; margin-bottom: 10px;">📦</div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">Potwierdź swoje zamówienie</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${order.nrWlasny}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">Szanowny/a <strong>${customerName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #6B7280; font-size: 15px; line-height: 1.6;">
+                Dziękujemy za złożenie zamówienia! Prosimy o sprawdzenie danych i potwierdzenie zamówienia w panelu klienta.
+              </p>
+              
+              <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">📋 Podsumowanie:</p>
+                <p style="margin: 5px 0; color: #6B7280;">Numer zamówienia: <strong>${order.nrWlasny}</strong></p>
+                <p style="margin: 5px 0; color: #6B7280;">Kwota: <strong>${order.platnosci?.cenaCalkowita || 0} ${order.platnosci?.waluta || 'PLN'}</strong></p>
+                ${order.dataDostawy ? `<p style="margin: 5px 0; color: #6B7280;">Planowana dostawa: <strong>${new Date(order.dataDostawy).toLocaleDateString('pl-PL')}</strong></p>` : ''}
+              </div>
+              
+              <p style="margin: 20px 0; color: #374151; font-size: 15px; text-align: center;">
+                <strong>👇 Kliknij poniższy przycisk aby sprawdzić szczegóły i potwierdzić zamówienie:</strong>
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${confirmationLink}" style="display: inline-block; background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 18px 50px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 18px;">✅ POTWIERDŹ ZAMÓWIENIE</a>
+              </div>
+              
+              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                <p style="margin: 0; color: #92400E; font-size: 14px;">
+                  💡 <strong>Zachowaj ten email!</strong> Po potwierdzeniu otrzymasz link do śledzenia statusu zamówienia.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System obsługi zamówień</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    
+    // Wyślij email
+    const result = await sendEmailViaMailerSend(
       order.klient.email,
       order.klient.imie,
-      subject,
-      body
-    ).then(result => {
-      if (result.success) {
-        alert('✅ Email z potwierdzeniem zamówienia został wysłany!');
-      } else {
-        alert('❌ Błąd wysyłania emaila. Spróbuj ponownie.');
+      `Potwierdź zamówienie ${order.nrWlasny}`,
+      `Potwierdź swoje zamówienie: ${confirmationLink}`,
+      htmlEmail
+    );
+    
+    if (result.success) {
+      // Zaktualizuj zamówienie z tokenem i flagą
+      if (onUpdateOrder) {
+        onUpdateOrder(order.id, {
+          clientToken,
+          wyslanieDoPotwierdzenia: true,
+          dataWyslaniaDoPotwierdzenia: new Date().toISOString()
+        });
       }
-    });
+      alert('✅ Email z linkiem do potwierdzenia został wysłany do klienta!');
+    } else {
+      alert(`❌ Błąd wysyłania emaila: ${result.error || 'Nieznany błąd'}. Sprawdź adres email i spróbuj ponownie.`);
+    }
     
     setShowEmailConfirmation(false);
   };
@@ -4778,7 +4852,7 @@ const SettingsModal = ({ onClose }) => {
 // PANEL REKLAMACJI
 // ============================================
 
-const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser, onAddNotification }) => {
+const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, currentUser, onAddNotification, producers }) => {
   const [view, setView] = useState('list'); // list, detail, form
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [editingComplaint, setEditingComplaint] = useState(null); // Do edycji
@@ -5734,6 +5808,142 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                 <button className="btn-primary btn-full" onClick={() => openEditForm(selectedComplaint)} style={{ marginBottom: '10px' }}>
                   ✏️ Edytuj reklamację
                 </button>
+                
+                {/* NOWY PRZYCISK - Wyślij do producenta */}
+                {complaintOrder && (() => {
+                  // Znajdź producenta z produktu lub zamówienia
+                  const producerId = complaintOrder.produkty?.[0]?.producent || complaintOrder.zaladunek;
+                  const producer = producerId ? Object.values(producers || {}).find(p => p.id === producerId) : null;
+                  
+                  if (producer?.email) {
+                    return (
+                      <button 
+                        className="btn-warning btn-full" 
+                        onClick={() => {
+                          // Przygotuj treść wiadomości z pierwszą wiadomością klienta i zdjęciami
+                          const klientMsg = selectedComplaint.wiadomoscKlienta || selectedComplaint.opis || '';
+                          const zdjecia = selectedComplaint.zdjecia || [];
+                          
+                          // HTML email do producenta
+                          const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); padding: 30px; text-align: center;">
+              <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">REKLAMACJA</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Nr ${selectedComplaint.numer}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <h3 style="margin: 0 0 20px 0; color: #1F2937;">Szczegóły reklamacji:</h3>
+              
+              <div style="background: #FEE2E2; padding: 20px; border-radius: 10px; border: 1px solid #FECACA; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0; color: #991B1B; font-weight: 600;">📋 Typ: ${selectedComplaint.typ || 'Reklamacja'}</p>
+                <p style="margin: 0; color: #7F1D1D; font-size: 14px; line-height: 1.6;">
+                  ${selectedComplaint.opis || 'Brak opisu'}
+                </p>
+              </div>
+              
+              ${klientMsg ? `
+              <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">💬 Wiadomość od klienta:</p>
+                <p style="margin: 0; color: #6B7280; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${klientMsg}</p>
+              </div>
+              ` : ''}
+              
+              ${selectedComplaint.oczekiwaniaKlienta ? `
+              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #FCD34D;">
+                <p style="margin: 0 0 5px 0; color: #92400E; font-weight: 600;">🎯 Oczekiwania klienta:</p>
+                <p style="margin: 0; color: #78350F; font-size: 14px;">${selectedComplaint.oczekiwaniaKlienta}</p>
+              </div>
+              ` : ''}
+              
+              <div style="background: #E0E7FF; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0; color: #3730A3; font-weight: 600;">📦 Zamówienie:</p>
+                <p style="margin: 5px 0; color: #4338CA;">Nr: <strong>${complaintOrder.nrWlasny}</strong></p>
+                <p style="margin: 5px 0; color: #4338CA;">Towar: ${complaintOrder.towar || complaintOrder.produkty?.[0]?.towar || '—'}</p>
+                <p style="margin: 5px 0; color: #4338CA;">Klient: ${complaintOrder.klient?.imie || '—'}</p>
+              </div>
+              
+              ${zdjecia.length > 0 ? `
+              <div style="margin-top: 20px;">
+                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">📷 Załączone zdjęcia (${zdjecia.length}):</p>
+                <p style="margin: 0; color: #6B7280; font-size: 13px;">Zdjęcia dostępne w załącznikach do tego emaila.</p>
+              </div>
+              ` : ''}
+              
+              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
+                <p style="margin: 0; color: #9CA3AF; font-size: 12px;">
+                  Prosimy o zajęcie stanowiska w sprawie tej reklamacji.<br>
+                  W razie pytań prosimy o kontakt.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System reklamacji</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+                          
+                          // Przygotuj załączniki ze zdjęć
+                          const attachments = zdjecia.map((zdj, idx) => ({
+                            filename: \`reklamacja_\${selectedComplaint.numer}_\${idx + 1}.jpg\`,
+                            content: zdj.url?.split(',')[1] || zdj.split(',')[1] || '', // base64 bez prefixu
+                          })).filter(a => a.content);
+                          
+                          // Wyślij email
+                          sendEmailViaMailerSend(
+                            producer.email,
+                            producer.name,
+                            \`REKLAMACJA \${selectedComplaint.numer} - \${complaintOrder.nrWlasny}\`,
+                            \`Reklamacja nr \${selectedComplaint.numer} dla zamówienia \${complaintOrder.nrWlasny}. Szczegóły w treści HTML.\`,
+                            htmlEmail,
+                            attachments
+                          ).then(result => {
+                            if (result.success) {
+                              alert(\`✅ Reklamacja została wysłana do producenta: \${producer.name} (\${producer.email})\`);
+                              
+                              // Zapisz w historii reklamacji
+                              onSave({
+                                ...selectedComplaint,
+                                historia: [...(selectedComplaint.historia || []), {
+                                  data: new Date().toISOString(),
+                                  uzytkownik: currentUser.name,
+                                  akcja: \`Wysłano reklamację do producenta: \${producer.name}\`
+                                }],
+                                wyslaneDoProdocenta: true,
+                                dataWyslaniaDoProdocenta: new Date().toISOString(),
+                                producentEmail: producer.email
+                              }, selectedComplaint.id);
+                            } else {
+                              alert(\`❌ Błąd wysyłania: \${result.error || 'Nieznany błąd'}\`);
+                            }
+                          });
+                        }}
+                        style={{ marginBottom: '10px', background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
+                      >
+                        📧 Wyślij do producenta ({producer.name})
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
+                
                 <button className="btn-danger btn-full" onClick={() => { if (window.confirm('Usunąć reklamację?')) { onDelete(selectedComplaint.id); setView('list'); } }}>
                   🗑️ Usuń reklamację
                 </button>
@@ -6053,7 +6263,10 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane'].includes(order.status);
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
-  const driver = drivers.find(d => d.id === order.przypisanyKierowca);
+  
+  // Kierowca - sprawdź główne przypisanie LUB kierowcę z pierwszego produktu
+  const driverId = order.przypisanyKierowca || order.produkty?.[0]?.kierowca;
+  const driver = drivers.find(d => d.id === driverId);
   
   // Czy to zamówienie łączone (wiele produktów)?
   const hasMultipleProducts = order.produkty && order.produkty.length > 1;
@@ -13942,11 +14155,21 @@ const PublicOrderPanel = ({ token }) => {
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
+      // Zmień też statusy produktów jeśli są "nowe"
+      let updatedProdukty = orderData.produkty;
+      if (orderData.produkty && orderData.produkty.length > 0) {
+        updatedProdukty = orderData.produkty.map(p => ({
+          ...p,
+          status: p.status === 'nowe' ? 'potwierdzone' : p.status
+        }));
+      }
+      
       const orderRef = doc(db, 'orders', orderData.id);
       await updateDoc(orderRef, {
         potwierdzoneByClient: true,
         dataPotwierdzenia: new Date().toISOString(),
         status: orderData.status === 'nowe' ? 'potwierdzone' : orderData.status,
+        produkty: updatedProdukty,
         historia: [...(orderData.historia || []), {
           data: new Date().toISOString(),
           uzytkownik: orderData.klient?.imie || 'Klient',
@@ -16347,6 +16570,7 @@ Zespół obsługi zamówień
           onClose={() => setShowComplaintsPanel(false)}
           currentUser={user}
           onAddNotification={addNotif}
+          producers={producers}
         />
       )}
 
