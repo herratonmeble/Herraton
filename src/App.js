@@ -216,6 +216,133 @@ const createWFirmaInvoice = async (orderData) => {
   }
 };
 
+// ============================================
+// INTEGRACJA QUICKBOOKS API
+// ============================================
+
+const createQuickBooksInvoice = async (orderData) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Pobierz dane
+    const cenaCalkowita = parseFloat(orderData.platnosci?.cenaCalkowita) || 0;
+    const zaplacono = parseFloat(orderData.platnosci?.zaplacono) || 0;
+    const waluta = orderData.platnosci?.waluta || 'PLN';
+    
+    // Przygotuj pozycje faktury
+    const items = [];
+    
+    if (orderData.produkty && orderData.produkty.length > 0) {
+      orderData.produkty.forEach((prod, idx) => {
+        const cenaBrutto = parseFloat(prod.cenaKlienta) || 
+                          parseFloat(prod.koszty?.cenaKlienta) || 0;
+        
+        items.push({
+          name: prod.towar || prod.nazwa || `Produkt ${idx + 1}`,
+          quantity: 1,
+          price: cenaBrutto,
+          amount: cenaBrutto
+        });
+      });
+    } else {
+      items.push({
+        name: orderData.towar || 'Zamówienie ' + (orderData.nrWlasny || ''),
+        quantity: 1,
+        price: cenaCalkowita,
+        amount: cenaCalkowita
+      });
+    }
+    
+    // Parsuj adres
+    const adres = orderData.klient?.adres || '';
+    let street = adres;
+    let city = '';
+    let zip = '';
+    
+    const adresParts = adres.split(',');
+    if (adresParts.length >= 2) {
+      street = adresParts[0].trim();
+      const cityPart = adresParts[1].trim();
+      const zipMatch = cityPart.match(/(\d{2}-\d{3}|\d{5})/);
+      if (zipMatch) {
+        zip = zipMatch[1];
+        city = cityPart.replace(zip, '').trim();
+      } else {
+        city = cityPart;
+      }
+    }
+    
+    // Dane faktury dla QuickBooks
+    const invoiceData = {
+      invoice: {
+        customer: {
+          name: orderData.klient?.imie || 'Klient',
+          email: orderData.klient?.email || '',
+          phone: orderData.klient?.telefon || '',
+          street: street,
+          city: city,
+          zip: zip,
+          country: 'PL'
+        },
+        items: items,
+        date: today,
+        dueDate: today,
+        currency: waluta,
+        alreadyPaid: zaplacono,
+        description: `Zamówienie nr ${orderData.nrWlasny || ''}`
+      }
+    };
+    
+    // Wywołaj API QuickBooks
+    const response = await fetch('/api/quickbooks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'createInvoice',
+        data: invoiceData
+      })
+    });
+    
+    if (!response.ok) {
+      try {
+        const errorData = await response.json();
+        
+        // Sprawdź czy potrzebna autoryzacja
+        if (errorData.needsAuth) {
+          return { 
+            success: false, 
+            needsAuth: true,
+            error: 'Wymagana autoryzacja QuickBooks. Skontaktuj się z administratorem.' 
+          };
+        }
+        
+        return { success: false, error: errorData.error || `Błąd serwera (${response.status})` };
+      } catch (e) {
+        return { success: false, error: `Błąd serwera (${response.status})` };
+      }
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      return { 
+        success: true, 
+        invoiceId: result.invoiceId,
+        invoiceNumber: result.invoiceNumber,
+        message: `Faktura QuickBooks #${result.invoiceNumber || result.invoiceId} została utworzona!`
+      };
+    } else {
+      return { success: false, error: result.error || 'Błąd tworzenia faktury' };
+    }
+    
+  } catch (error) {
+    console.error('Błąd QuickBooks:', error);
+    return { success: false, error: error.message || 'Błąd połączenia z QuickBooks' };
+  }
+};
+
 
 // ============================================
 // KONFIGURACJA
@@ -4009,6 +4136,50 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               }}
             >
               📄 Faktura wFirma
+            </button>
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              style={{background: '#E8F5E9', color: '#2E7D32', borderColor: '#A5D6A7'}}
+              onClick={async (e) => {
+                if (!form.klient?.imie) {
+                  alert('❌ Uzupełnij dane klienta (imię i nazwisko) przed utworzeniem faktury.');
+                  return;
+                }
+                
+                const confirmCreate = window.confirm(
+                  `📊 Utworzyć fakturę w QuickBooks?\n\n` +
+                  `Klient: ${form.klient?.imie || '—'}\n` +
+                  `Kwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'PLN'}\n\n` +
+                  `Kontynuować?`
+                );
+                
+                if (!confirmCreate) return;
+                
+                const btn = e.currentTarget;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '⏳ Tworzę...';
+                btn.disabled = true;
+                
+                try {
+                  const result = await createQuickBooksInvoice(form);
+                  
+                  if (result.success) {
+                    alert(`✅ ${result.message}\n\nFaktura została utworzona w QuickBooks.`);
+                  } else if (result.needsAuth) {
+                    alert(`⚠️ ${result.error}`);
+                  } else {
+                    alert(`❌ Błąd: ${result.error}`);
+                  }
+                } catch (err) {
+                  alert(`❌ Błąd połączenia: ${err.message}`);
+                } finally {
+                  btn.innerHTML = originalText;
+                  btn.disabled = false;
+                }
+              }}
+            >
+              📊 QuickBooks
             </button>
           </div>
           <div className="footer-right-actions">
