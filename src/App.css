@@ -13054,3 +13054,17 @@ input.margin-negative {
   background: #DC2626;
   color: white;
 }
+
+/* Animacja pilności dla całej karty */
+.order-card.urgency-blink {
+  animation: card-urgency-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes card-urgency-pulse {
+  0%, 100% { 
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  }
+  50% { 
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.5);
+  }
+}
