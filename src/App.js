@@ -67,6 +67,148 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
 
 
 // ============================================
+// INTEGRACJA wFIRMA API
+// ============================================
+
+const WFIRMA_CONFIG = {
+  accessKey: 'd91494ce26d3fb2c8f34e73f687bb',
+  secretKey: '14f67dd1ffc626a176b695e7894bd',
+  companyId: '711672',
+  apiUrl: 'https://api2.wfirma.pl'
+};
+
+const createWFirmaInvoice = async (orderData) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Przygotuj pozycje faktury
+    const invoiceContents = [];
+    
+    if (orderData.produkty && orderData.produkty.length > 0) {
+      orderData.produkty.forEach((prod, idx) => {
+        const cena = prod.koszty?.cenaKlient || 0;
+        // Cena brutto -> netto (VAT 23%)
+        const cenaNetto = Math.round((cena / 1.23) * 100) / 100;
+        
+        invoiceContents.push({
+          invoicecontent: {
+            name: prod.towar || `Produkt ${idx + 1}`,
+            unit: 'szt.',
+            count: 1,
+            price: cenaNetto,
+            vat: '23'
+          }
+        });
+      });
+    } else {
+      // Pojedyncze zamówienie bez produktów
+      const cena = orderData.platnosci?.cenaCalkowita || 0;
+      const cenaNetto = Math.round((cena / 1.23) * 100) / 100;
+      
+      invoiceContents.push({
+        invoicecontent: {
+          name: orderData.towar || 'Zamówienie ' + (orderData.nrWlasny || ''),
+          unit: 'szt.',
+          count: 1,
+          price: cenaNetto,
+          vat: '23'
+        }
+      });
+    }
+    
+    // Przygotuj dane kontrahenta
+    const clientName = orderData.klient?.imie || 'Klient';
+    const nameParts = clientName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    // Parsuj adres (zakładam format: ulica numer, kod miasto)
+    const adres = orderData.klient?.adres || '';
+    let street = adres;
+    let city = '';
+    let zip = '';
+    
+    // Próba sparsowania adresu
+    const adresParts = adres.split(',');
+    if (adresParts.length >= 2) {
+      street = adresParts[0].trim();
+      const cityPart = adresParts[1].trim();
+      const zipMatch = cityPart.match(/(\d{2}-\d{3}|\d{5})/);
+      if (zipMatch) {
+        zip = zipMatch[1];
+        city = cityPart.replace(zip, '').trim();
+      } else {
+        city = cityPart;
+      }
+    }
+    
+    // Dane faktury
+    const invoiceData = {
+      api: {
+        invoice: {
+          contractor: {
+            name: clientName,
+            altname: `${firstName} ${lastName}`.trim(),
+            street: street,
+            city: city || 'Nieznane',
+            zip: zip || '00-000',
+            country: 'PL',
+            email: orderData.klient?.email || '',
+            phone: orderData.klient?.telefon || '',
+            tax_id_type: 'none'
+          },
+          type: 'normal',
+          date: today,
+          paymentdate: today,
+          paymentmethod: 'transfer',
+          paid: orderData.platnosci?.cenaCalkowita || 0,
+          currency: orderData.platnosci?.waluta === 'EUR' ? 'EUR' : 'PLN',
+          description: `Zamówienie nr ${orderData.nrWlasny || ''}`,
+          invoicecontents: invoiceContents
+        }
+      }
+    };
+    
+    // Wywołaj API wFirma przez nasz backend (proxy)
+    const response = await fetch('/api/wfirma', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'createInvoice',
+        data: invoiceData,
+        config: WFIRMA_CONFIG
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Błąd wFirma:', errorText);
+      return { success: false, error: `Błąd serwera (${response.status})` };
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      return { 
+        success: true, 
+        invoiceId: result.invoiceId,
+        invoiceNumber: result.invoiceNumber,
+        message: `Faktura ${result.invoiceNumber || ''} została utworzona!`
+      };
+    } else {
+      return { success: false, error: result.error || 'Błąd tworzenia faktury' };
+    }
+    
+  } catch (error) {
+    console.error('Błąd wFirma:', error);
+    return { success: false, error: error.message || 'Błąd połączenia z wFirma' };
+  }
+};
+
+
+// ============================================
 // KONFIGURACJA
 // ============================================
 
@@ -3686,11 +3828,16 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
         {/* FOOTER Z PRZYCISKAMI */}
         <div className="modal-footer-full">
           <div className="footer-left-actions">
-            {form.klient?.email && (
-              <button type="button" className="btn-secondary" onClick={() => setShowConfirmationModal(true)}>
-                📧 Wyślij potwierdzenie
-              </button>
-            )}
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              onClick={() => setShowConfirmationModal(true)}
+              disabled={!form.klient?.email}
+              title={!form.klient?.email ? 'Wpisz email klienta aby wysłać potwierdzenie' : ''}
+              style={!form.klient?.email ? {opacity: 0.5, cursor: 'not-allowed'} : {}}
+            >
+              📧 Wyślij potwierdzenie
+            </button>
             <button 
               type="button" 
               className="btn-secondary" 
@@ -3814,9 +3961,42 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               type="button" 
               className="btn-secondary" 
               style={{background: '#EEF2FF', color: '#4F46E5', borderColor: '#C7D2FE'}}
-              onClick={() => {
-                // TODO: Integracja z wFirma API
-                alert('🔗 Integracja z wFirma\n\nTa funkcja wymaga połączenia z API wFirma.\n\nPrzygotuj:\n• API Key z wFirma\n• ID firmy\n\nPo kliknięciu "Zapisz zamówienie" faktura zostanie automatycznie utworzona w wFirma.');
+              onClick={async () => {
+                if (!form.klient?.imie) {
+                  alert('❌ Uzupełnij dane klienta (imię i nazwisko) przed utworzeniem faktury.');
+                  return;
+                }
+                
+                const confirm = window.confirm(
+                  `📄 Utworzyć fakturę w wFirma?\n\n` +
+                  `Klient: ${form.klient?.imie || '—'}\n` +
+                  `Kwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}\n` +
+                  `VAT: 23%\n\n` +
+                  `Kontynuować?`
+                );
+                
+                if (!confirm) return;
+                
+                // Pokaż loading
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '⏳ Tworzę fakturę...';
+                btn.disabled = true;
+                
+                try {
+                  const result = await createWFirmaInvoice(form);
+                  
+                  if (result.success) {
+                    alert(`✅ ${result.message}\n\nFaktura została utworzona w systemie wFirma.`);
+                  } else {
+                    alert(`❌ Błąd: ${result.error}\n\nSprawdź dane i spróbuj ponownie.`);
+                  }
+                } catch (err) {
+                  alert(`❌ Błąd połączenia: ${err.message}`);
+                } finally {
+                  btn.innerHTML = originalText;
+                  btn.disabled = false;
+                }
               }}
             >
               📄 Faktura wFirma
