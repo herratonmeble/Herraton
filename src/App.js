@@ -70,11 +70,8 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
 // INTEGRACJA wFIRMA API
 // ============================================
 
-// Konfiguracja wFirma - dane są w zmiennych środowiskowych Vercel
-const WFIRMA_CONFIG = {
-  // Klucze API są bezpiecznie przechowywane w Vercel Environment Variables
-  useEnvVariables: true
-};
+// Klucze API wFirma są bezpiecznie przechowywane w Vercel Environment Variables:
+// WFIRMA_ACCESS_KEY, WFIRMA_SECRET_KEY, WFIRMA_COMPANY_ID
 
 const createWFirmaInvoice = async (orderData) => {
   try {
