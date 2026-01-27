@@ -77,41 +77,25 @@ const createWFirmaInvoice = async (orderData) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    console.log('Dane zamówienia do faktury:', JSON.stringify(orderData, null, 2));
-    
     // Przygotuj pozycje faktury - ceny BRUTTO (wFirma sama przeliczy na netto)
     const invoiceContents = [];
     
-    // Pobierz cenę całkowitą z różnych możliwych źródeł
-    const getCenaCalkowita = () => {
-      if (orderData.platnosci?.cenaCalkowita) return parseFloat(orderData.platnosci.cenaCalkowita) || 0;
-      if (orderData.cenaCalkowita) return parseFloat(orderData.cenaCalkowita) || 0;
-      if (orderData.koszty?.cenaKlient) return parseFloat(orderData.koszty.cenaKlient) || 0;
-      return 0;
-    };
+    // Pobierz cenę całkowitą z platnosci
+    const cenaCalkowita = parseFloat(orderData.platnosci?.cenaCalkowita) || 0;
     
-    // Pobierz kwotę zapłaconą z różnych możliwych źródeł
-    const getZaplacono = () => {
-      if (orderData.platnosci?.zaplacono) return parseFloat(orderData.platnosci.zaplacono) || 0;
-      if (orderData.zaplacono) return parseFloat(orderData.zaplacono) || 0;
-      if (orderData.platnosci?.zaliczka) return parseFloat(orderData.platnosci.zaliczka) || 0;
-      return 0;
-    };
+    // Pobierz kwotę zapłaconą
+    const zaplacono = parseFloat(orderData.platnosci?.zaplacono) || 0;
     
-    const cenaCalkowita = getCenaCalkowita();
-    const zaplacono = getZaplacono();
-    
-    console.log('Cena całkowita:', cenaCalkowita, 'Zapłacono:', zaplacono);
+    // Waluta
+    const waluta = orderData.platnosci?.waluta || 'PLN';
     
     if (orderData.produkty && orderData.produkty.length > 0) {
       orderData.produkty.forEach((prod, idx) => {
-        // Sprawdź różne źródła ceny produktu
-        const cenaBrutto = parseFloat(prod.koszty?.cenaKlient) || 
-                          parseFloat(prod.cenaKlient) || 
-                          parseFloat(prod.cena) || 
-                          parseFloat(prod.koszty?.cena) || 0;
-        
-        console.log(`Produkt ${idx + 1}:`, prod.towar, 'Cena:', cenaBrutto);
+        // Cena dla klienta jest w polu "cenaKlienta" (z "a" na końcu!)
+        const cenaBrutto = parseFloat(prod.cenaKlienta) || 
+                          parseFloat(prod.koszty?.cenaKlienta) ||
+                          parseFloat(prod.koszty?.cenaKlient) || 
+                          parseFloat(prod.cena) || 0;
         
         invoiceContents.push({
           invoicecontent: {
@@ -124,15 +108,13 @@ const createWFirmaInvoice = async (orderData) => {
         });
       });
     } else {
-      // Pojedyncze zamówienie bez produktów
-      const cenaBrutto = cenaCalkowita;
-      
+      // Pojedyncze zamówienie bez produktów - użyj ceny całkowitej
       invoiceContents.push({
         invoicecontent: {
           name: orderData.towar || orderData.nazwa || 'Zamówienie ' + (orderData.nrWlasny || ''),
           unit: 'szt.',
           count: 1,
-          price: cenaBrutto,
+          price: cenaCalkowita,
           vat: '23'
         }
       });
@@ -164,9 +146,6 @@ const createWFirmaInvoice = async (orderData) => {
       }
     }
     
-    // Waluta
-    const waluta = orderData.platnosci?.waluta || orderData.waluta || 'PLN';
-    
     // Dane faktury
     const invoiceData = {
       invoice: {
@@ -191,8 +170,6 @@ const createWFirmaInvoice = async (orderData) => {
         invoicecontents: invoiceContents
       }
     };
-    
-    console.log('Dane faktury wysyłane do API:', JSON.stringify(invoiceData, null, 2));
     
     // Wywołaj API wFirma przez nasz backend (proxy)
     const response = await fetch('/api/wfirma', {
