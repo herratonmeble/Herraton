@@ -70,11 +70,10 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
 // INTEGRACJA wFIRMA API
 // ============================================
 
+// Konfiguracja wFirma - dane są w zmiennych środowiskowych Vercel
 const WFIRMA_CONFIG = {
-  accessKey: 'd91494ce26d3fb2c8f34e73f687bb',
-  secretKey: '14f67dd1ffc626a176b695e7894bd',
-  companyId: '711672',
-  apiUrl: 'https://api2.wfirma.pl'
+  // Klucze API są bezpiecznie przechowywane w Vercel Environment Variables
+  useEnvVariables: true
 };
 
 const createWFirmaInvoice = async (orderData) => {
@@ -144,28 +143,26 @@ const createWFirmaInvoice = async (orderData) => {
     
     // Dane faktury
     const invoiceData = {
-      api: {
-        invoice: {
-          contractor: {
-            name: clientName,
-            altname: `${firstName} ${lastName}`.trim(),
-            street: street,
-            city: city || 'Nieznane',
-            zip: zip || '00-000',
-            country: 'PL',
-            email: orderData.klient?.email || '',
-            phone: orderData.klient?.telefon || '',
-            tax_id_type: 'none'
-          },
-          type: 'normal',
-          date: today,
-          paymentdate: today,
-          paymentmethod: 'transfer',
-          paid: orderData.platnosci?.cenaCalkowita || 0,
-          currency: orderData.platnosci?.waluta === 'EUR' ? 'EUR' : 'PLN',
-          description: `Zamówienie nr ${orderData.nrWlasny || ''}`,
-          invoicecontents: invoiceContents
-        }
+      invoice: {
+        contractor: {
+          name: clientName,
+          altname: `${firstName} ${lastName}`.trim(),
+          street: street,
+          city: city || 'Nieznane',
+          zip: zip || '00-000',
+          country: 'PL',
+          email: orderData.klient?.email || '',
+          phone: orderData.klient?.telefon || '',
+          tax_id_type: 'none'
+        },
+        type: 'normal',
+        date: today,
+        paymentdate: today,
+        paymentmethod: 'transfer',
+        paid: orderData.platnosci?.cenaCalkowita || 0,
+        currency: orderData.platnosci?.waluta === 'EUR' ? 'EUR' : 'PLN',
+        description: `Zamówienie nr ${orderData.nrWlasny || ''}`,
+        invoicecontents: invoiceContents
       }
     };
     
@@ -177,8 +174,7 @@ const createWFirmaInvoice = async (orderData) => {
       },
       body: JSON.stringify({
         action: 'createInvoice',
-        data: invoiceData,
-        config: WFIRMA_CONFIG
+        data: invoiceData
       })
     });
     
