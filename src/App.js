@@ -5902,7 +5902,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                           
                           // Przygotuj załączniki ze zdjęć
                           const attachments = zdjecia.map((zdj, idx) => ({
-                            filename: \`reklamacja_\${selectedComplaint.numer}_\${idx + 1}.jpg\`,
+                            filename: `reklamacja_${selectedComplaint.numer}_${idx + 1}.jpg`,
                             content: zdj.url?.split(',')[1] || zdj.split(',')[1] || '', // base64 bez prefixu
                           })).filter(a => a.content);
                           
@@ -5910,13 +5910,13 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                           sendEmailViaMailerSend(
                             producer.email,
                             producer.name,
-                            \`REKLAMACJA \${selectedComplaint.numer} - \${complaintOrder.nrWlasny}\`,
-                            \`Reklamacja nr \${selectedComplaint.numer} dla zamówienia \${complaintOrder.nrWlasny}. Szczegóły w treści HTML.\`,
+                            `REKLAMACJA ${selectedComplaint.numer} - ${complaintOrder.nrWlasny}`,
+                            `Reklamacja nr ${selectedComplaint.numer} dla zamówienia ${complaintOrder.nrWlasny}. Szczegóły w treści HTML.`,
                             htmlEmail,
                             attachments
                           ).then(result => {
                             if (result.success) {
-                              alert(\`✅ Reklamacja została wysłana do producenta: \${producer.name} (\${producer.email})\`);
+                              alert(`✅ Reklamacja została wysłana do producenta: ${producer.name} (${producer.email})`);
                               
                               // Zapisz w historii reklamacji
                               onSave({
@@ -5924,14 +5924,14 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                                 historia: [...(selectedComplaint.historia || []), {
                                   data: new Date().toISOString(),
                                   uzytkownik: currentUser.name,
-                                  akcja: \`Wysłano reklamację do producenta: \${producer.name}\`
+                                  akcja: `Wysłano reklamację do producenta: ${producer.name}`
                                 }],
                                 wyslaneDoProdocenta: true,
                                 dataWyslaniaDoProdocenta: new Date().toISOString(),
                                 producentEmail: producer.email
                               }, selectedComplaint.id);
                             } else {
-                              alert(\`❌ Błąd wysyłania: \${result.error || 'Nieznany błąd'}\`);
+                              alert(`❌ Błąd wysyłania: ${result.error || 'Nieznany błąd'}`);
                             }
                           });
                         }}
