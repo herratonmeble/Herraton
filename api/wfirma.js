@@ -1,5 +1,6 @@
 // API Proxy dla wFirma
 // Ten plik obsługuje komunikację z API wFirma
+// Klucze API są przechowywane w Vercel Environment Variables
 
 export default async function handler(req, res) {
   // Tylko POST
@@ -17,19 +18,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, data, config } = req.body;
+    const { action, data } = req.body;
 
-    if (!config || !config.accessKey || !config.secretKey || !config.companyId) {
-      return res.status(400).json({ success: false, error: 'Brak konfiguracji wFirma' });
+    // Pobierz konfigurację ze zmiennych środowiskowych Vercel
+    const accessKey = process.env.WFIRMA_ACCESS_KEY;
+    const secretKey = process.env.WFIRMA_SECRET_KEY;
+    const companyId = process.env.WFIRMA_COMPANY_ID;
+    const apiUrl = 'https://api2.wfirma.pl';
+
+    if (!accessKey || !secretKey || !companyId) {
+      console.error('Brak zmiennych środowiskowych wFirma');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Brak konfiguracji wFirma. Dodaj zmienne środowiskowe: WFIRMA_ACCESS_KEY, WFIRMA_SECRET_KEY, WFIRMA_COMPANY_ID' 
+      });
     }
-
-    const { accessKey, secretKey, companyId, apiUrl } = config;
 
     // Podstawowa autoryzacja dla wFirma API
     const authString = Buffer.from(`${accessKey}:${secretKey}`).toString('base64');
 
     if (action === 'createInvoice') {
       // Tworzenie faktury
+      const requestBody = {
+        api: data
+      };
+
+      console.log('Wysyłam do wFirma:', JSON.stringify(requestBody, null, 2));
+
       const response = await fetch(`${apiUrl}/${companyId}/invoices/add`, {
         method: 'POST',
         headers: {
@@ -37,10 +52,11 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(requestBody)
       });
 
       const responseText = await response.text();
+      console.log('Odpowiedź wFirma:', responseText);
       
       // Spróbuj sparsować JSON
       let result;
@@ -58,11 +74,11 @@ export default async function handler(req, res) {
       // Sprawdź czy sukces
       if (result.status && result.status.code === 'OK') {
         // Sukces
-        const invoice = result.invoices?.invoice || result.api?.invoices?.invoice;
+        const invoice = result.invoices?.invoice || {};
         return res.status(200).json({
           success: true,
-          invoiceId: invoice?.id,
-          invoiceNumber: invoice?.fullnumber || invoice?.number,
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.fullnumber || invoice.number,
           data: invoice
         });
       } else if (result.api?.invoices?.invoice) {
@@ -76,7 +92,7 @@ export default async function handler(req, res) {
         });
       } else {
         // Błąd z wFirma
-        const errorMsg = result.status?.message || result.error || 'Nieznany błąd wFirma';
+        const errorMsg = result.status?.message || result.error || JSON.stringify(result);
         console.error('Błąd wFirma:', result);
         return res.status(400).json({
           success: false,
