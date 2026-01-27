@@ -3957,13 +3957,13 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
               type="button" 
               className="btn-secondary" 
               style={{background: '#EEF2FF', color: '#4F46E5', borderColor: '#C7D2FE'}}
-              onClick={async () => {
+              onClick={async (e) => {
                 if (!form.klient?.imie) {
                   alert('❌ Uzupełnij dane klienta (imię i nazwisko) przed utworzeniem faktury.');
                   return;
                 }
                 
-                const confirm = window.confirm(
+                const confirmCreate = window.confirm(
                   `📄 Utworzyć fakturę w wFirma?\n\n` +
                   `Klient: ${form.klient?.imie || '—'}\n` +
                   `Kwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}\n` +
@@ -3971,10 +3971,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   `Kontynuować?`
                 );
                 
-                if (!confirm) return;
+                if (!confirmCreate) return;
                 
                 // Pokaż loading
-                const btn = event.target;
+                const btn = e.currentTarget;
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '⏳ Tworzę fakturę...';
                 btn.disabled = true;
