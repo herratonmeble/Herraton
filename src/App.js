@@ -5832,45 +5832,67 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                       const klientMsg = selectedComplaint.wiadomoscKlienta || selectedComplaint.opis || '';
                       const zdjecia = selectedComplaint.zdjecia || [];
                       
-                      // Link do podglądu zdjęć reklamacji - użyj tokenu reklamacji
+                      // Link do podglądu zdjęć reklamacji dla producenta
                       const complaintToken = selectedComplaint.complaintToken || selectedComplaint.id;
-                      const photosLink = zdjecia.length > 0 
-                        ? `${window.location.origin}/reklamacja/${complaintToken}` 
-                        : '';
+                      const photosLink = `${window.location.origin}/reklamacja/${complaintToken}?view=producer`;
                       
-                      const subject = `REKLAMACJA ${selectedComplaint.numer} - Zamówienie ${complaintOrder.nrWlasny}`;
+                      const subject = `⚠️ REKLAMACJA ${selectedComplaint.numer} - Zamówienie ${complaintOrder.nrWlasny}`;
                       
-                      const body = `REKLAMACJA nr ${selectedComplaint.numer}
-═══════════════════════════════════════════
+                      const body = `
+════════════════════════════════════════════════════════
+                    ⚠️  R E K L A M A C J A  ⚠️
+════════════════════════════════════════════════════════
 
-📋 TYP REKLAMACJI: ${selectedComplaint.typ || 'Reklamacja'}
+📋 NUMER REKLAMACJI:  ${selectedComplaint.numer}
+📦 NUMER ZAMÓWIENIA:  ${complaintOrder.nrWlasny}
+📅 DATA ZGŁOSZENIA:   ${new Date(selectedComplaint.dataUtworzenia).toLocaleDateString('pl-PL')}
+
+────────────────────────────────────────────────────────
+                    SZCZEGÓŁY PROBLEMU
+────────────────────────────────────────────────────────
+
+🔴 TYP REKLAMACJI:
+   ${selectedComplaint.typ || 'Reklamacja'}
 
 📝 OPIS PROBLEMU:
-${selectedComplaint.opis || 'Brak opisu'}
+   ${selectedComplaint.opis || 'Brak opisu'}
 
-${klientMsg && klientMsg !== selectedComplaint.opis ? `💬 WIADOMOŚĆ OD KLIENTA:
-${klientMsg}
+${klientMsg && klientMsg !== selectedComplaint.opis ? `💬 DODATKOWA WIADOMOŚĆ OD KLIENTA:
+   ${klientMsg}
 
 ` : ''}${selectedComplaint.oczekiwaniaKlienta ? `🎯 OCZEKIWANIA KLIENTA:
-${selectedComplaint.oczekiwaniaKlienta}
+   ${selectedComplaint.oczekiwaniaKlienta}
 
-` : ''}═══════════════════════════════════════════
-📦 DANE ZAMÓWIENIA:
-───────────────────────────────────────────
-Nr zamówienia: ${complaintOrder.nrWlasny}
-Towar: ${complaintOrder.towar || complaintOrder.produkty?.[0]?.towar || '—'}
-Klient: ${complaintOrder.klient?.imie || '—'}
-Adres: ${complaintOrder.klient?.adres || '—'}
+` : ''}────────────────────────────────────────────────────────
+                    DANE PRODUKTU
+────────────────────────────────────────────────────────
 
-${zdjecia.length > 0 ? `═══════════════════════════════════════════
-📷 ZDJĘCIA REKLAMACJI (${zdjecia.length}):
-Link do podglądu zdjęć: ${photosLink}
-` : ''}
-═══════════════════════════════════════════
-Prosimy o zajęcie stanowiska w sprawie tej reklamacji.
+📦 PRODUKT:
+   ${complaintOrder.towar || complaintOrder.produkty?.[0]?.towar || '—'}
+
+👤 KLIENT:
+   ${complaintOrder.klient?.imie || '—'}
+
+📍 ADRES DOSTAWY:
+   ${complaintOrder.klient?.adres || '—'}
+
+${zdjecia.length > 0 ? `────────────────────────────────────────────────────────
+                    📷 ZDJĘCIA (${zdjecia.length})
+────────────────────────────────────────────────────────
+
+🔗 LINK DO PODGLĄDU ZDJĘĆ:
+   ${photosLink}
+
+` : ''}════════════════════════════════════════════════════════
+
+Prosimy o zajęcie stanowiska w sprawie tej reklamacji
+i przekazanie informacji zwrotnej.
+
+W razie pytań pozostajemy do dyspozycji.
 
 Z poważaniem,
-Herraton`;
+Zespół Herraton
+`;
                       
                       // Otwórz klienta pocztowego
                       window.location.href = `mailto:${producer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -6382,7 +6404,18 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                     {prodProducer && <span className="mini-tag producer">🏭 {prodProducer.name}</span>}
                     {prod.producentNazwa && <span className="mini-tag producer">🏭 {prod.producentNazwa}</span>}
                     {prodDriver && <span className="mini-tag driver">🚚 {prodDriver.name}</span>}
-                    {prod.dataOdbioru && <span className="mini-tag date">📅 {formatDate(prod.dataOdbioru)}</span>}
+                    {prod.dataOdbioru && (() => {
+                      const prodDays = getDaysUntilPickup(prod.dataOdbioru);
+                      const prodUrgency = getUrgencyStyle(prodDays);
+                      return (
+                        <span 
+                          className={`mini-tag date ${prodUrgency?.blink ? 'blink' : ''}`}
+                          style={prodUrgency ? { background: prodUrgency.bg, color: prodUrgency.color } : {}}
+                        >
+                          📅 {formatDate(prod.dataOdbioru)} {prodUrgency && `(${prodUrgency.label})`}
+                        </span>
+                      );
+                    })()}
                   </div>
                   {/* Wskaźnik protokołu dla tego produktu */}
                   {(prod.protokol?.zdjeciaOdbioru?.length > 0 || prod.protokol?.zdjeciaDostawy?.length > 0 || prod.protokol?.podpis) && (
@@ -6411,7 +6444,14 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             <p className="order-product">{order.towar || 'Brak opisu'}</p>
             <div className="order-tags">
               {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
-              {order.dataOdbioru && <span className="tag tag-date">📅 {formatDate(order.dataOdbioru)}</span>}
+              {order.dataOdbioru && (
+                <span 
+                  className={`tag tag-date ${urgency?.blink ? 'blink' : ''}`}
+                  style={urgency ? { background: urgency.bg, color: urgency.color, fontWeight: '600' } : {}}
+                >
+                  📅 {formatDate(order.dataOdbioru)} {urgency && `(${urgency.label})`}
+                </span>
+              )}
               {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
             </div>
           </>
@@ -12864,7 +12904,11 @@ const PublicComplaintForm = ({ token }) => {
   const [complaintData, setComplaintData] = useState(null); // Istniejąca reklamacja
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [view, setView] = useState('form'); // 'form' lub 'tracking'
+  const [view, setView] = useState('form'); // 'form', 'tracking' lub 'producer'
+  
+  // Sprawdź czy to widok producenta
+  const urlParams = new URLSearchParams(window.location.search);
+  const isProducerView = urlParams.get('view') === 'producer';
   
   // Formularz nowej reklamacji
   const [complaintType, setComplaintType] = useState('uszkodzenie');
@@ -13729,6 +13773,186 @@ const PublicComplaintForm = ({ token }) => {
           <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
             <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
               Herraton • System obsługi reklamacji
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // ==========================================
+  // WIDOK DLA PRODUCENTA - tylko podstawowe info i zdjęcia
+  // ==========================================
+  if (isProducerView && complaintData) {
+    const typInfo = complaintTypes.find(t => t.id === complaintData.typ) || complaintTypes[5];
+    
+    return (
+      <div style={{...containerStyle, background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'}}>
+        <div style={cardStyle}>
+          {/* Header */}
+          <div style={{background: 'linear-gradient(135deg, #F59E0B, #D97706)', padding: '30px', color: 'white'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px'}}>
+              <div>
+                <div style={{fontSize: '14px', opacity: 0.9}}>⚠️ REKLAMACJA</div>
+                <div style={{fontSize: '28px', fontWeight: '700'}}>{complaintData.numer}</div>
+              </div>
+              <div style={{background: 'rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '10px', fontSize: '14px'}}>
+                📦 Zamówienie: <strong>{complaintData.nrZamowienia}</strong>
+              </div>
+            </div>
+          </div>
+          
+          {/* Główne info */}
+          <div style={{padding: '25px'}}>
+            {/* Grid z danymi */}
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '25px'}}>
+              <div style={{background: '#FEF3C7', padding: '15px', borderRadius: '10px'}}>
+                <div style={{color: '#92400E', fontSize: '12px', fontWeight: '600', marginBottom: '5px'}}>🔴 TYP PROBLEMU</div>
+                <div style={{color: '#78350F', fontSize: '16px', fontWeight: '600'}}>{typInfo.name}</div>
+              </div>
+              <div style={{background: '#DBEAFE', padding: '15px', borderRadius: '10px'}}>
+                <div style={{color: '#1E40AF', fontSize: '12px', fontWeight: '600', marginBottom: '5px'}}>📅 DATA ZGŁOSZENIA</div>
+                <div style={{color: '#1E3A8A', fontSize: '16px', fontWeight: '600'}}>{formatDateTime(complaintData.dataUtworzenia)}</div>
+              </div>
+            </div>
+            
+            {/* Opis problemu */}
+            <div style={{background: '#FEE2E2', padding: '20px', borderRadius: '12px', border: '2px solid #FECACA', marginBottom: '20px'}}>
+              <div style={{color: '#991B1B', fontSize: '13px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <span style={{fontSize: '18px'}}>📝</span> OPIS PROBLEMU
+              </div>
+              <p style={{margin: 0, color: '#7F1D1D', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap'}}>
+                {complaintData.opis || 'Brak opisu'}
+              </p>
+            </div>
+            
+            {/* Wiadomość od klienta */}
+            {complaintData.wiadomoscKlienta && complaintData.wiadomoscKlienta !== complaintData.opis && (
+              <div style={{background: '#F3F4F6', padding: '20px', borderRadius: '12px', marginBottom: '20px'}}>
+                <div style={{color: '#374151', fontSize: '13px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <span style={{fontSize: '18px'}}>💬</span> WIADOMOŚĆ OD KLIENTA
+                </div>
+                <p style={{margin: 0, color: '#4B5563', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap'}}>
+                  {complaintData.wiadomoscKlienta}
+                </p>
+              </div>
+            )}
+            
+            {/* Oczekiwania klienta */}
+            {complaintData.oczekiwaniaKlienta && (
+              <div style={{background: '#E0E7FF', padding: '20px', borderRadius: '12px', marginBottom: '20px'}}>
+                <div style={{color: '#3730A3', fontSize: '13px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <span style={{fontSize: '18px'}}>🎯</span> OCZEKIWANIA KLIENTA
+                </div>
+                <p style={{margin: 0, color: '#4338CA', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap'}}>
+                  {complaintData.oczekiwaniaKlienta}
+                </p>
+              </div>
+            )}
+            
+            {/* ZDJĘCIA */}
+            {complaintData.zdjecia && complaintData.zdjecia.length > 0 && (
+              <div style={{background: '#F9FAFB', padding: '20px', borderRadius: '12px', border: '1px solid #E5E7EB'}}>
+                <div style={{color: '#374151', fontSize: '13px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <span style={{fontSize: '18px'}}>📷</span> ZDJĘCIA REKLAMACJI ({complaintData.zdjecia.length})
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px'}}>
+                  {complaintData.zdjecia.map((photo, idx) => (
+                    <div key={idx} style={{position: 'relative'}}>
+                      <img 
+                        src={photo} 
+                        alt={`Zdjęcie ${idx + 1}`}
+                        style={{
+                          width: '100%', 
+                          height: '150px', 
+                          objectFit: 'cover', 
+                          borderRadius: '10px', 
+                          border: '2px solid #E5E7EB', 
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s'
+                        }}
+                        onClick={() => setLightboxPhoto(photo)}
+                        onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'}
+                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        right: '8px',
+                        background: 'rgba(0,0,0,0.7)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        {idx + 1}/{complaintData.zdjecia.length}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{margin: '15px 0 0 0', color: '#6B7280', fontSize: '13px', textAlign: 'center'}}>
+                  💡 Kliknij na zdjęcie aby powiększyć
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {/* LIGHTBOX */}
+          {lightboxPhoto && (
+            <div 
+              onClick={() => setLightboxPhoto(null)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.95)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000,
+                cursor: 'pointer'
+              }}
+            >
+              <button
+                onClick={() => setLightboxPhoto(null)}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '50px',
+                  height: '50px',
+                  fontSize: '28px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                }}
+              >×</button>
+              <img 
+                src={lightboxPhoto} 
+                alt="Powiększone zdjęcie"
+                style={{
+                  maxWidth: '95vw',
+                  maxHeight: '95vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px'
+                }}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          )}
+          
+          {/* Footer */}
+          <div style={{padding: '20px', background: '#F9FAFB', textAlign: 'center', borderTop: '1px solid #E5E7EB'}}>
+            <p style={{margin: 0, color: '#9CA3AF', fontSize: '13px'}}>
+              Herraton • Podgląd reklamacji dla producenta
             </p>
           </div>
         </div>
