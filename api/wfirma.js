@@ -3,11 +3,6 @@
 // Klucze API są przechowywane w Vercel Environment Variables
 
 export default async function handler(req, res) {
-  // Tylko POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -15,6 +10,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Tylko POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
@@ -27,10 +27,14 @@ export default async function handler(req, res) {
     const apiUrl = 'https://api2.wfirma.pl';
 
     if (!accessKey || !secretKey || !companyId) {
-      console.error('Brak zmiennych środowiskowych wFirma');
-      return res.status(500).json({ 
+      console.error('Brak zmiennych środowiskowych wFirma:', { 
+        hasAccessKey: !!accessKey, 
+        hasSecretKey: !!secretKey, 
+        hasCompanyId: !!companyId 
+      });
+      return res.status(400).json({ 
         success: false, 
-        error: 'Brak konfiguracji wFirma. Dodaj zmienne środowiskowe: WFIRMA_ACCESS_KEY, WFIRMA_SECRET_KEY, WFIRMA_COMPANY_ID' 
+        error: 'Brak konfiguracji wFirma. Sprawdź zmienne środowiskowe w Vercel: WFIRMA_ACCESS_KEY, WFIRMA_SECRET_KEY, WFIRMA_COMPANY_ID' 
       });
     }
 
@@ -38,12 +42,36 @@ export default async function handler(req, res) {
     const authString = Buffer.from(`${accessKey}:${secretKey}`).toString('base64');
 
     if (action === 'createInvoice') {
-      // Tworzenie faktury
-      const requestBody = {
-        api: data
+      const invoiceData = data.invoice;
+      
+      // Przygotuj dane faktury w formacie wFirma API
+      const invoiceBody = {
+        api: {
+          invoices: {
+            invoice: {
+              contractor: {
+                name: invoiceData.contractor.name || 'Klient',
+                altname: invoiceData.contractor.altname || invoiceData.contractor.name || '',
+                street: invoiceData.contractor.street || '',
+                city: invoiceData.contractor.city || '',
+                zip: invoiceData.contractor.zip || '',
+                country: invoiceData.contractor.country || 'PL',
+                email: invoiceData.contractor.email || '',
+                phone: invoiceData.contractor.phone || '',
+                tax_id_type: 'none'
+              },
+              type: 'normal',
+              date: invoiceData.date,
+              paymentdate: invoiceData.paymentdate,
+              paymentmethod: invoiceData.paymentmethod || 'transfer',
+              description: invoiceData.description || '',
+              invoicecontents: invoiceData.invoicecontents
+            }
+          }
+        }
       };
 
-      console.log('Wysyłam do wFirma:', JSON.stringify(requestBody, null, 2));
+      console.log('Wysyłam do wFirma:', JSON.stringify(invoiceBody, null, 2));
 
       const response = await fetch(`${apiUrl}/${companyId}/invoices/add`, {
         method: 'POST',
@@ -52,7 +80,7 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(invoiceBody)
       });
 
       const responseText = await response.text();
@@ -72,18 +100,8 @@ export default async function handler(req, res) {
       }
 
       // Sprawdź czy sukces
-      if (result.status && result.status.code === 'OK') {
-        // Sukces
+      if (result.status?.code === 'OK' || result.invoices?.invoice?.id) {
         const invoice = result.invoices?.invoice || {};
-        return res.status(200).json({
-          success: true,
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.fullnumber || invoice.number,
-          data: invoice
-        });
-      } else if (result.api?.invoices?.invoice) {
-        // Alternatywna struktura sukcesu
-        const invoice = result.api.invoices.invoice;
         return res.status(200).json({
           success: true,
           invoiceId: invoice.id,
@@ -92,7 +110,7 @@ export default async function handler(req, res) {
         });
       } else {
         // Błąd z wFirma
-        const errorMsg = result.status?.message || result.error || JSON.stringify(result);
+        const errorMsg = result.status?.message || result.errors?.error?.message || JSON.stringify(result.status || result);
         console.error('Błąd wFirma:', result);
         return res.status(400).json({
           success: false,
@@ -100,21 +118,6 @@ export default async function handler(req, res) {
           details: result
         });
       }
-
-    } else if (action === 'getContractors') {
-      // Pobieranie listy kontrahentów
-      const response = await fetch(`${apiUrl}/${companyId}/contractors/find`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${authString}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ api: {} })
-      });
-
-      const result = await response.json();
-      return res.status(200).json(result);
 
     } else {
       return res.status(400).json({ success: false, error: 'Nieznana akcja' });
