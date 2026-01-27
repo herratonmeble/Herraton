@@ -19,13 +19,19 @@ import './App.css';
 // attachments: [{ filename: 'plik.pdf', content: 'base64...', type: 'application/pdf' }]
 const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htmlContent = null, attachments = []) => {
   try {
+    // Walidacja adresu email
+    if (!toEmail || !toEmail.includes('@') || !toEmail.includes('.')) {
+      console.error('Nieprawidłowy adres email:', toEmail);
+      return { success: false, error: 'Nieprawidłowy adres email' };
+    }
+    
     const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        toEmail,
+        toEmail: toEmail.trim(),
         toName: toName || 'Klient',
         subject,
         textContent,
@@ -34,18 +40,28 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
       })
     });
 
+    // Sprawdź czy odpowiedź jest OK
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Błąd serwera:', response.status, errorText);
+      return { success: false, error: `Błąd serwera (${response.status}). Sprawdź konfigurację API email.` };
+    }
+
     const data = await response.json();
     
-    if (response.ok && data.success) {
+    if (data.success) {
       console.log('Email wysłany pomyślnie!');
       return { success: true };
     } else {
-      console.error('Błąd wysyłania emaila:', data.error);
-      return { success: false, error: data.error };
+      console.error('Błąd wysyłania emaila:', data.error || data.message);
+      return { success: false, error: data.error || data.message || 'Błąd wysyłania' };
     }
   } catch (error) {
     console.error('Błąd połączenia:', error);
-    return { success: false, error };
+    if (error.message?.includes('fetch') || error.message?.includes('network')) {
+      return { success: false, error: 'Brak połączenia z serwerem email. Sprawdź konfigurację API.' };
+    }
+    return { success: false, error: error.message || 'Błąd połączenia z serwerem' };
   }
 };
 
@@ -2378,16 +2394,19 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
       producentNazwa: '',
       status: 'nowe',
       kierowca: form.przypisanyKierowca || '', // Domyślnie główny kierowca
+      kierowcaNazwa: '',
+      kierowcaTelefon: '',
       dataOdbioru: '',
       koszty: {
-        waluta: 'PLN',
+        waluta: form.platnosci?.waluta || 'PLN',
         zakupNetto: 0,
         zakupBrutto: 0,
-        transportWaluta: 'PLN',
+        transportWaluta: form.platnosci?.waluta || 'PLN',
         transportNetto: 0,
         transportBrutto: 0,
         vatRate: 23
       },
+      waluta: form.platnosci?.waluta || 'PLN', // Waluta do pobrania - dziedziczona z zamówienia
       cenaKlienta: 0,
       doPobrania: 0
     };
@@ -8526,6 +8545,7 @@ ${t.team}`;
                     let mojRabat = 0;
                     let mojRabatInfo = null;
                     let mojRabatProductIndex = null;
+                    let productWaluta = order.platnosci?.waluta || 'PLN'; // Domyślna waluta z zamówienia
                     const myProductIndexes = order._myProductIndexes || [];
                     
                     if (order.produkty && order.produkty.length > 0) {
@@ -8539,6 +8559,10 @@ ${t.team}`;
                         if (isMine) {
                           if (p.doPobrania > 0) {
                             myAmount += p.doPobrania;
+                          }
+                          // Pobierz walutę z produktu (jeśli jest) lub z zamówienia
+                          if (!productWaluta && (p.waluta || p.koszty?.waluta)) {
+                            productWaluta = p.waluta || p.koszty?.waluta;
                           }
                           // Pobierz metodę pobrania i notatkę
                           if (p.metodaPobrania && !metodaPobrania) {
@@ -8594,9 +8618,9 @@ ${t.team}`;
                             </div>
                             {kwotaPoRabacie > 0 && (
                               <div className="payment-amount">
-                                {formatCurrency(kwotaPoRabacie, order.platnosci?.waluta)}
+                                {formatCurrency(kwotaPoRabacie, productWaluta)}
                                 {mojRabat > 0 && (
-                                  <span className="original-amount-strike"> ({formatCurrency(myAmount, order.platnosci?.waluta)})</span>
+                                  <span className="original-amount-strike"> ({formatCurrency(myAmount, productWaluta)})</span>
                                 )}
                               </div>
                             )}
@@ -8609,7 +8633,7 @@ ${t.team}`;
                           {mojRabat > 0 && mojRabatInfo && (
                             <div className="payment-discount-applied">
                               <div className="discount-info-row">
-                                <span>💸 Udzielono rabat: <strong>-{formatCurrency(mojRabat, order.platnosci?.waluta)}</strong></span>
+                                <span>💸 Udzielono rabat: <strong>-{formatCurrency(mojRabat, productWaluta)}</strong></span>
                                 <button 
                                   className="btn-delete-discount-driver"
                                   onClick={(e) => {
@@ -8638,7 +8662,7 @@ ${t.team}`;
                           
                           {(order.platnosci?.zaliczka > 0 || order.platnosci?.zaplacono > 0) && (
                             <div className="payment-advance-info">
-                              💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci?.zaplacono || order.platnosci?.zaliczka, order.platnosci?.waluta)}</strong>
+                              💳 Klient wpłacił już zaliczkę: <strong>{formatCurrency(order.platnosci?.zaplacono || order.platnosci?.zaliczka, productWaluta)}</strong>
                             </div>
                           )}
                           
