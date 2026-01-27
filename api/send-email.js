@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: toEmail, subject, textContent' });
   }
 
-  const MAILERSEND_API_TOKEN = 'mlsn.ce3bf924d0ed92f4921bd786dde0c1b8e36fcd7beb983a9e2f91fd3cd5c56cd0';
+  const MAILERSEND_API_TOKEN = 'mlsn.fe8aeab7c17787b4ed0ce2d8885f4878a00be8fe80048e4c9bc6ca4a6d3be3c0';
   const SENDER_EMAIL = 'noreply@test-z0vklo6jm07l7qrx.mlsender.net';
   const SENDER_NAME = 'Herraton - Zamówienia';
 
