@@ -6358,19 +6358,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           {hasMultipleProducts && <span className="multi-product-badge">📦 {order.produkty.length}</span>}
           {order.potwierdzoneByClient && <span style={{background: '#D1FAE5', color: '#065F46', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '600'}}>✓ Potwierdzone</span>}
           {order.wyslanieDoPotwierdzenia && !order.potwierdzoneByClient && <span style={{background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '600'}}>⏳ Czeka</span>}
-          {urgency && <span className={`urgency-badge small ${urgency.blink ? 'blink' : ''}`} style={{ background: urgency.bg, color: urgency.color }}>⏰{urgency.label}</span>}
         </div>
-        {!hasMultipleProducts && (
-          <select
-            value={order.status}
-            onClick={e => e.stopPropagation()}
-            onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
-            className="status-select"
-            style={{ background: status?.bgColor, color: status?.color }}
-          >
-            {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-          </select>
-        )}
       </div>
 
       <div className="order-card-body">
@@ -6381,10 +6369,22 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
               const prodStatus = getStatus(prod.status);
               const prodProducer = Object.values(producers).find(p => p.id === prod.producent);
               const prodDriver = drivers.find(d => d.id === prod.kierowca);
+              const prodDays = getDaysUntilPickup(prod.dataOdbioru);
+              // Nie pokazuj pilności dla gotowe_do_odbioru i dalszych
+              const showProdUrgency = !['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(prod.status);
+              const prodUrgency = showProdUrgency ? getUrgencyStyle(prodDays) : null;
+              
+              // Styl ramki produktu według pilności
+              const prodBorderStyle = prodUrgency ? {
+                borderLeft: `4px solid ${prodUrgency.color}`,
+                background: `linear-gradient(to right, ${prodUrgency.bg}40, transparent)`
+              } : {};
+              
               return (
                 <div 
                   key={prod.id || idx} 
-                  className="order-product-item clickable"
+                  className={`order-product-item clickable ${prodUrgency?.blink ? 'urgency-blink' : ''}`}
+                  style={prodBorderStyle}
                   onClick={(e) => {
                     e.stopPropagation();
                     // Otwórz modal z wybranym produktem
@@ -6413,18 +6413,14 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                     {prodProducer && <span className="mini-tag producer">🏭 {prodProducer.name}</span>}
                     {prod.producentNazwa && <span className="mini-tag producer">🏭 {prod.producentNazwa}</span>}
                     {prodDriver && <span className="mini-tag driver">🚚 {prodDriver.name}</span>}
-                    {prod.dataOdbioru && (() => {
-                      const prodDays = getDaysUntilPickup(prod.dataOdbioru);
-                      const prodUrgency = getUrgencyStyle(prodDays);
-                      return (
-                        <span 
-                          className={`mini-tag date ${prodUrgency?.blink ? 'blink' : ''}`}
-                          style={prodUrgency ? { background: prodUrgency.bg, color: prodUrgency.color } : {}}
-                        >
-                          📅 {formatDate(prod.dataOdbioru)} {prodUrgency && `(${prodUrgency.label})`}
-                        </span>
-                      );
-                    })()}
+                    {prod.dataOdbioru && (
+                      <span 
+                        className={`mini-tag date ${prodUrgency?.blink ? 'blink' : ''}`}
+                        style={prodUrgency ? { background: prodUrgency.bg, color: prodUrgency.color } : {}}
+                      >
+                        📅 {formatDate(prod.dataOdbioru)} {prodUrgency && `(${prodUrgency.label})`}
+                      </span>
+                    )}
                   </div>
                   {/* Wskaźnik protokołu dla tego produktu */}
                   {(prod.protokol?.zdjeciaOdbioru?.length > 0 || prod.protokol?.zdjeciaDostawy?.length > 0 || prod.protokol?.podpis) && (
@@ -6449,21 +6445,33 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
             </button>
           </div>
         ) : (
-          <>
-            <p className="order-product">{order.towar || order.produkty?.[0]?.towar || 'Brak opisu'}</p>
+          <div className={`order-single-product ${urgency?.blink ? 'urgency-blink' : ''}`} style={urgency ? { borderLeft: `4px solid ${urgency.color}`, background: `linear-gradient(to right, ${urgency.bg}40, transparent)`, padding: '12px', borderRadius: '8px', marginBottom: '10px' } : { padding: '12px', background: '#F9FAFB', borderRadius: '8px', marginBottom: '10px' }}>
+            <div className="product-item-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+              <span className="product-item-nr" style={{fontWeight: '600', color: '#374151'}}>{order.produkty?.[0]?.nrPodzamowienia || order.nrWlasny}</span>
+              <select
+                value={order.status}
+                onClick={e => e.stopPropagation()}
+                onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
+                className="status-select small"
+                style={{ background: status?.bgColor, color: status?.color }}
+              >
+                {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+              </select>
+            </div>
+            <p className="order-product" style={{margin: '0 0 8px 0', fontSize: '14px', color: '#1F2937'}}>{order.towar || order.produkty?.[0]?.towar || 'Brak opisu'}</p>
             <div className="order-tags">
-              {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
+              {producer && !isContractor && <span className="mini-tag producer">🏭 {producer.name}</span>}
               {pickupDate && (
                 <span 
-                  className={`tag tag-date ${urgency?.blink ? 'blink' : ''}`}
+                  className={`mini-tag date ${urgency?.blink ? 'blink' : ''}`}
                   style={urgency ? { background: urgency.bg, color: urgency.color, fontWeight: '600' } : {}}
                 >
                   📅 {formatDate(pickupDate)} {urgency && `(${urgency.label})`}
                 </span>
               )}
-              {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
+              {driver && <span className="mini-tag driver">🚚 {driver.name}</span>}
             </div>
-          </>
+          </div>
         )}
 
         <div className="order-client">
@@ -13046,7 +13054,8 @@ const PublicComplaintForm = ({ token }) => {
               }
             });
             
-            setView('tracking');
+            // Sprawdź czy to widok producenta
+            setView(isProducerView ? 'producer' : 'tracking');
             setLoading(false);
             return;
           }
@@ -13792,7 +13801,7 @@ const PublicComplaintForm = ({ token }) => {
   // ==========================================
   // WIDOK DLA PRODUCENTA - tylko podstawowe info i zdjęcia
   // ==========================================
-  if (isProducerView && complaintData) {
+  if (view === 'producer' && complaintData) {
     const typInfo = complaintTypes.find(t => t.id === complaintData.typ) || complaintTypes[5];
     
     return (
@@ -16076,15 +16085,38 @@ Zespół obsługi zamówień
       }
     }
     if (urgencyFilter !== 'all') {
-      // Pobierz datę odbioru - z głównego pola lub z pierwszego produktu
-      const pickupDate = o.dataOdbioru || o.produkty?.[0]?.dataOdbioru;
-      const d = getDaysUntilPickup(pickupDate);
-      if (d === null) return false;
-      // Nie pokazuj zamówień które już są gotowe do odbioru lub dalej
-      if (['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(o.status)) return false;
-      if (urgencyFilter === 'today' && d !== 0) return false;
-      if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
-      if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
+      // Dla zamówień łączonych - sprawdź czy którykolwiek produkt pasuje do filtra
+      let hasMatchingProduct = false;
+      
+      if (o.produkty && o.produkty.length > 0) {
+        // Zamówienie łączone - sprawdź wszystkie produkty
+        for (const prod of o.produkty) {
+          // Pomiń produkty z gotowe_do_odbioru lub dalszymi statusami
+          if (['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(prod.status)) continue;
+          
+          const prodPickupDate = prod.dataOdbioru;
+          const d = getDaysUntilPickup(prodPickupDate);
+          if (d === null) continue;
+          
+          if (urgencyFilter === 'today' && d === 0) { hasMatchingProduct = true; break; }
+          if (urgencyFilter === '3days' && d >= 0 && d <= 3) { hasMatchingProduct = true; break; }
+          if (urgencyFilter === 'week' && d >= 0 && d <= 7) { hasMatchingProduct = true; break; }
+        }
+      } else {
+        // Pojedyncze zamówienie
+        // Pomiń zamówienia z gotowe_do_odbioru lub dalszymi statusami
+        if (!['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(o.status)) {
+          const pickupDate = o.dataOdbioru || o.produkty?.[0]?.dataOdbioru;
+          const d = getDaysUntilPickup(pickupDate);
+          if (d !== null) {
+            if (urgencyFilter === 'today' && d === 0) hasMatchingProduct = true;
+            if (urgencyFilter === '3days' && d >= 0 && d <= 3) hasMatchingProduct = true;
+            if (urgencyFilter === 'week' && d >= 0 && d <= 7) hasMatchingProduct = true;
+          }
+        }
+      }
+      
+      if (!hasMatchingProduct) return false;
     }
     return true;
   }).sort((a, b) => {
