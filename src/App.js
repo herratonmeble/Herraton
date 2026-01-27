@@ -77,36 +77,33 @@ const createWFirmaInvoice = async (orderData) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // Przygotuj pozycje faktury
+    // Przygotuj pozycje faktury - ceny BRUTTO (wFirma sama przeliczy na netto)
     const invoiceContents = [];
     
     if (orderData.produkty && orderData.produkty.length > 0) {
       orderData.produkty.forEach((prod, idx) => {
-        const cena = prod.koszty?.cenaKlient || 0;
-        // Cena brutto -> netto (VAT 23%)
-        const cenaNetto = Math.round((cena / 1.23) * 100) / 100;
+        const cenaBrutto = prod.koszty?.cenaKlient || 0;
         
         invoiceContents.push({
           invoicecontent: {
             name: prod.towar || `Produkt ${idx + 1}`,
             unit: 'szt.',
             count: 1,
-            price: cenaNetto,
+            price: cenaBrutto, // cena brutto
             vat: '23'
           }
         });
       });
     } else {
       // Pojedyncze zamówienie bez produktów
-      const cena = orderData.platnosci?.cenaCalkowita || 0;
-      const cenaNetto = Math.round((cena / 1.23) * 100) / 100;
+      const cenaBrutto = orderData.platnosci?.cenaCalkowita || 0;
       
       invoiceContents.push({
         invoicecontent: {
           name: orderData.towar || 'Zamówienie ' + (orderData.nrWlasny || ''),
           unit: 'szt.',
           count: 1,
-          price: cenaNetto,
+          price: cenaBrutto, // cena brutto
           vat: '23'
         }
       });
@@ -156,7 +153,7 @@ const createWFirmaInvoice = async (orderData) => {
         date: today,
         paymentdate: today,
         paymentmethod: 'transfer',
-        paid: orderData.platnosci?.cenaCalkowita || 0,
+        alreadypaid: orderData.platnosci?.zaplacono || orderData.platnosci?.cenaCalkowita || 0,
         currency: orderData.platnosci?.waluta === 'EUR' ? 'EUR' : 'PLN',
         description: `Zamówienie nr ${orderData.nrWlasny || ''}`,
         invoicecontents: invoiceContents
@@ -176,9 +173,17 @@ const createWFirmaInvoice = async (orderData) => {
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Błąd wFirma:', errorText);
-      return { success: false, error: `Błąd serwera (${response.status})` };
+      let errorDetails = '';
+      try {
+        const errorData = await response.json();
+        errorDetails = errorData.error || errorData.fullResponse ? JSON.stringify(errorData.fullResponse || errorData, null, 2) : '';
+        console.error('Błąd wFirma:', errorData);
+        return { success: false, error: errorData.error || `Błąd serwera (${response.status})`, details: errorDetails };
+      } catch (e) {
+        const errorText = await response.text();
+        console.error('Błąd wFirma:', errorText);
+        return { success: false, error: `Błąd serwera (${response.status}): ${errorText.substring(0, 200)}` };
+      }
     }
     
     const result = await response.json();
