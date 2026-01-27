@@ -16108,6 +16108,8 @@ Zespół obsługi zamówień
           if (urgencyFilter === '3days' && d >= 1 && d <= 3) { hasMatchingProduct = true; break; }
           // 7 dni = od 4 do 7 dni
           if (urgencyFilter === 'week' && d >= 4 && d <= 7) { hasMatchingProduct = true; break; }
+          // 8+ dni
+          if (urgencyFilter === 'later' && d >= 8) { hasMatchingProduct = true; break; }
         }
       } else {
         // Pojedyncze zamówienie
@@ -16123,6 +16125,8 @@ Zespół obsługi zamówień
             if (urgencyFilter === '3days' && d >= 1 && d <= 3) hasMatchingProduct = true;
             // 7 dni = od 4 do 7 dni
             if (urgencyFilter === 'week' && d >= 4 && d <= 7) hasMatchingProduct = true;
+            // 8+ dni
+            if (urgencyFilter === 'later' && d >= 8) hasMatchingProduct = true;
           }
         }
       }
@@ -16404,63 +16408,6 @@ Zespół obsługi zamówień
           );
         })()}
 
-        {/* Pasek pilności - szybki podgląd */}
-        {(() => {
-          const finishedStatuses = ['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'];
-          let todayCount = 0;
-          let threeDaysCount = 0;
-          let weekCount = 0;
-          
-          visibleOrders.forEach(o => {
-            if (o.produkty && o.produkty.length > 0) {
-              o.produkty.forEach(prod => {
-                if (finishedStatuses.includes(prod.status)) return;
-                const d = getDaysUntilPickup(prod.dataOdbioru);
-                if (d === null) return;
-                if (d <= 0) todayCount++;
-                else if (d >= 1 && d <= 3) threeDaysCount++;
-                else if (d >= 4 && d <= 7) weekCount++;
-              });
-            } else {
-              if (finishedStatuses.includes(o.status)) return;
-              const d = getDaysUntilPickup(o.dataOdbioru || o.produkty?.[0]?.dataOdbioru);
-              if (d === null) return;
-              if (d <= 0) todayCount++;
-              else if (d >= 1 && d <= 3) threeDaysCount++;
-              else if (d >= 4 && d <= 7) weekCount++;
-            }
-          });
-          
-          return (
-            <div className="urgency-summary-bar">
-              <div 
-                className={`urgency-summary-item urgent ${urgencyFilter === 'today' ? 'active' : ''}`}
-                onClick={() => setUrgencyFilter(urgencyFilter === 'today' ? 'all' : 'today')}
-                style={{background: todayCount > 0 ? '#FEE2E2' : '#F3F4F6', borderColor: todayCount > 0 ? '#DC2626' : '#E5E7EB'}}
-              >
-                <span className="urgency-count" style={{color: todayCount > 0 ? '#DC2626' : '#9CA3AF'}}>{todayCount}</span>
-                <span className="urgency-label" style={{color: todayCount > 0 ? '#991B1B' : '#6B7280'}}>🔴 Dziś/Zaległe</span>
-              </div>
-              <div 
-                className={`urgency-summary-item warning ${urgencyFilter === '3days' ? 'active' : ''}`}
-                onClick={() => setUrgencyFilter(urgencyFilter === '3days' ? 'all' : '3days')}
-                style={{background: threeDaysCount > 0 ? '#FEF3C7' : '#F3F4F6', borderColor: threeDaysCount > 0 ? '#F59E0B' : '#E5E7EB'}}
-              >
-                <span className="urgency-count" style={{color: threeDaysCount > 0 ? '#D97706' : '#9CA3AF'}}>{threeDaysCount}</span>
-                <span className="urgency-label" style={{color: threeDaysCount > 0 ? '#92400E' : '#6B7280'}}>🟠 1-3 dni</span>
-              </div>
-              <div 
-                className={`urgency-summary-item ok ${urgencyFilter === 'week' ? 'active' : ''}`}
-                onClick={() => setUrgencyFilter(urgencyFilter === 'week' ? 'all' : 'week')}
-                style={{background: weekCount > 0 ? '#D1FAE5' : '#F3F4F6', borderColor: weekCount > 0 ? '#10B981' : '#E5E7EB'}}
-              >
-                <span className="urgency-count" style={{color: weekCount > 0 ? '#059669' : '#9CA3AF'}}>{weekCount}</span>
-                <span className="urgency-label" style={{color: weekCount > 0 ? '#065F46' : '#6B7280'}}>🟢 4-7 dni</span>
-              </div>
-            </div>
-          );
-        })()}
-
         <div className="top-bar">
           <div className="top-left">
             <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
@@ -16473,6 +16420,71 @@ Zespół obsługi zamówień
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          
+          {/* Pasek pilności - kompaktowy */}
+          {(() => {
+            const finishedStatuses = ['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'];
+            let todayCount = 0;
+            let threeDaysCount = 0;
+            let weekCount = 0;
+            let laterCount = 0;
+            
+            visibleOrders.forEach(o => {
+              if (o.produkty && o.produkty.length > 0) {
+                o.produkty.forEach(prod => {
+                  if (finishedStatuses.includes(prod.status)) return;
+                  const d = getDaysUntilPickup(prod.dataOdbioru);
+                  if (d === null) return;
+                  if (d <= 0) todayCount++;
+                  else if (d >= 1 && d <= 3) threeDaysCount++;
+                  else if (d >= 4 && d <= 7) weekCount++;
+                  else laterCount++;
+                });
+              } else {
+                if (finishedStatuses.includes(o.status)) return;
+                const d = getDaysUntilPickup(o.dataOdbioru || o.produkty?.[0]?.dataOdbioru);
+                if (d === null) return;
+                if (d <= 0) todayCount++;
+                else if (d >= 1 && d <= 3) threeDaysCount++;
+                else if (d >= 4 && d <= 7) weekCount++;
+                else laterCount++;
+              }
+            });
+            
+            return (
+              <div className="urgency-pills">
+                <span className="urgency-pills-label">📅 Odbiory:</span>
+                <button 
+                  className={`urgency-pill urgent ${urgencyFilter === 'today' ? 'active' : ''} ${todayCount > 0 ? 'has-items' : ''}`}
+                  onClick={() => setUrgencyFilter(urgencyFilter === 'today' ? 'all' : 'today')}
+                >
+                  <span className="pill-count">{todayCount}</span>
+                  <span className="pill-label">Dziś</span>
+                </button>
+                <button 
+                  className={`urgency-pill warning ${urgencyFilter === '3days' ? 'active' : ''} ${threeDaysCount > 0 ? 'has-items' : ''}`}
+                  onClick={() => setUrgencyFilter(urgencyFilter === '3days' ? 'all' : '3days')}
+                >
+                  <span className="pill-count">{threeDaysCount}</span>
+                  <span className="pill-label">1-3 dni</span>
+                </button>
+                <button 
+                  className={`urgency-pill ok ${urgencyFilter === 'week' ? 'active' : ''} ${weekCount > 0 ? 'has-items' : ''}`}
+                  onClick={() => setUrgencyFilter(urgencyFilter === 'week' ? 'all' : 'week')}
+                >
+                  <span className="pill-count">{weekCount}</span>
+                  <span className="pill-label">4-7 dni</span>
+                </button>
+                <button 
+                  className={`urgency-pill later ${urgencyFilter === 'later' ? 'active' : ''} ${laterCount > 0 ? 'has-items' : ''}`}
+                  onClick={() => setUrgencyFilter(urgencyFilter === 'later' ? 'all' : 'later')}
+                >
+                  <span className="pill-count">{laterCount}</span>
+                  <span className="pill-label">8+ dni</span>
+                </button>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="filters">
