@@ -16087,15 +16087,19 @@ Zespół obsługi zamówień
     if (urgencyFilter !== 'all') {
       // Dla zamówień łączonych - sprawdź czy którykolwiek produkt pasuje do filtra
       let hasMatchingProduct = false;
+      const finishedStatuses = ['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'];
       
       if (o.produkty && o.produkty.length > 0) {
         // Zamówienie łączone - sprawdź wszystkie produkty
         for (const prod of o.produkty) {
           // Pomiń produkty z gotowe_do_odbioru lub dalszymi statusami
-          if (['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(prod.status)) continue;
+          if (finishedStatuses.includes(prod.status)) continue;
           
+          // Ten produkt NIE jest gotowy - sprawdź czy pasuje do filtra pilności
           const prodPickupDate = prod.dataOdbioru;
           const d = getDaysUntilPickup(prodPickupDate);
+          
+          // Jeśli produkt nie ma daty - pomiń (nie pasuje do filtra pilności)
           if (d === null) continue;
           
           if (urgencyFilter === 'today' && d === 0) { hasMatchingProduct = true; break; }
@@ -16105,9 +16109,10 @@ Zespół obsługi zamówień
       } else {
         // Pojedyncze zamówienie
         // Pomiń zamówienia z gotowe_do_odbioru lub dalszymi statusami
-        if (!['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(o.status)) {
+        if (!finishedStatuses.includes(o.status)) {
           const pickupDate = o.dataOdbioru || o.produkty?.[0]?.dataOdbioru;
           const d = getDaysUntilPickup(pickupDate);
+          
           if (d !== null) {
             if (urgencyFilter === 'today' && d === 0) hasMatchingProduct = true;
             if (urgencyFilter === '3days' && d >= 0 && d <= 3) hasMatchingProduct = true;
