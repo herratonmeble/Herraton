@@ -1411,7 +1411,7 @@ Zespół obsługi zamówień`;
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-detail" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -2049,7 +2049,7 @@ Zespół obsługi zamówień`;
 
       {/* Modal wysyłania potwierdzenia dostawy */}
       {showDeliveryEmailModal && (
-        <div className="modal-overlay" onClick={() => setShowDeliveryEmailModal(false)} style={{zIndex: 2000}}>
+        <div className="modal-overlay" style={{zIndex: 2000}}>
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header delivery-confirmation-header">
               <h2>📦 Wyślij potwierdzenie dostawy</h2>
@@ -2095,7 +2095,7 @@ Zespół obsługi zamówień`;
 
       {/* Modal potwierdzenia email */}
       {showEmailConfirmation && (
-        <div className="modal-overlay" onClick={() => setShowEmailConfirmation(false)} style={{zIndex: 2000}}>
+        <div className="modal-overlay" style={{zIndex: 2000}}>
           <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>📧 Podgląd potwierdzenia zamówienia</h2>
@@ -2126,7 +2126,7 @@ Zespół obsługi zamówień`;
 
       {/* Modal wyboru języka protokołu */}
       {showProtocolModal && protocolOrder && (
-        <div className="modal-overlay" onClick={() => setShowProtocolModal(false)} style={{zIndex: 2000}}>
+        <div className="modal-overlay" style={{zIndex: 2000}}>
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>📋 Pobierz protokół odbioru</h2>
@@ -2170,7 +2170,7 @@ Zespół obsługi zamówień`;
 
       {/* Modal wysyłania linku do reklamacji */}
       {showComplaintLinkModal && (
-        <div className="modal-overlay" onClick={() => setShowComplaintLinkModal(false)} style={{zIndex: 2000}}>
+        <div className="modal-overlay" style={{zIndex: 2000}}>
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{background: 'linear-gradient(135deg, #DC2626, #B91C1C)'}}>
               <h2 style={{color: 'white'}}>📋 Wyślij link do reklamacji</h2>
@@ -2949,7 +2949,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-form modal-fullscreen" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{order ? '✏️ Edytuj' : '➕ Nowe'} zamówienie {form.nrWlasny && `#${form.nrWlasny}`}</h2>
@@ -3707,7 +3707,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
 
         {/* Modal podglądu potwierdzenia dla klienta */}
         {showConfirmationModal && (
-          <div className="confirmation-modal-overlay" onClick={() => setShowConfirmationModal(false)}>
+          <div className="confirmation-modal-overlay">
             <div className="confirmation-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '550px'}}>
               <div className="confirmation-modal-header">
                 <h3>📧 Wyślij link do potwierdzenia</h3>
@@ -3772,7 +3772,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
           
           if (!producer) {
             return (
-              <div className="confirmation-modal-overlay" onClick={() => setShowEmailModal(null)}>
+              <div className="confirmation-modal-overlay">
                 <div className="confirmation-modal" onClick={e => e.stopPropagation()}>
                   <div className="confirmation-modal-header">
                     <h3>⚠️ Brak producenta</h3>
@@ -3823,7 +3823,7 @@ Z poważaniem`;
             : `ZLECENIE - zamówienie ${product.nrPodzamowienia || form.nrWlasny}`;
 
           return (
-            <div className="confirmation-modal-overlay" onClick={() => setShowEmailModal(null)}>
+            <div className="confirmation-modal-overlay">
               <div className="confirmation-modal modal-email-producer" onClick={e => e.stopPropagation()}>
                 <div className="confirmation-modal-header">
                   <h3>📧 Email do producenta: {producer.name}</h3>
@@ -3953,7 +3953,7 @@ const ProducersModal = ({ producers, onSave, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🏭 Zarządzanie producentami</h2>
@@ -4037,7 +4037,7 @@ const CompanyDataModal = ({ user, onSave, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🏢 Dane firmy</h2>
@@ -4151,7 +4151,7 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>👥 Zarządzanie użytkownikami</h2>
@@ -4409,7 +4409,7 @@ const PriceListManager = ({ producers, priceLists, onSave, onDelete, onClose }) 
   ) || [];
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large pricelist-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📋 Zarządzanie cennikami</h2>
@@ -4730,7 +4730,7 @@ const ProductSearchModal = ({ priceLists, producers, onSelect, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-medium product-search-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🔍 Wyszukaj produkt z cennika</h2>
@@ -4825,7 +4825,7 @@ const SettingsModal = ({ onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>⚙️ Ustawienia</h2>
@@ -5232,7 +5232,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
   // ========== WIDOK LISTY ==========
   if (view === 'list') {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h2>📋 Reklamacje ({complaints.filter(c => !['rozwiazana', 'odrzucona'].includes(c.status)).length} aktywnych)</h2>
@@ -5326,7 +5326,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
   // ========== FORMULARZ NOWEJ/EDYCJI REKLAMACJI ==========
   if (view === 'form') {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h2>{editingComplaint ? '✏️ Edytuj reklamację' : '➕ Nowa reklamacja'}</h2>
@@ -5449,7 +5449,7 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
     const deadline = getDeadlineStyle(daysLeft);
 
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <div className="complaint-detail-header">
@@ -5809,140 +5809,87 @@ const ComplaintsPanel = ({ complaints, orders, onSave, onDelete, onClose, curren
                   ✏️ Edytuj reklamację
                 </button>
                 
-                {/* NOWY PRZYCISK - Wyślij do producenta */}
-                {complaintOrder && (() => {
-                  // Znajdź producenta z produktu lub zamówienia
-                  const producerId = complaintOrder.produkty?.[0]?.producent || complaintOrder.zaladunek;
-                  const producer = producerId ? Object.values(producers || {}).find(p => p.id === producerId) : null;
-                  
-                  if (producer?.email) {
-                    return (
-                      <button 
-                        className="btn-warning btn-full" 
-                        onClick={() => {
-                          // Przygotuj treść wiadomości z pierwszą wiadomością klienta i zdjęciami
-                          const klientMsg = selectedComplaint.wiadomoscKlienta || selectedComplaint.opis || '';
-                          const zdjecia = selectedComplaint.zdjecia || [];
-                          
-                          // HTML email do producenta
-                          const htmlEmail = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
-          <tr>
-            <td style="background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); padding: 30px; text-align: center;">
-              <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
-              <h1 style="color: white; margin: 0; font-size: 24px;">REKLAMACJA</h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Nr ${selectedComplaint.numer}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 30px;">
-              <h3 style="margin: 0 0 20px 0; color: #1F2937;">Szczegóły reklamacji:</h3>
-              
-              <div style="background: #FEE2E2; padding: 20px; border-radius: 10px; border: 1px solid #FECACA; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0; color: #991B1B; font-weight: 600;">📋 Typ: ${selectedComplaint.typ || 'Reklamacja'}</p>
-                <p style="margin: 0; color: #7F1D1D; font-size: 14px; line-height: 1.6;">
-                  ${selectedComplaint.opis || 'Brak opisu'}
-                </p>
-              </div>
-              
-              ${klientMsg ? `
-              <div style="background: #F3F4F6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">💬 Wiadomość od klienta:</p>
-                <p style="margin: 0; color: #6B7280; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${klientMsg}</p>
-              </div>
-              ` : ''}
-              
-              ${selectedComplaint.oczekiwaniaKlienta ? `
-              <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #FCD34D;">
-                <p style="margin: 0 0 5px 0; color: #92400E; font-weight: 600;">🎯 Oczekiwania klienta:</p>
-                <p style="margin: 0; color: #78350F; font-size: 14px;">${selectedComplaint.oczekiwaniaKlienta}</p>
-              </div>
-              ` : ''}
-              
-              <div style="background: #E0E7FF; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0; color: #3730A3; font-weight: 600;">📦 Zamówienie:</p>
-                <p style="margin: 5px 0; color: #4338CA;">Nr: <strong>${complaintOrder.nrWlasny}</strong></p>
-                <p style="margin: 5px 0; color: #4338CA;">Towar: ${complaintOrder.towar || complaintOrder.produkty?.[0]?.towar || '—'}</p>
-                <p style="margin: 5px 0; color: #4338CA;">Klient: ${complaintOrder.klient?.imie || '—'}</p>
-              </div>
-              
-              ${zdjecia.length > 0 ? `
-              <div style="margin-top: 20px;">
-                <p style="margin: 0 0 10px 0; color: #374151; font-weight: 600;">📷 Załączone zdjęcia (${zdjecia.length}):</p>
-                <p style="margin: 0; color: #6B7280; font-size: 13px;">Zdjęcia dostępne w załącznikach do tego emaila.</p>
-              </div>
-              ` : ''}
-              
-              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-                <p style="margin: 0; color: #9CA3AF; font-size: 12px;">
-                  Prosimy o zajęcie stanowiska w sprawie tej reklamacji.<br>
-                  W razie pytań prosimy o kontakt.
-                </p>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 20px; background-color: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
-              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">Herraton • System reklamacji</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-                          
-                          // Przygotuj załączniki ze zdjęć
-                          const attachments = zdjecia.map((zdj, idx) => ({
-                            filename: `reklamacja_${selectedComplaint.numer}_${idx + 1}.jpg`,
-                            content: zdj.url?.split(',')[1] || zdj.split(',')[1] || '', // base64 bez prefixu
-                          })).filter(a => a.content);
-                          
-                          // Wyślij email
-                          sendEmailViaMailerSend(
-                            producer.email,
-                            producer.name,
-                            `REKLAMACJA ${selectedComplaint.numer} - ${complaintOrder.nrWlasny}`,
-                            `Reklamacja nr ${selectedComplaint.numer} dla zamówienia ${complaintOrder.nrWlasny}. Szczegóły w treści HTML.`,
-                            htmlEmail,
-                            attachments
-                          ).then(result => {
-                            if (result.success) {
-                              alert(`✅ Reklamacja została wysłana do producenta: ${producer.name} (${producer.email})`);
-                              
-                              // Zapisz w historii reklamacji
-                              onSave({
-                                ...selectedComplaint,
-                                historia: [...(selectedComplaint.historia || []), {
-                                  data: new Date().toISOString(),
-                                  uzytkownik: currentUser.name,
-                                  akcja: `Wysłano reklamację do producenta: ${producer.name}`
-                                }],
-                                wyslaneDoProdocenta: true,
-                                dataWyslaniaDoProdocenta: new Date().toISOString(),
-                                producentEmail: producer.email
-                              }, selectedComplaint.id);
-                            } else {
-                              alert(`❌ Błąd wysyłania: ${result.error || 'Nieznany błąd'}`);
-                            }
-                          });
-                        }}
-                        style={{ marginBottom: '10px', background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
-                      >
-                        📧 Wyślij do producenta ({producer.name})
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
+                {/* PRZYCISK - Wyślij do producenta */}
+                {complaintOrder && (
+                  <button 
+                    className="btn-warning btn-full" 
+                    onClick={() => {
+                      // Znajdź producenta z produktu lub zamówienia
+                      const producerId = complaintOrder.produkty?.[0]?.producent || complaintOrder.zaladunek;
+                      const producer = producerId ? Object.values(producers || {}).find(p => p.id === producerId) : null;
+                      
+                      if (!producer) {
+                        alert('❌ Brak przypisanego producenta do tego zamówienia. Najpierw przypisz producenta w zamówieniu.');
+                        return;
+                      }
+                      
+                      if (!producer.email) {
+                        alert(`❌ Producent "${producer.name}" nie ma przypisanego adresu email. Dodaj email w ustawieniach producenta.`);
+                        return;
+                      }
+                      
+                      // Przygotuj treść wiadomości
+                      const klientMsg = selectedComplaint.wiadomoscKlienta || selectedComplaint.opis || '';
+                      const zdjecia = selectedComplaint.zdjecia || [];
+                      
+                      // Link do podglądu zdjęć reklamacji - użyj tokenu reklamacji
+                      const complaintToken = selectedComplaint.complaintToken || selectedComplaint.id;
+                      const photosLink = zdjecia.length > 0 
+                        ? `${window.location.origin}/reklamacja/${complaintToken}` 
+                        : '';
+                      
+                      const subject = `REKLAMACJA ${selectedComplaint.numer} - Zamówienie ${complaintOrder.nrWlasny}`;
+                      
+                      const body = `REKLAMACJA nr ${selectedComplaint.numer}
+═══════════════════════════════════════════
+
+📋 TYP REKLAMACJI: ${selectedComplaint.typ || 'Reklamacja'}
+
+📝 OPIS PROBLEMU:
+${selectedComplaint.opis || 'Brak opisu'}
+
+${klientMsg && klientMsg !== selectedComplaint.opis ? `💬 WIADOMOŚĆ OD KLIENTA:
+${klientMsg}
+
+` : ''}${selectedComplaint.oczekiwaniaKlienta ? `🎯 OCZEKIWANIA KLIENTA:
+${selectedComplaint.oczekiwaniaKlienta}
+
+` : ''}═══════════════════════════════════════════
+📦 DANE ZAMÓWIENIA:
+───────────────────────────────────────────
+Nr zamówienia: ${complaintOrder.nrWlasny}
+Towar: ${complaintOrder.towar || complaintOrder.produkty?.[0]?.towar || '—'}
+Klient: ${complaintOrder.klient?.imie || '—'}
+Adres: ${complaintOrder.klient?.adres || '—'}
+
+${zdjecia.length > 0 ? `═══════════════════════════════════════════
+📷 ZDJĘCIA REKLAMACJI (${zdjecia.length}):
+Link do podglądu zdjęć: ${photosLink}
+` : ''}
+═══════════════════════════════════════════
+Prosimy o zajęcie stanowiska w sprawie tej reklamacji.
+
+Z poważaniem,
+Herraton`;
+                      
+                      // Otwórz klienta pocztowego
+                      window.location.href = `mailto:${producer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                      
+                      // Zapisz w historii reklamacji
+                      onSave({
+                        ...selectedComplaint,
+                        historia: [...(selectedComplaint.historia || []), {
+                          data: new Date().toISOString(),
+                          uzytkownik: currentUser.name,
+                          akcja: `Otwarto email do producenta: ${producer.name}`
+                        }]
+                      }, selectedComplaint.id);
+                    }}
+                    style={{ marginBottom: '10px', background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
+                  >
+                    📧 Wyślij reklamację do producenta
+                  </button>
+                )}
                 
                 <button className="btn-danger btn-full" onClick={() => { if (window.confirm('Usunąć reklamację?')) { onDelete(selectedComplaint.id); setView('list'); } }}>
                   🗑️ Usuń reklamację
@@ -6052,7 +5999,7 @@ Z poważaniem`;
     : `ZLECENIE - zamówienie ${orderNumbers}`;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📧 Kontakt z producentem</h2>
@@ -6190,7 +6137,7 @@ Z poważaniem`;
     : `ZLECENIE ZBIORCZE - ${selectedOrders.length} zamówień`;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📧 Zbiorczy email do: {producer?.name}</h2>
@@ -9111,7 +9058,7 @@ ${t.team}`;
 
       {/* Modal uwag */}
       {showNotes && (
-        <div className="modal-overlay" onClick={() => setShowNotes(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>📝 Uwagi i daty</h2>
@@ -9151,7 +9098,7 @@ ${t.team}`;
 
       {/* Modal rabatu - z możliwością edycji */}
       {showDiscount && (
-        <div className="modal-overlay" onClick={() => setShowDiscount(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-small" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>💸 Udziel rabatu</h2>
@@ -9245,7 +9192,7 @@ ${t.team}`;
 
       {/* Modal zarządzania zdjęciami */}
       {showPhotoManager && (
-        <div className="modal-overlay" onClick={() => setShowPhotoManager(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>🖼️ Zarządzaj zdjęciami {showPhotoManager.type === 'pickup' ? 'odbioru' : 'dostawy'}</h2>
@@ -9292,7 +9239,7 @@ ${t.team}`;
 
       {/* Modal podpisu */}
       {showSignature && (
-        <div className="modal-overlay" onClick={() => setShowSignature(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>✍️ Protokół odbioru towaru</h2>
@@ -9425,7 +9372,7 @@ ${t.team}`;
 
       {/* Modal wysyłania potwierdzenia dostawy */}
       {showDeliveryConfirmation && (
-        <div className="modal-overlay" onClick={() => setShowDeliveryConfirmation(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium delivery-confirmation-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header delivery-confirmation-header">
               <h2>📋 Potwierdzenie dostawy</h2>
@@ -9491,7 +9438,7 @@ ${t.team}`;
 
       {/* Modal zmiany statusu - odebrane/w_transporcie */}
       {showStatusChangeEmail && (
-        <div className="modal-overlay" onClick={() => setShowStatusChangeEmail(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-small status-change-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header status-change-header">
               <h2>📧 Powiadomić klienta?</h2>
@@ -9555,7 +9502,7 @@ ${t.team}`;
 
       {/* Modal zarządzania wyjazdami */}
       {showTripsModal && (
-        <div className="modal-overlay" onClick={() => { setShowTripsModal(false); cancelEditTrip(); }}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium trips-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>📅 Moje planowane wyjazdy</h2>
@@ -9712,7 +9659,7 @@ ${t.team}`;
 
       {/* Modal stawek transportu */}
       {showTransportRatesModal && (
-        <div className="modal-overlay" onClick={() => { setShowTransportRatesModal(false); setEditingRate(null); }}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium rates-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>💶 Moje stawki transportu</h2>
@@ -9875,7 +9822,7 @@ const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
   // Widok szczegółów rozliczenia
   if (viewingSettlement) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h2>💰 Szczegóły rozliczenia</h2>
@@ -10040,7 +9987,7 @@ const DriverSettlementsModal = ({ settlements, formatDate, onClose }) => {
 
   // Widok listy rozliczeń
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large driver-settlements-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>💰 Moje rozliczenia</h2>
@@ -10350,7 +10297,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
   // ========== LISTA ==========
   if (view === 'list') {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h2>🎯 Zainteresowani klienci ({stats.active} aktywnych)</h2>
@@ -10540,7 +10487,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
     const linkedOrder = getLinkedOrder(viewingLead);
 
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay">
         <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <div>
@@ -10684,7 +10631,7 @@ const LeadsPanel = ({ leads, onSave, onDelete, onClose, currentUser, onConvertTo
 
   // ========== FORMULARZ ==========
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{editingLead ? '✏️ Edytuj klienta' : '➕ Nowy zainteresowany'}</h2>
@@ -10855,7 +10802,7 @@ const ContractorStatisticsPanel = ({ orders, exchangeRates, onClose, user }) => 
   if (years.length === 0) years.push(new Date().getFullYear());
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -11140,7 +11087,7 @@ const StatisticsPanel = ({ orders, exchangeRates, onClose, users }) => {
   })).map(c => JSON.stringify(c)))].map(c => JSON.parse(c));
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-stats" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="stats-header-title">
@@ -11622,7 +11569,7 @@ const ContactsPanel = ({ orders, onClose, isContractor, currentUser, onCreateOrd
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -11816,7 +11763,7 @@ const TrashPanel = ({ orders, onRestore, onPermanentDelete, onClose, isAdmin, cu
   });
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-xlarge" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -12579,7 +12526,7 @@ const SettlementsPanel = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content modal-large settlements-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>💰 Rozliczenia transportowe</h2>
@@ -15480,10 +15427,21 @@ const App = () => {
     const oldStatusName = getStatus(order.status)?.name || order.status;
     const newStatusName = getStatus(newStatus)?.name || newStatus;
     
+    // Jeśli to pojedyncze zamówienie (1 produkt lub brak produktów), zmień też status produktu
+    let updatedProdukty = order.produkty;
+    if (order.produkty && order.produkty.length === 1) {
+      // Pojedyncze zamówienie - zmień status produktu razem z głównym statusem
+      updatedProdukty = order.produkty.map(p => ({
+        ...p,
+        status: newStatus
+      }));
+    }
+    
     // Zapisz zmianę statusu
     await updateOrder(orderId, {
       ...order,
       status: newStatus,
+      produkty: updatedProdukty,
       historia: [...(order.historia || []), { data: new Date().toISOString(), uzytkownik: user?.name || 'system', akcja: `Status: ${newStatusName}` }]
     });
     
@@ -16435,7 +16393,7 @@ Zespół obsługi zamówień
 
       {/* Modal szczegółów wyjazdów kierowcy */}
       {showDriverTripsDetail && (
-        <div className="modal-overlay" onClick={() => setShowDriverTripsDetail(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-medium driver-trips-detail-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>🚚 Wyjazdy: {showDriverTripsDetail.name}</h2>
@@ -16673,7 +16631,7 @@ Zespół obsługi zamówień
 
       {/* MODAL PYTANIA O POWIADOMIENIE KLIENTA O ZMIANIE STATUSU */}
       {statusChangeModal && (
-        <div className="modal-overlay" onClick={() => setStatusChangeModal(null)}>
+        <div className="modal-overlay">
           <div className="modal-content modal-small status-change-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header status-change-header">
               <h2>📧 Powiadomić klienta?</h2>
