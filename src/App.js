@@ -6224,12 +6224,15 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const [showProducerMenu, setShowProducerMenu] = useState(false);
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
-  const days = getDaysUntilPickup(order.dataOdbioru);
+  
+  // Data odbioru - sprawdź główne pole LUB pierwszy produkt
+  const pickupDate = order.dataOdbioru || order.produkty?.[0]?.dataOdbioru;
+  const days = getDaysUntilPickup(pickupDate);
 
   // Sprawdź czy użytkownik może usunąć zamówienie
   const canDelete = isAdmin || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
-  // Nie pokazuj migającego powiadomienia dla zamówień w transporcie, dostarczonych lub odebranych
-  const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane'].includes(order.status);
+  // Nie pokazuj pilności dla zamówień w transporcie, dostarczonych, odebranych lub gotowych do odbioru
+  const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane', 'gotowe_do_odbioru'].includes(order.status);
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
   const producer = Object.values(producers).find(p => p.id === order.zaladunek);
   
@@ -6340,8 +6343,14 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
     onDelete(order.id);
   };
 
+  // Styl ramki karty według pilności
+  const cardBorderStyle = urgency ? {
+    borderLeft: `4px solid ${urgency.color}`,
+    boxShadow: `0 2px 8px ${urgency.bg}`
+  } : {};
+
   return (
-    <div className="order-card" onClick={() => onClick(order)}>
+    <div className={`order-card ${urgency?.blink ? 'urgency-blink' : ''}`} onClick={() => onClick(order)} style={cardBorderStyle}>
       <div className="order-card-header">
         <div className="order-card-title">
           <span className="country-flag">{country?.flag}</span>
@@ -6441,15 +6450,15 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           </div>
         ) : (
           <>
-            <p className="order-product">{order.towar || 'Brak opisu'}</p>
+            <p className="order-product">{order.towar || order.produkty?.[0]?.towar || 'Brak opisu'}</p>
             <div className="order-tags">
               {producer && !isContractor && <span className="tag tag-producer">🏭 {producer.name}</span>}
-              {order.dataOdbioru && (
+              {pickupDate && (
                 <span 
                   className={`tag tag-date ${urgency?.blink ? 'blink' : ''}`}
                   style={urgency ? { background: urgency.bg, color: urgency.color, fontWeight: '600' } : {}}
                 >
-                  📅 {formatDate(order.dataOdbioru)} {urgency && `(${urgency.label})`}
+                  📅 {formatDate(pickupDate)} {urgency && `(${urgency.label})`}
                 </span>
               )}
               {driver && <span className="tag tag-driver">🚚 {driver.name}</span>}
@@ -16067,8 +16076,12 @@ Zespół obsługi zamówień
       }
     }
     if (urgencyFilter !== 'all') {
-      const d = getDaysUntilPickup(o.dataOdbioru);
+      // Pobierz datę odbioru - z głównego pola lub z pierwszego produktu
+      const pickupDate = o.dataOdbioru || o.produkty?.[0]?.dataOdbioru;
+      const d = getDaysUntilPickup(pickupDate);
       if (d === null) return false;
+      // Nie pokazuj zamówień które już są gotowe do odbioru lub dalej
+      if (['gotowe_do_odbioru', 'odebrane', 'w_transporcie', 'dostarczone'].includes(o.status)) return false;
       if (urgencyFilter === 'today' && d !== 0) return false;
       if (urgencyFilter === '3days' && !(d >= 0 && d <= 3)) return false;
       if (urgencyFilter === 'week' && !(d >= 0 && d <= 7)) return false;
