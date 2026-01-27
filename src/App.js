@@ -3688,9 +3688,139 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
           <div className="footer-left-actions">
             {form.klient?.email && (
               <button type="button" className="btn-secondary" onClick={() => setShowConfirmationModal(true)}>
-                📧 Wyślij potwierdzenie do klienta
+                📧 Wyślij potwierdzenie
               </button>
             )}
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              onClick={() => {
+                // Generuj PDF potwierdzenia do druku
+                const printWindow = window.open('', '_blank');
+                const produktyHTML = form.produkty?.map((p, idx) => `
+                  <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB;">${p.nrPodzamowienia || `#${idx + 1}`}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB;">${p.towar || '—'}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; text-align: right;">${p.koszty?.cenaKlient || 0} ${p.koszty?.waluta || 'EUR'}</td>
+                  </tr>
+                `).join('') || `
+                  <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB;">${form.nrWlasny || '—'}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB;">${form.towar || '—'}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; text-align: right;">${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}</td>
+                  </tr>
+                `;
+                
+                printWindow.document.write(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="UTF-8">
+                    <title>Potwierdzenie zamówienia ${form.nrWlasny || ''}</title>
+                    <style>
+                      body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                      .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #4F46E5; }
+                      .header h1 { color: #4F46E5; margin: 0 0 10px 0; }
+                      .header p { color: #6B7280; margin: 0; }
+                      .section { margin-bottom: 30px; }
+                      .section-title { font-size: 14px; color: #6B7280; text-transform: uppercase; margin-bottom: 10px; font-weight: 600; }
+                      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                      .info-box { background: #F9FAFB; padding: 15px; border-radius: 8px; }
+                      .info-box label { font-size: 12px; color: #6B7280; display: block; margin-bottom: 5px; }
+                      .info-box span { font-size: 16px; font-weight: 600; color: #1F2937; }
+                      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                      th { background: #4F46E5; color: white; padding: 12px; text-align: left; }
+                      .total { text-align: right; font-size: 20px; font-weight: 700; color: #4F46E5; margin-top: 20px; }
+                      .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center; color: #9CA3AF; font-size: 12px; }
+                      @media print { body { padding: 20px; } }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="header">
+                      <h1>POTWIERDZENIE ZAMÓWIENIA</h1>
+                      <p>Nr: <strong>${form.nrWlasny || '—'}</strong> | Data: ${new Date().toLocaleDateString('pl-PL')}</p>
+                    </div>
+                    
+                    <div class="section">
+                      <div class="section-title">Dane klienta</div>
+                      <div class="info-grid">
+                        <div class="info-box">
+                          <label>Imię i nazwisko</label>
+                          <span>${form.klient?.imie || '—'}</span>
+                        </div>
+                        <div class="info-box">
+                          <label>Email</label>
+                          <span>${form.klient?.email || '—'}</span>
+                        </div>
+                        <div class="info-box">
+                          <label>Telefon</label>
+                          <span>${form.klient?.telefon || '—'}</span>
+                        </div>
+                        <div class="info-box">
+                          <label>Adres dostawy</label>
+                          <span>${form.klient?.adres || '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="section">
+                      <div class="section-title">Zamówione produkty</div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Nr</th>
+                            <th>Opis towaru</th>
+                            <th style="text-align: right;">Cena</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${produktyHTML}
+                        </tbody>
+                      </table>
+                      <div class="total">
+                        Do zapłaty: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}
+                      </div>
+                    </div>
+                    
+                    <div class="section">
+                      <div class="section-title">Informacje o płatności</div>
+                      <div class="info-grid">
+                        <div class="info-box">
+                          <label>Wpłacona zaliczka</label>
+                          <span>${form.platnosci?.zaplacono || 0} ${form.platnosci?.waluta || 'EUR'}</span>
+                        </div>
+                        <div class="info-box">
+                          <label>Pozostało do zapłaty</label>
+                          <span>${form.platnosci?.doZaplaty || 0} ${form.platnosci?.waluta || 'EUR'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="footer">
+                      <p>Dziękujemy za zamówienie! • Herraton</p>
+                      <p>Wygenerowano: ${new Date().toLocaleString('pl-PL')}</p>
+                    </div>
+                    
+                    <script>window.onload = function() { window.print(); }</script>
+                  </body>
+                  </html>
+                `);
+                printWindow.document.close();
+              }}
+            >
+              🖨️ Drukuj potwierdzenie
+            </button>
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              style={{background: '#EEF2FF', color: '#4F46E5', borderColor: '#C7D2FE'}}
+              onClick={() => {
+                // TODO: Integracja z wFirma API
+                alert('🔗 Integracja z wFirma\n\nTa funkcja wymaga połączenia z API wFirma.\n\nPrzygotuj:\n• API Key z wFirma\n• ID firmy\n\nPo kliknięciu "Zapisz zamówienie" faktura zostanie automatycznie utworzona w wFirma.');
+              }}
+            >
+              📄 Faktura wFirma
+            </button>
           </div>
           <div className="footer-right-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>
