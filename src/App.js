@@ -12642,6 +12642,39 @@ const SamplesPanel = ({ samples, onSave, onDelete, onClose, currentUser }) => {
                             {sample.telefon && <span>📞 {sample.telefon}</span>}
                             {sample.email && <span>✉️ {sample.email}</span>}
                           </div>
+                          
+                          {/* Numer przesyłki - na środku */}
+                          <div className="shipping-tracking-wrapper">
+                            {sample.numerPrzesylki ? (
+                              <div className="shipping-tracking-display">
+                                <span className="tracking-label">📦 Nr:</span>
+                                <span className="tracking-number">{sample.numerPrzesylki}</span>
+                                <button 
+                                  className="btn-edit-tracking"
+                                  onClick={() => {
+                                    const newNumber = prompt('Numer przesyłki:', sample.numerPrzesylki);
+                                    if (newNumber !== null) {
+                                      onSave({ ...sample, numerPrzesylki: newNumber, updatedAt: new Date().toISOString() });
+                                    }
+                                  }}
+                                  title="Edytuj numer"
+                                >✏️</button>
+                              </div>
+                            ) : (
+                              <button 
+                                className="btn-add-tracking"
+                                onClick={() => {
+                                  const trackingNumber = prompt('Wpisz numer przesyłki:');
+                                  if (trackingNumber) {
+                                    onSave({ ...sample, numerPrzesylki: trackingNumber, updatedAt: new Date().toISOString() });
+                                  }
+                                }}
+                              >
+                                ➕ Dodaj nr przesyłki
+                              </button>
+                            )}
+                          </div>
+                          
                           <div 
                             className="shipping-status-badge"
                             style={{ background: status.color }}
@@ -12912,6 +12945,39 @@ const MailPanel = ({ mailItems, onSave, onDelete, onClose, currentUser }) => {
                             {mail.telefon && <span>📞 {mail.telefon}</span>}
                             {mail.email && <span>✉️ {mail.email}</span>}
                           </div>
+                          
+                          {/* Numer przesyłki - na środku */}
+                          <div className="shipping-tracking-wrapper">
+                            {mail.numerPrzesylki ? (
+                              <div className="shipping-tracking-display">
+                                <span className="tracking-label">📦 Nr:</span>
+                                <span className="tracking-number">{mail.numerPrzesylki}</span>
+                                <button 
+                                  className="btn-edit-tracking"
+                                  onClick={() => {
+                                    const newNumber = prompt('Numer przesyłki:', mail.numerPrzesylki);
+                                    if (newNumber !== null) {
+                                      onSave({ ...mail, numerPrzesylki: newNumber, updatedAt: new Date().toISOString() });
+                                    }
+                                  }}
+                                  title="Edytuj numer"
+                                >✏️</button>
+                              </div>
+                            ) : (
+                              <button 
+                                className="btn-add-tracking"
+                                onClick={() => {
+                                  const trackingNumber = prompt('Wpisz numer przesyłki:');
+                                  if (trackingNumber) {
+                                    onSave({ ...mail, numerPrzesylki: trackingNumber, updatedAt: new Date().toISOString() });
+                                  }
+                                }}
+                              >
+                                ➕ Dodaj nr przesyłki
+                              </button>
+                            )}
+                          </div>
+                          
                           <div 
                             className="shipping-status-badge"
                             style={{ background: status.color }}
