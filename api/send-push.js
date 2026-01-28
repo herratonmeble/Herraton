@@ -1,29 +1,57 @@
 // api/send-push.js
 // Vercel Serverless Function do wysyłania powiadomień push przez Firebase Cloud Messaging v1 API
 
-const { google } = require('googleapis');
+const crypto = require('crypto');
 
-// Service Account credentials (z Environment Variables w Vercel)
-const getAccessToken = async () => {
-  const serviceAccount = {
-    type: 'service_account',
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    token_uri: 'https://oauth2.googleapis.com/token',
+// Generowanie JWT tokenu dla Service Account
+function createJWT(clientEmail, privateKey) {
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT'
   };
 
-  const jwtClient = new google.auth.JWT(
-    serviceAccount.client_email,
-    null,
-    serviceAccount.private_key,
-    ['https://www.googleapis.com/auth/firebase.messaging'],
-    null
-  );
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: clientEmail,
+    sub: clientEmail,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging'
+  };
 
-  const tokens = await jwtClient.authorize();
-  return tokens.access_token;
-};
+  const base64Header = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  
+  const signatureInput = `${base64Header}.${base64Payload}`;
+  
+  const sign = crypto.createSign('RSA-SHA256');
+  sign.update(signatureInput);
+  const signature = sign.sign(privateKey, 'base64url');
+  
+  return `${signatureInput}.${signature}`;
+}
+
+// Pobierz access token z Google OAuth
+async function getAccessToken(clientEmail, privateKey) {
+  const jwt = createJWT(clientEmail, privateKey);
+  
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get access token: ${error}`);
+  }
+  
+  const data = await response.json();
+  return data.access_token;
+}
 
 export default async function handler(req, res) {
   // CORS headers
@@ -46,14 +74,17 @@ export default async function handler(req, res) {
   }
 
   // Sprawdź czy credentials są skonfigurowane
-  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  
+  if (!projectId || !clientEmail || !privateKey) {
     console.error('Firebase credentials not configured');
     return res.status(500).json({ error: 'Server not configured for push notifications' });
   }
 
   try {
-    const accessToken = await getAccessToken();
-    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const accessToken = await getAccessToken(clientEmail, privateKey);
     
     const results = [];
     const errors = [];
@@ -74,14 +105,12 @@ export default async function handler(req, res) {
               },
               notification: {
                 icon: icon || '/icons/icon-192.png',
-                badge: '/icons/icon-192.png',
-                vibrate: [200, 100, 200]
+                badge: '/icons/icon-192.png'
               }
             },
-            data: {
-              ...data,
-              timestamp: new Date().toISOString()
-            }
+            data: data ? Object.fromEntries(
+              Object.entries(data).map(([k, v]) => [k, String(v)])
+            ) : {}
           }
         };
 
