@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import {
   subscribeToOrders, addOrder, updateOrder, deleteOrder,
@@ -14,6 +14,308 @@ import {
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
 import './App.css';
+
+// ============================================
+// FIREBASE CLOUD MESSAGING - PUSH NOTIFICATIONS
+// ============================================
+import { initializeApp, getApps } from 'firebase/app';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { doc, updateDoc, arrayUnion, getFirestore } from 'firebase/firestore';
+
+// Firebase config (już używane w projekcie)
+const firebaseConfig = {
+  apiKey: "AIzaSyDPno2WcoauLnjkWq0NjGjuWr5wuG64xMI",
+  authDomain: "herraton-332d0.firebaseapp.com",
+  projectId: "herraton-332d0",
+  storageBucket: "herraton-332d0.firebasestorage.app",
+  messagingSenderId: "620331362290",
+  appId: "1:620331362290:web:6ce157738f7ae7e2f02d6b"
+};
+
+// VAPID Key z Firebase Console
+const VAPID_KEY = "BNig4oMMnd59QexuD4EQKghZGqQ0FIPCBS2UeeBgZ5teDNkd3nSj3R71UAtoiSjGafcgOnbhU5A95CSKuezH3N8";
+
+// Inicjalizacja Firebase dla Messaging (jeśli jeszcze nie zainicjalizowana)
+let messagingApp;
+let messaging;
+
+const initializeMessaging = () => {
+  try {
+    if (getApps().length === 0) {
+      messagingApp = initializeApp(firebaseConfig);
+    } else {
+      messagingApp = getApps()[0];
+    }
+    
+    // Sprawdź czy przeglądarka wspiera Messaging
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      messaging = getMessaging(messagingApp);
+      console.log('Firebase Messaging zainicjalizowane');
+    }
+  } catch (error) {
+    console.error('Błąd inicjalizacji Firebase Messaging:', error);
+  }
+};
+
+// Inicjalizuj przy starcie
+if (typeof window !== 'undefined') {
+  initializeMessaging();
+}
+
+// ============================================
+// HOOK - PUSH NOTIFICATIONS
+// ============================================
+const usePushNotifications = (currentUser, db, onNotificationReceived) => {
+  const [permission, setPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+  const [fcmToken, setFcmToken] = useState(null);
+  const [isSupported, setIsSupported] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Sprawdź wsparcie przeglądarki
+  useEffect(() => {
+    const checkSupport = () => {
+      const supported = typeof window !== 'undefined' &&
+                       'Notification' in window && 
+                       'serviceWorker' in navigator && 
+                       'PushManager' in window;
+      setIsSupported(supported);
+      
+      // Aktualizuj status uprawnień
+      if (typeof Notification !== 'undefined') {
+        setPermission(Notification.permission);
+      }
+    };
+    checkSupport();
+  }, []);
+
+  // Zapisz token FCM w Firestore dla użytkownika
+  const saveTokenToFirestore = useCallback(async (userId, token) => {
+    if (!db || !userId || !token) return;
+    
+    try {
+      const userRef = doc(db, 'users', userId);
+      const deviceInfo = navigator.userAgent.substring(0, 100);
+      
+      await updateDoc(userRef, {
+        fcmTokens: arrayUnion({
+          token,
+          device: deviceInfo,
+          createdAt: new Date().toISOString(),
+          platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 
+                   /Android/.test(navigator.userAgent) ? 'android' : 'web'
+        }),
+        lastFcmUpdate: new Date().toISOString()
+      });
+      
+      console.log('Token FCM zapisany dla użytkownika:', userId);
+    } catch (error) {
+      console.error('Błąd zapisu tokenu FCM:', error);
+    }
+  }, [db]);
+
+  // Pobierz token FCM
+  const getFcmToken = useCallback(async () => {
+    if (!messaging || !isSupported) return null;
+    
+    try {
+      // Zarejestruj Service Worker jeśli nie jest zarejestrowany
+      const registration = await navigator.serviceWorker.register('/service-worker.js');
+      console.log('Service Worker zarejestrowany:', registration);
+      
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration
+      });
+      
+      if (token) {
+        console.log('Otrzymano token FCM:', token.substring(0, 20) + '...');
+        setFcmToken(token);
+        return token;
+      } else {
+        console.log('Brak tokenu FCM - brak uprawnień?');
+        return null;
+      }
+    } catch (error) {
+      console.error('Błąd pobierania tokenu FCM:', error);
+      return null;
+    }
+  }, [isSupported]);
+
+  // Nasłuchuj na wiadomości gdy aplikacja jest otwarta
+  useEffect(() => {
+    if (!messaging || !isSupported || permission !== 'granted') return;
+    
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('Otrzymano wiadomość FCM:', payload);
+      
+      // Wywołaj callback jeśli podany
+      if (onNotificationReceived) {
+        onNotificationReceived({
+          icon: payload.data?.icon || '🔔',
+          title: payload.notification?.title || 'Powiadomienie',
+          message: payload.notification?.body || '',
+          data: payload.data
+        });
+      }
+      
+      // Pokaż natywne powiadomienie jeśli aplikacja jest w tle/nieaktywna
+      if (document.hidden && Notification.permission === 'granted') {
+        new Notification(payload.notification?.title || 'Herraton', {
+          body: payload.notification?.body,
+          icon: '/icons/icon-192.png',
+          data: payload.data
+        });
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [isSupported, permission, onNotificationReceived]);
+
+  // Poproś o zgodę na powiadomienia
+  const requestPermission = async () => {
+    if (!isSupported) {
+      alert('Twoja przeglądarka nie wspiera powiadomień push. Spróbuj Chrome lub Edge.');
+      return false;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      
+      if (result === 'granted') {
+        const token = await getFcmToken();
+        
+        // Zapisz token w Firestore dla użytkownika
+        if (token && currentUser?.id && db) {
+          await saveTokenToFirestore(currentUser.id, token);
+        }
+        
+        setIsLoading(false);
+        return true;
+      } else if (result === 'denied') {
+        alert('Powiadomienia zostały zablokowane. Aby je włączyć, zmień ustawienia w przeglądarce:\n\n' +
+              '1. Kliknij ikonę kłódki obok adresu strony\n' +
+              '2. Znajdź "Powiadomienia"\n' +
+              '3. Zmień na "Zezwalaj"');
+        setIsLoading(false);
+        return false;
+      }
+      
+      setIsLoading(false);
+      return false;
+    } catch (error) {
+      console.error('Błąd żądania uprawnień:', error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  // Inicjalizuj przy starcie jeśli uprawnienia są już przyznane
+  useEffect(() => {
+    if (permission === 'granted' && !fcmToken && currentUser?.id) {
+      getFcmToken().then(token => {
+        if (token && db) {
+          saveTokenToFirestore(currentUser.id, token);
+        }
+      });
+    }
+  }, [permission, fcmToken, currentUser, db, getFcmToken, saveTokenToFirestore]);
+
+  return {
+    isSupported,
+    permission,
+    fcmToken,
+    isLoading,
+    requestPermission
+  };
+};
+
+// ============================================
+// KOMPONENT - USTAWIENIA POWIADOMIEŃ
+// ============================================
+const NotificationSettings = ({ currentUser, onNotificationReceived }) => {
+  const [dbInstance, setDbInstance] = useState(null);
+  
+  // Pobierz db dynamicznie
+  useEffect(() => {
+    const loadDb = async () => {
+      try {
+        const { db } = await import('./firebase');
+        setDbInstance(db);
+      } catch (error) {
+        console.error('Błąd ładowania Firebase:', error);
+      }
+    };
+    loadDb();
+  }, []);
+  
+  const { isSupported, permission, isLoading, requestPermission } = 
+    usePushNotifications(currentUser, dbInstance, onNotificationReceived);
+  
+  // Sprawdź czy to iOS bez zainstalowanej PWA
+  const isIOSWithoutPWA = /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+                          !window.matchMedia('(display-mode: standalone)').matches;
+  
+  if (!isSupported) {
+    return (
+      <div className="notification-setting">
+        <div className="notification-setting-header">
+          <span className="notification-icon">🔔</span>
+          <span className="notification-label">Powiadomienia push</span>
+        </div>
+        <div className="notification-status not-supported">
+          ⚠️ Nieobsługiwane w tej przeglądarce
+        </div>
+      </div>
+    );
+  }
+  
+  if (isIOSWithoutPWA) {
+    return (
+      <div className="notification-setting">
+        <div className="notification-setting-header">
+          <span className="notification-icon">🔔</span>
+          <span className="notification-label">Powiadomienia push</span>
+        </div>
+        <div className="notification-status ios-info">
+          📱 Zainstaluj aplikację (Dodaj do ekranu) aby włączyć powiadomienia
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="notification-setting">
+      <div className="notification-setting-header">
+        <span className="notification-icon">🔔</span>
+        <span className="notification-label">Powiadomienia push</span>
+      </div>
+      
+      {permission === 'granted' ? (
+        <div className="notification-status enabled">
+          ✅ Włączone
+        </div>
+      ) : permission === 'denied' ? (
+        <div className="notification-status denied">
+          ❌ Zablokowane
+          <small>Zmień w ustawieniach przeglądarki</small>
+        </div>
+      ) : (
+        <button 
+          onClick={requestPermission} 
+          className="btn-enable-notifications"
+          disabled={isLoading}
+        >
+          {isLoading ? '⏳ Włączanie...' : '🔔 Włącz powiadomienia'}
+        </button>
+      )}
+    </div>
+  );
+};
 
 // Funkcja wysyłania emaila przez MailerSend (via Vercel API)
 // attachments: [{ filename: 'plik.pdf', content: 'base64...', type: 'application/pdf' }]
@@ -5133,9 +5435,10 @@ const ProductSearchModal = ({ priceLists, producers, onSelect, onClose }) => {
 // MODAL USTAWIEŃ - TYLKO DLA ADMINA
 // ============================================
 
-const SettingsModal = ({ onClose }) => {
+const SettingsModal = ({ onClose, currentUser, onNotificationReceived }) => {
   const [url, setUrl] = useState(getGoogleScriptUrl());
   const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState('general'); // general, notifications
 
   const handleSave = () => {
     setGoogleScriptUrl(url);
@@ -5150,17 +5453,64 @@ const SettingsModal = ({ onClose }) => {
           <h2>⚙️ Ustawienia</h2>
           <button className="btn-close" onClick={onClose}>×</button>
         </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label>URL Google Apps Script</label>
-            <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." />
-            <small>Wklej URL z kroku 10 instrukcji</small>
-          </div>
-          {saved && <div className="success-message">✅ Zapisano!</div>}
+        
+        {/* Tabs */}
+        <div className="settings-tabs">
+          <button 
+            className={`settings-tab ${activeTab === 'general' ? 'active' : ''}`}
+            onClick={() => setActiveTab('general')}
+          >
+            🔧 Ogólne
+          </button>
+          <button 
+            className={`settings-tab ${activeTab === 'notifications' ? 'active' : ''}`}
+            onClick={() => setActiveTab('notifications')}
+          >
+            🔔 Powiadomienia
+          </button>
         </div>
+        
+        <div className="modal-body">
+          {activeTab === 'general' && (
+            <>
+              <div className="form-group">
+                <label>URL Google Apps Script</label>
+                <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." />
+                <small>Wklej URL z kroku 10 instrukcji</small>
+              </div>
+              {saved && <div className="success-message">✅ Zapisano!</div>}
+            </>
+          )}
+          
+          {activeTab === 'notifications' && (
+            <div className="notifications-settings">
+              <p className="settings-description">
+                Włącz powiadomienia push, aby otrzymywać alerty o nowych zamówieniach, 
+                zmianach statusu i wiadomościach nawet gdy aplikacja jest zamknięta.
+              </p>
+              
+              <NotificationSettings 
+                currentUser={currentUser}
+                onNotificationReceived={onNotificationReceived}
+              />
+              
+              <div className="notification-info">
+                <h4>📱 Jak działają powiadomienia?</h4>
+                <ul>
+                  <li><strong>Android:</strong> Działają od razu po włączeniu</li>
+                  <li><strong>iPhone/iPad:</strong> Wymagają iOS 16.4+ i zainstalowanej aplikacji PWA</li>
+                  <li><strong>Komputer:</strong> Działają w Chrome, Edge i Firefox</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+        
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Zamknij</button>
-          <button className="btn-primary" onClick={handleSave}>💾 Zapisz</button>
+          {activeTab === 'general' && (
+            <button className="btn-primary" onClick={handleSave}>💾 Zapisz</button>
+          )}
         </div>
       </div>
     </div>
@@ -16999,7 +17349,13 @@ Zespół obsługi zamówień
         />
       )}
 
-      {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      {showSettingsModal && (
+        <SettingsModal 
+          onClose={() => setShowSettingsModal(false)} 
+          currentUser={user}
+          onNotificationReceived={handleAddNotification}
+        />
+      )}
 
       {/* Panel rozliczeń transportowych */}
       {showSettlementsPanel && (
