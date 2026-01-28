@@ -13120,3 +13120,264 @@ input.margin-negative {
     font-size: 10px;
   }
 }
+
+/* ============================================
+   MOBILE FIXES - MODAL NOWEGO ZAMÓWIENIA
+   ============================================ */
+
+/* Pełnoekranowy modal na mobile */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0 !important;
+    align-items: flex-start !important;
+  }
+  
+  .modal-content,
+  .modal-content.modal-form,
+  .modal-content.modal-large,
+  .modal-content.modal-detail {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .modal-header {
+    flex-shrink: 0;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid #E5E7EB;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .modal-header h2 {
+    font-size: 16px !important;
+    margin: 0;
+  }
+  
+  .modal-body {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 12px !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain;
+  }
+  
+  .modal-footer,
+  .modal-footer-full {
+    flex-shrink: 0 !important;
+    padding: 12px !important;
+    border-top: 1px solid #E5E7EB;
+    background: white;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+  
+  /* Footer - przyciski w kolumnie na mobile */
+  .modal-footer-full {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  
+  .footer-left-actions,
+  .footer-right-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  .footer-left-actions button,
+  .footer-right-actions button {
+    flex: 1 !important;
+    min-width: 100px !important;
+    padding: 12px 10px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Formularz - wszystko w jednej kolumnie */
+  .order-form-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  
+  .order-form-left,
+  .order-form-right {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Sekcje formularza */
+  .form-section {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .form-section h4 {
+    font-size: 14px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  /* Pola formularza w kolumnie */
+  .form-row,
+  .form-grid,
+  .form-inline {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  
+  .form-group {
+    width: 100% !important;
+  }
+  
+  .form-group.span-2,
+  .form-group.span-3 {
+    grid-column: span 1 !important;
+    width: 100% !important;
+  }
+  
+  .form-group label {
+    font-size: 12px !important;
+    margin-bottom: 4px !important;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100% !important;
+    padding: 12px !important;
+    font-size: 16px !important; /* Zapobiega zoom na iOS */
+    border-radius: 8px !important;
+  }
+  
+  /* Zakładki produktów */
+  .product-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px !important;
+    gap: 6px !important;
+  }
+  
+  .product-tab {
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Przyciski */
+  .btn-primary,
+  .btn-secondary {
+    padding: 12px 16px !important;
+    font-size: 14px !important;
+    min-height: 44px !important;
+  }
+  
+  /* Input groups */
+  .input-with-currency,
+  .input-group {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .input-with-currency input,
+  .input-group input {
+    width: 100% !important;
+  }
+  
+  .input-with-currency select,
+  .input-group select {
+    width: 100% !important;
+  }
+  
+  /* Przycisk zamknięcia */
+  .btn-close {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 24px !important;
+    min-height: 36px !important;
+  }
+  
+  /* Confirmation modal */
+  .confirmation-modal {
+    width: calc(100% - 20px) !important;
+    max-width: 100% !important;
+    margin: 10px !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+  
+  .confirmation-modal-body {
+    padding: 16px !important;
+  }
+  
+  /* Tabele na mobile */
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ukryj niepotrzebne elementy na mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+  
+  /* Kalkulator marży */
+  .margin-calculator {
+    font-size: 12px !important;
+  }
+  
+  .margin-calculator .margin-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  
+  /* Status select */
+  .status-select {
+    padding: 8px !important;
+    font-size: 12px !important;
+    min-height: 40px !important;
+  }
+}
+
+/* Bardzo małe ekrany (iPhone SE) */
+@media (max-width: 375px) {
+  .modal-header {
+    padding: 10px 12px !important;
+  }
+  
+  .modal-body {
+    padding: 10px !important;
+  }
+  
+  .form-section {
+    padding: 10px !important;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 10px !important;
+  }
+  
+  .footer-left-actions button,
+  .footer-right-actions button {
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+  }
+}
