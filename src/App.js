@@ -16208,13 +16208,98 @@ const App = () => {
     setUser(null);
   };
 
+  // Funkcja wysyłania push notification
+  const sendPushNotification = async (title, body, data = {}, targetUserIds = []) => {
+    try {
+      console.log('🔔 sendPushNotification wywołane:', { title, body, targetUserIds });
+      
+      // Pobierz tokeny FCM użytkowników
+      let tokens = [];
+      
+      if (targetUserIds.length > 0) {
+        // Wyślij do konkretnych użytkowników
+        tokens = users
+          .filter(u => targetUserIds.includes(u.id) && u.fcmTokens?.length > 0)
+          .flatMap(u => u.fcmTokens.map(t => t.token));
+        console.log('🎯 Wysyłam do konkretnych użytkowników:', targetUserIds);
+      } else {
+        // Wyślij do WSZYSTKICH użytkowników z tokenami FCM (oprócz aktualnie zalogowanego)
+        tokens = users
+          .filter(u => u.fcmTokens?.length > 0 && u.id !== user?.id)
+          .flatMap(u => u.fcmTokens.map(t => t.token));
+        console.log('📢 Wysyłam do wszystkich użytkowników z FCM (oprócz siebie)');
+      }
+      
+      console.log('📱 Znalezione tokeny:', tokens.length);
+      
+      if (tokens.length === 0) {
+        console.log('⚠️ Brak tokenów FCM do wysłania');
+        return;
+      }
+      
+      // Usuń duplikaty
+      tokens = [...new Set(tokens)];
+      
+      console.log(`📤 Wysyłam push do ${tokens.length} urządzeń`);
+      
+      const response = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tokens,
+          title,
+          body,
+          data: {
+            ...data,
+            url: '/'
+          }
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Push wysłany:', result);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Błąd wysyłania push:', errorText);
+      }
+    } catch (error) {
+      console.error('❌ Błąd wysyłania push notification:', error);
+    }
+  };
+
   const addNotif = async (data) => {
+    console.log('🔔 addNotif wywołane:', data);
+    
     await addNotification({
       ...data,
       createdAt: new Date().toISOString(),
       resolved: false,
       forContractor: data.forContractor || null
     });
+    
+    // Wyślij push notification
+    // Określ odbiorców na podstawie typu powiadomienia
+    let targetUserIds = [];
+    
+    if (data.forDriver) {
+      // Powiadomienie dla konkretnego kierowcy
+      targetUserIds = [data.forDriver];
+    } else if (data.forContractor) {
+      // Powiadomienie dla kontrahenta
+      targetUserIds = [data.forContractor];
+    }
+    // Jeśli targetUserIds jest puste, wyśle do wszystkich użytkowników z FCM
+    
+    console.log('🎯 Target users dla push:', targetUserIds.length > 0 ? targetUserIds : 'wszyscy');
+    
+    // Wyślij push (async, nie czekamy na wynik)
+    sendPushNotification(
+      data.title || 'Herraton',
+      data.message || '',
+      { orderId: data.orderId, type: data.type || 'notification' },
+      targetUserIds
+    );
   };
 
   const handleSaveOrder = async (form, currentUser) => {
