@@ -22,8 +22,94 @@
       background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
       min-height: 100vh;
       color: white;
+      overflow-x: hidden;
     }
     
+    /* ========== SPLASH SCREEN ========== */
+    .splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    
+    .splash-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    
+    .splash-logo {
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(135deg, #6366F1, #4F46E5);
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+      animation: logoAppear 0.8s ease-out, logoPulse 2s ease-in-out infinite;
+    }
+    
+    .splash-logo svg {
+      width: 70px;
+      height: 70px;
+    }
+    
+    .splash-text {
+      margin-top: 24px;
+      font-size: 28px;
+      font-weight: 800;
+      opacity: 0;
+      animation: fadeInUp 0.6s ease-out 0.3s forwards;
+    }
+    
+    .splash-loader {
+      margin-top: 40px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .splash-loader span {
+      width: 10px;
+      height: 10px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 50%;
+      animation: loaderBounce 1.4s ease-in-out infinite;
+    }
+    
+    .splash-loader span:nth-child(1) { animation-delay: 0s; }
+    .splash-loader span:nth-child(2) { animation-delay: 0.2s; }
+    .splash-loader span:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes logoAppear {
+      0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    
+    @keyframes logoPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes loaderBounce {
+      0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+      40% { transform: scale(1.2); opacity: 1; }
+    }
+    
+    /* ========== MAIN CONTENT ========== */
     .container {
       max-width: 500px;
       margin: 0 auto;
@@ -31,6 +117,14 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    
+    .container.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
     
     /* Header */
@@ -49,6 +143,7 @@
       justify-content: center;
       margin: 0 auto 20px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      animation: floatAnimation 3s ease-in-out infinite;
     }
     
     .logo svg {
@@ -56,15 +151,22 @@
       height: 60px;
     }
     
+    @keyframes floatAnimation {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
     .app-name {
       font-size: 32px;
       font-weight: 800;
       margin-bottom: 8px;
+      animation: fadeInUp 0.6s ease-out 0.1s backwards;
     }
     
     .app-tagline {
       font-size: 16px;
       opacity: 0.8;
+      animation: fadeInUp 0.6s ease-out 0.2s backwards;
     }
     
     /* Main content */
@@ -81,6 +183,7 @@
       text-align: center;
       margin-bottom: 20px;
       display: none;
+      animation: slideUp 0.5s ease-out;
     }
     
     .already-installed.show {
@@ -90,6 +193,18 @@
     .already-installed .icon {
       font-size: 48px;
       margin-bottom: 16px;
+      animation: bounceIn 0.6s ease-out;
+    }
+    
+    @keyframes bounceIn {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    
+    @keyframes slideUp {
+      0% { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
     
     .already-installed h2 {
@@ -108,6 +223,7 @@
       border-radius: 24px;
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: slideUp 0.6s ease-out 0.3s backwards;
     }
     
     .instructions-header {
@@ -144,7 +260,7 @@
       font-size: 14px;
       color: #6B7280;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s ease;
       border: none;
       background: transparent;
     }
@@ -153,6 +269,11 @@
       background: white;
       color: #1E1B4B;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: scale(1.02);
+    }
+    
+    .device-tab:hover:not(.active) {
+      background: rgba(255,255,255,0.5);
     }
     
     .device-tab span {
@@ -170,6 +291,12 @@
     
     .instruction-panel.active {
       display: block;
+      animation: fadeIn 0.4s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
     }
     
     .step {
@@ -177,6 +304,18 @@
       gap: 16px;
       padding: 16px 0;
       border-bottom: 1px solid #E5E7EB;
+      opacity: 0;
+      animation: stepAppear 0.5s ease-out forwards;
+    }
+    
+    .step:nth-child(1) { animation-delay: 0.1s; }
+    .step:nth-child(2) { animation-delay: 0.2s; }
+    .step:nth-child(3) { animation-delay: 0.3s; }
+    .step:nth-child(4) { animation-delay: 0.4s; }
+    
+    @keyframes stepAppear {
+      0% { opacity: 0; transform: translateX(-20px); }
+      100% { opacity: 1; transform: translateX(0); }
     }
     
     .step:last-child {
@@ -195,6 +334,12 @@
       font-size: 16px;
       color: white;
       flex-shrink: 0;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .step:hover .step-number {
+      transform: scale(1.1);
+      box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
     }
     
     .step-content {
@@ -227,33 +372,16 @@
       padding: 4px 8px;
       margin: 0 4px;
       vertical-align: middle;
+      transition: background 0.3s ease;
+    }
+    
+    .step:hover .step-icon {
+      background: #D1D5DB;
     }
     
     .step-icon svg {
       width: 18px;
       height: 18px;
-    }
-    
-    /* Visual guides */
-    .visual-guide {
-      background: #F9FAFB;
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .visual-guide img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-    }
-    
-    .visual-guide-text {
-      font-size: 13px;
-      color: #6B7280;
     }
     
     /* Android install button */
@@ -272,21 +400,32 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     
     .android-install-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+    }
+    
+    .android-install-btn:active {
+      transform: translateY(-1px);
     }
     
     .android-install-btn.show {
       display: flex;
+      animation: pulseButton 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulseButton {
+      0%, 100% { box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+      50% { box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4); }
     }
     
     /* Features */
     .features {
       margin-top: 30px;
+      animation: slideUp 0.6s ease-out 0.5s backwards;
     }
     
     .features-title {
@@ -308,11 +447,28 @@
       border-radius: 16px;
       padding: 20px 16px;
       text-align: center;
+      transition: transform 0.3s ease, background 0.3s ease;
+    }
+    
+    .feature:hover {
+      transform: translateY(-5px);
+      background: rgba(255,255,255,0.15);
     }
     
     .feature-icon {
       font-size: 32px;
       margin-bottom: 10px;
+      animation: iconFloat 3s ease-in-out infinite;
+    }
+    
+    .feature:nth-child(1) .feature-icon { animation-delay: 0s; }
+    .feature:nth-child(2) .feature-icon { animation-delay: 0.5s; }
+    .feature:nth-child(3) .feature-icon { animation-delay: 1s; }
+    .feature:nth-child(4) .feature-icon { animation-delay: 1.5s; }
+    
+    @keyframes iconFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
     }
     
     .feature-title {
@@ -326,58 +482,10 @@
       opacity: 0.7;
     }
     
-    <!-- QR Code section -->
-    .qr-section {
-      margin-top: 30px;
-      text-align: center;
-    }
-    
-    .qr-title {
-      font-size: 16px;
-      margin-bottom: 16px;
-      opacity: 0.9;
-    }
-    
-    .qr-code {
-      background: white;
-      padding: 20px;
-      border-radius: 16px;
-      display: inline-block;
-      margin-bottom: 20px;
-    }
-    
-    .qr-code svg,
-    .qr-code canvas,
-    .qr-code img {
-      display: block;
-    }
-    
-    .qr-hint {
-      margin-top: 12px;
-      font-size: 13px;
-      opacity: 0.7;
-    }
-    
-    .divider {
-      display: flex;
-      align-items: center;
-      margin: 24px 0;
-      gap: 16px;
-    }
-    
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: rgba(255,255,255,0.3);
-    }
-    
-    .divider-text {
-      font-size: 13px;
-      opacity: 0.7;
-    }
-    
+    /* Link section */
     .link-section {
-      margin-top: 20px;
+      margin-top: 30px;
+      animation: slideUp 0.6s ease-out 0.6s backwards;
     }
     
     .link-box {
@@ -388,15 +496,16 @@
     }
     
     .link-label {
-      font-size: 13px;
-      opacity: 0.7;
+      font-size: 14px;
+      opacity: 0.9;
       margin-bottom: 12px;
+      text-align: center;
     }
     
     .link-input-group {
       display: flex;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     
     .link-input {
@@ -409,10 +518,12 @@
       font-size: 14px;
       font-family: monospace;
       outline: none;
+      transition: border-color 0.3s ease, background 0.3s ease;
     }
     
     .link-input:focus {
       border-color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.2);
     }
     
     .copy-btn {
@@ -423,16 +534,28 @@
       color: white;
       font-size: 16px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s ease;
     }
     
     .copy-btn:hover {
       background: rgba(255,255,255,0.3);
+      transform: scale(1.05);
+    }
+    
+    .copy-btn:active {
+      transform: scale(0.95);
     }
     
     .copy-btn.copied {
       background: #10B981;
       border-color: #10B981;
+      animation: copySuccess 0.4s ease-out;
+    }
+    
+    @keyframes copySuccess {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
     }
     
     .open-link-btn {
@@ -449,13 +572,17 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: all 0.3s ease;
       text-decoration: none;
     }
     
     .open-link-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+    }
+    
+    .open-link-btn:active {
+      transform: translateY(-1px);
     }
     
     /* Footer */
@@ -464,11 +591,17 @@
       padding: 30px 0;
       opacity: 0.7;
       font-size: 13px;
+      animation: fadeIn 0.6s ease-out 0.8s backwards;
     }
     
     .footer a {
       color: white;
       text-decoration: none;
+      transition: opacity 0.3s ease;
+    }
+    
+    .footer a:hover {
+      opacity: 0.8;
     }
     
     /* Open app button */
@@ -483,14 +616,19 @@
       font-weight: 600;
       text-decoration: none;
       font-size: 15px;
-      transition: transform 0.2s;
+      transition: all 0.3s ease;
     }
     
     .open-app-btn:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,0,0,0.2);
     }
     
-    /* Hide on desktop */
+    /* Desktop message */
+    .desktop-message {
+      display: none;
+    }
+    
     @media (min-width: 768px) {
       .mobile-only {
         display: none;
@@ -501,19 +639,36 @@
         background: rgba(255,255,255,0.1);
         backdrop-filter: blur(10px);
         border-radius: 20px;
-        padding: 30px;
+        padding: 40px;
         text-align: center;
         margin-bottom: 20px;
+        animation: slideUp 0.6s ease-out 0.3s backwards;
       }
-    }
-    
-    .desktop-message {
-      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- Splash Screen -->
+  <div class="splash-screen" id="splash-screen">
+    <div class="splash-logo">
+      <svg viewBox="0 0 60 60" fill="none">
+        <rect x="8" y="8" width="8" height="44" rx="2" fill="white"/>
+        <rect x="44" y="8" width="8" height="44" rx="2" fill="white"/>
+        <rect x="8" y="24" width="44" height="8" rx="2" fill="white"/>
+        <circle cx="52" cy="12" r="8" fill="#A5B4FC"/>
+        <path d="M49 8 L55 12 L49 16 L51 12 Z" fill="white"/>
+      </svg>
+    </div>
+    <div class="splash-text">Herraton</div>
+    <div class="splash-loader">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="container" id="main-container">
     <!-- Header -->
     <div class="header">
       <div class="logo">
@@ -535,19 +690,10 @@
       <div class="desktop-message">
         <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
         <h2 style="margin-bottom: 8px;">Otwórz na telefonie</h2>
-        <p style="opacity: 0.8; margin-bottom: 20px;">Zeskanuj kod QR lub skopiuj link</p>
-        <div class="qr-code" id="qr-desktop" style="margin-bottom: 20px;">
-          <!-- QR będzie wygenerowany przez JS -->
-        </div>
-        
-        <div class="divider" style="max-width: 300px; margin: 20px auto;">
-          <div class="divider-line"></div>
-          <div class="divider-text">lub</div>
-          <div class="divider-line"></div>
-        </div>
+        <p style="opacity: 0.8; margin-bottom: 24px;">Aby zainstalować aplikację, otwórz tę stronę na swoim telefonie</p>
         
         <div class="link-box" style="max-width: 400px; margin: 0 auto;">
-          <div class="link-label">🔗 Skopiuj link i wyślij</div>
+          <div class="link-label">🔗 Skopiuj link i wyślij na telefon</div>
           <div class="link-input-group">
             <input type="text" class="link-input" id="link-input-desktop" readonly />
             <button class="copy-btn" id="copy-btn-desktop" title="Kopiuj link">📋</button>
@@ -718,70 +864,54 @@
         </div>
       </div>
       
-      <!-- QR Code & Link section -->
-      <div class="qr-section mobile-only">
-        <div class="qr-title">📷 Zeskanuj kod QR</div>
-        <div class="qr-code" id="qr-mobile-container">
-          <!-- QR będzie wygenerowany przez JS -->
-        </div>
-        
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-text">lub</div>
-          <div class="divider-line"></div>
-        </div>
-        
-        <div class="link-section">
-          <div class="link-box">
-            <div class="link-label">🔗 Wyślij link znajomemu</div>
-            <div class="link-input-group">
-              <input type="text" class="link-input" id="link-input" readonly />
-              <button class="copy-btn" id="copy-btn" title="Kopiuj link">📋</button>
-            </div>
-            <a href="/" class="open-link-btn" id="open-link-btn">
-              🚀 Otwórz aplikację
-            </a>
+      <!-- Link section -->
+      <div class="link-section mobile-only">
+        <div class="link-box">
+          <div class="link-label">🔗 Wyślij link znajomemu</div>
+          <div class="link-input-group">
+            <input type="text" class="link-input" id="link-input" readonly />
+            <button class="copy-btn" id="copy-btn" title="Kopiuj link">📋</button>
           </div>
+          <a href="/" class="open-link-btn" id="open-link-btn">
+            🚀 Otwórz aplikację
+          </a>
         </div>
       </div>
     </div>
     
     <!-- Footer -->
     <div class="footer">
-      <p>Masz pytania? <a href="mailto:kontakt@herraton.pl">Skontaktuj się z nami</a></p>
-      <p style="margin-top: 8px;">© 2025 Herraton</p>
+      <p>© 2025 Herraton</p>
     </div>
   </div>
   
-  <!-- QR Code library - używamy innej, bardziej niezawodnej -->
   <script>
-    // Simple QR Code generator (inline, no external dependency)
-    // Based on qr-creator
-    function generateQR(container, text, size) {
-      // Używamy API do generowania QR
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=1E1B4B&margin=0`;
-      
-      const img = document.createElement('img');
-      img.src = qrUrl;
-      img.width = size;
-      img.height = size;
-      img.alt = 'QR Code';
-      img.style.borderRadius = '8px';
-      
-      container.innerHTML = '';
-      container.appendChild(img);
-    }
+    // ========== SPLASH SCREEN ==========
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        const container = document.getElementById('main-container');
+        
+        splash.classList.add('hidden');
+        container.classList.add('visible');
+        
+        // Remove splash from DOM after animation
+        setTimeout(() => {
+          splash.remove();
+        }, 500);
+      }, 2000); // 2 sekundy
+    });
     
-    // Detect device
+    // ========== DEVICE DETECTION ==========
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isAndroid = /Android/.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     
-    // Current URL for install page
+    // Current URL
     const currentUrl = window.location.origin + '/install';
     const appUrl = window.location.origin;
     
-    // Tab switching
+    // ========== TAB SWITCHING ==========
     const tabIOS = document.getElementById('tab-ios');
     const tabAndroid = document.getElementById('tab-android');
     const panelIOS = document.getElementById('panel-ios');
@@ -799,6 +929,14 @@
         panelAndroid.classList.add('active');
         panelIOS.classList.remove('active');
       }
+      
+      // Re-trigger step animations
+      const steps = document.querySelectorAll('.instruction-panel.active .step');
+      steps.forEach((step, i) => {
+        step.style.animation = 'none';
+        step.offsetHeight; // Trigger reflow
+        step.style.animation = `stepAppear 0.5s ease-out ${i * 0.1}s forwards`;
+      });
     }
     
     tabIOS.addEventListener('click', () => switchTab('ios'));
@@ -811,13 +949,13 @@
       switchTab('ios');
     }
     
-    // Show already installed message
+    // ========== ALREADY INSTALLED ==========
     if (isStandalone) {
       document.getElementById('already-installed').classList.add('show');
       document.getElementById('instructions-card').style.display = 'none';
     }
     
-    // Android install prompt
+    // ========== ANDROID INSTALL PROMPT ==========
     let deferredPrompt;
     const androidInstallBtn = document.getElementById('android-install-btn');
     const androidManualSteps = document.getElementById('android-manual-steps');
@@ -841,93 +979,55 @@
         if (outcome === 'accepted') {
           androidInstallBtn.innerHTML = '✅ Zainstalowano!';
           androidInstallBtn.disabled = true;
+          androidInstallBtn.style.background = '#10B981';
         }
       }
     });
     
-    // Generate QR codes
-    const qrMobileContainer = document.getElementById('qr-mobile-container');
-    const qrDesktopContainer = document.getElementById('qr-desktop');
-    
-    if (qrMobileContainer) {
-      generateQR(qrMobileContainer, currentUrl, 150);
-    }
-    
-    if (qrDesktopContainer) {
-      generateQR(qrDesktopContainer, currentUrl, 180);
-    }
-    
-    // Link input
+    // ========== LINK INPUTS ==========
     const linkInput = document.getElementById('link-input');
-    if (linkInput) {
-      linkInput.value = currentUrl;
+    const linkInputDesktop = document.getElementById('link-input-desktop');
+    
+    if (linkInput) linkInput.value = currentUrl;
+    if (linkInputDesktop) linkInputDesktop.value = currentUrl;
+    
+    // ========== COPY BUTTONS ==========
+    function setupCopyButton(btnId, inputId) {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      
+      if (btn && input) {
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(currentUrl);
+            btn.innerHTML = '✅';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+              btn.innerHTML = '📋';
+              btn.classList.remove('copied');
+            }, 2000);
+          } catch (err) {
+            input.select();
+            document.execCommand('copy');
+            btn.innerHTML = '✅';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.innerHTML = '📋';
+              btn.classList.remove('copied');
+            }, 2000);
+          }
+        });
+      }
     }
     
-    // Desktop URL display
-    const urlDisplayDesktop = document.getElementById('current-url-desktop');
-    if (urlDisplayDesktop) {
-      urlDisplayDesktop.textContent = currentUrl;
-    }
+    setupCopyButton('copy-btn', 'link-input');
+    setupCopyButton('copy-btn-desktop', 'link-input-desktop');
     
-    // Copy button
-    const copyBtn = document.getElementById('copy-btn');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(currentUrl);
-          copyBtn.innerHTML = '✅';
-          copyBtn.classList.add('copied');
-          
-          setTimeout(() => {
-            copyBtn.innerHTML = '📋';
-            copyBtn.classList.remove('copied');
-          }, 2000);
-        } catch (err) {
-          // Fallback for older browsers
-          linkInput.select();
-          document.execCommand('copy');
-          copyBtn.innerHTML = '✅';
-          setTimeout(() => {
-            copyBtn.innerHTML = '📋';
-          }, 2000);
-        }
-      });
-    }
-    
-    // Open app button
+    // ========== OPEN APP BUTTON ==========
     const openLinkBtn = document.getElementById('open-link-btn');
     if (openLinkBtn) {
       openLinkBtn.href = appUrl;
-    }
-    
-    // Desktop link input
-    const linkInputDesktop = document.getElementById('link-input-desktop');
-    if (linkInputDesktop) {
-      linkInputDesktop.value = currentUrl;
-    }
-    
-    // Desktop copy button
-    const copyBtnDesktop = document.getElementById('copy-btn-desktop');
-    if (copyBtnDesktop) {
-      copyBtnDesktop.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(currentUrl);
-          copyBtnDesktop.innerHTML = '✅';
-          copyBtnDesktop.classList.add('copied');
-          
-          setTimeout(() => {
-            copyBtnDesktop.innerHTML = '📋';
-            copyBtnDesktop.classList.remove('copied');
-          }, 2000);
-        } catch (err) {
-          linkInputDesktop.select();
-          document.execCommand('copy');
-          copyBtnDesktop.innerHTML = '✅';
-          setTimeout(() => {
-            copyBtnDesktop.innerHTML = '📋';
-          }, 2000);
-        }
-      });
     }
   </script>
 </body>
