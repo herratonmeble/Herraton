@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#1E1B4B" />
+  <title>Zainstaluj Herraton - Aplikacja do zarządzania zamówieniami</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
+      min-height: 100vh;
+      color: white;
+    }
+    
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 40px 0 30px;
+    }
+    
+    .logo {
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, #6366F1, #4F46E5);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    
+    .logo svg {
+      width: 60px;
+      height: 60px;
+    }
+    
+    .app-name {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    
+    .app-tagline {
+      font-size: 16px;
+      opacity: 0.8;
+    }
+    
+    /* Main content */
+    .main {
+      flex: 1;
+    }
+    
+    /* Already installed */
+    .already-installed {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .already-installed.show {
+      display: block;
+    }
+    
+    .already-installed .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    
+    .already-installed h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    
+    .already-installed p {
+      opacity: 0.8;
+      margin-bottom: 20px;
+    }
+    
+    /* Instructions card */
+    .instructions-card {
+      background: white;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .instructions-header {
+      background: linear-gradient(135deg, #1E1B4B, #312E81);
+      padding: 24px;
+      text-align: center;
+    }
+    
+    .instructions-header h2 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    
+    .instructions-header p {
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    
+    /* Device tabs */
+    .device-tabs {
+      display: flex;
+      background: #F3F4F6;
+      padding: 6px;
+      margin: 20px;
+      border-radius: 12px;
+    }
+    
+    .device-tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #6B7280;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: transparent;
+    }
+    
+    .device-tab.active {
+      background: white;
+      color: #1E1B4B;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .device-tab span {
+      margin-right: 6px;
+    }
+    
+    /* Instructions content */
+    .instructions-content {
+      padding: 0 24px 24px;
+    }
+    
+    .instruction-panel {
+      display: none;
+    }
+    
+    .instruction-panel.active {
+      display: block;
+    }
+    
+    .step {
+      display: flex;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid #E5E7EB;
+    }
+    
+    .step:last-child {
+      border-bottom: none;
+    }
+    
+    .step-number {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #6366F1, #4F46E5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: white;
+      flex-shrink: 0;
+    }
+    
+    .step-content {
+      flex: 1;
+    }
+    
+    .step-title {
+      font-weight: 600;
+      color: #1F2937;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    
+    .step-description {
+      color: #6B7280;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    
+    .step-description strong {
+      color: #1E1B4B;
+    }
+    
+    .step-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #E5E7EB;
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin: 0 4px;
+      vertical-align: middle;
+    }
+    
+    .step-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    
+    /* Visual guides */
+    .visual-guide {
+      background: #F9FAFB;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .visual-guide img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+    }
+    
+    .visual-guide-text {
+      font-size: 13px;
+      color: #6B7280;
+    }
+    
+    /* Android install button */
+    .android-install-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #1E1B4B, #312E81);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .android-install-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    
+    .android-install-btn.show {
+      display: flex;
+    }
+    
+    /* Features */
+    .features {
+      margin-top: 30px;
+    }
+    
+    .features-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .feature {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px 16px;
+      text-align: center;
+    }
+    
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    
+    .feature-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    
+    .feature-desc {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    /* QR Code section */
+    .qr-section {
+      margin-top: 30px;
+      text-align: center;
+    }
+    
+    .qr-title {
+      font-size: 16px;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+    
+    .qr-code {
+      background: white;
+      padding: 16px;
+      border-radius: 16px;
+      display: inline-block;
+    }
+    
+    .qr-code canvas {
+      display: block;
+    }
+    
+    .qr-hint {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 30px 0;
+      opacity: 0.7;
+      font-size: 13px;
+    }
+    
+    .footer a {
+      color: white;
+      text-decoration: none;
+    }
+    
+    /* Open app button */
+    .open-app-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      color: #1E1B4B;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 15px;
+      transition: transform 0.2s;
+    }
+    
+    .open-app-btn:hover {
+      transform: translateY(-2px);
+    }
+    
+    /* Hide on desktop */
+    @media (min-width: 768px) {
+      .mobile-only {
+        display: none;
+      }
+      
+      .desktop-message {
+        display: block !important;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+    }
+    
+    .desktop-message {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <svg viewBox="0 0 60 60" fill="none">
+          <rect x="8" y="8" width="8" height="44" rx="2" fill="white"/>
+          <rect x="44" y="8" width="8" height="44" rx="2" fill="white"/>
+          <rect x="8" y="24" width="44" height="8" rx="2" fill="white"/>
+          <circle cx="52" cy="12" r="8" fill="#A5B4FC"/>
+          <path d="M49 8 L55 12 L49 16 L51 12 Z" fill="white"/>
+        </svg>
+      </div>
+      <h1 class="app-name">Herraton</h1>
+      <p class="app-tagline">System zarządzania zamówieniami</p>
+    </div>
+    
+    <!-- Main -->
+    <div class="main">
+      <!-- Desktop message -->
+      <div class="desktop-message">
+        <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
+        <h2 style="margin-bottom: 8px;">Otwórz na telefonie</h2>
+        <p style="opacity: 0.8; margin-bottom: 20px;">Zeskanuj kod QR poniżej lub wpisz adres w przeglądarce telefonu</p>
+        <div class="qr-code" style="margin-bottom: 16px;">
+          <canvas id="qr-desktop"></canvas>
+        </div>
+        <p style="font-size: 14px; opacity: 0.7;" id="current-url-desktop"></p>
+      </div>
+      
+      <!-- Already installed -->
+      <div class="already-installed" id="already-installed">
+        <div class="icon">✅</div>
+        <h2>Aplikacja zainstalowana!</h2>
+        <p>Herraton jest już na Twoim ekranie głównym</p>
+        <a href="/" class="open-app-btn">
+          🚀 Otwórz aplikację
+        </a>
+      </div>
+      
+      <!-- Instructions card -->
+      <div class="instructions-card mobile-only" id="instructions-card">
+        <div class="instructions-header">
+          <h2>📲 Zainstaluj aplikację</h2>
+          <p>Wybierz swój system operacyjny</p>
+        </div>
+        
+        <!-- Device tabs -->
+        <div class="device-tabs">
+          <button class="device-tab active" data-tab="ios" id="tab-ios">
+            <span>🍎</span> iPhone
+          </button>
+          <button class="device-tab" data-tab="android" id="tab-android">
+            <span>🤖</span> Android
+          </button>
+        </div>
+        
+        <!-- iOS Instructions -->
+        <div class="instructions-content">
+          <div class="instruction-panel active" id="panel-ios">
+            <div class="step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <div class="step-title">Otwórz w Safari</div>
+                <div class="step-description">
+                  Upewnij się, że strona jest otwarta w przeglądarce <strong>Safari</strong> (nie Chrome/Firefox)
+                </div>
+              </div>
+            </div>
+            
+            <div class="step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <div class="step-title">Kliknij "Udostępnij"</div>
+                <div class="step-description">
+                  Naciśnij przycisk 
+                  <span class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                      <polyline points="16 6 12 2 8 6"/>
+                      <line x1="12" y1="2" x2="12" y2="15"/>
+                    </svg>
+                  </span>
+                  na dole ekranu
+                </div>
+              </div>
+            </div>
+            
+            <div class="step">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <div class="step-title">Dodaj do ekranu początkowego</div>
+                <div class="step-description">
+                  Przewiń w dół i wybierz 
+                  <span class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="12" y1="8" x2="12" y2="16"/>
+                      <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                  </span>
+                  <strong>"Dodaj do ekranu początkowego"</strong>
+                </div>
+              </div>
+            </div>
+            
+            <div class="step">
+              <div class="step-number">4</div>
+              <div class="step-content">
+                <div class="step-title">Potwierdź instalację</div>
+                <div class="step-description">
+                  Kliknij <strong>"Dodaj"</strong> w prawym górnym rogu. Gotowe! 🎉
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Android Instructions -->
+          <div class="instruction-panel" id="panel-android">
+            <button class="android-install-btn" id="android-install-btn">
+              <span>📥</span> Zainstaluj aplikację
+            </button>
+            
+            <div id="android-manual-steps">
+              <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <div class="step-title">Otwórz menu przeglądarki</div>
+                  <div class="step-description">
+                    Kliknij ikonę 
+                    <span class="step-icon">
+                      <svg viewBox="0 0 24 24" fill="#374151">
+                        <circle cx="12" cy="5" r="2"/>
+                        <circle cx="12" cy="12" r="2"/>
+                        <circle cx="12" cy="19" r="2"/>
+                      </svg>
+                    </span>
+                    (trzy kropki) w prawym górnym rogu
+                  </div>
+                </div>
+              </div>
+              
+              <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <div class="step-title">Wybierz "Zainstaluj aplikację"</div>
+                  <div class="step-description">
+                    Znajdź opcję <strong>"Zainstaluj aplikację"</strong> lub <strong>"Dodaj do ekranu głównego"</strong>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <div class="step-title">Potwierdź instalację</div>
+                  <div class="step-description">
+                    Kliknij <strong>"Zainstaluj"</strong>. Aplikacja pojawi się na ekranie głównym! 🎉
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Features -->
+      <div class="features mobile-only">
+        <div class="features-title">✨ Co zyskujesz?</div>
+        <div class="features-grid">
+          <div class="feature">
+            <div class="feature-icon">⚡</div>
+            <div class="feature-title">Szybki dostęp</div>
+            <div class="feature-desc">Jedno kliknięcie z ekranu głównego</div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📴</div>
+            <div class="feature-title">Tryb offline</div>
+            <div class="feature-desc">Działa bez internetu</div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔔</div>
+            <div class="feature-title">Powiadomienia</div>
+            <div class="feature-desc">Nie przegapisz zamówień</div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📱</div>
+            <div class="feature-title">Pełny ekran</div>
+            <div class="feature-desc">Bez paska przeglądarki</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- QR Code -->
+      <div class="qr-section mobile-only">
+        <div class="qr-title">📷 Lub zeskanuj kod QR</div>
+        <div class="qr-code">
+          <canvas id="qr-mobile"></canvas>
+        </div>
+        <div class="qr-hint">Wyślij ten link znajomemu</div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p>Masz pytania? <a href="mailto:kontakt@herraton.pl">Skontaktuj się z nami</a></p>
+      <p style="margin-top: 8px;">© 2025 Herraton</p>
+    </div>
+  </div>
+  
+  <!-- QR Code library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <script>
+    // Detect device
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    
+    // Tab switching
+    const tabIOS = document.getElementById('tab-ios');
+    const tabAndroid = document.getElementById('tab-android');
+    const panelIOS = document.getElementById('panel-ios');
+    const panelAndroid = document.getElementById('panel-android');
+    
+    function switchTab(tab) {
+      if (tab === 'ios') {
+        tabIOS.classList.add('active');
+        tabAndroid.classList.remove('active');
+        panelIOS.classList.add('active');
+        panelAndroid.classList.remove('active');
+      } else {
+        tabAndroid.classList.add('active');
+        tabIOS.classList.remove('active');
+        panelAndroid.classList.add('active');
+        panelIOS.classList.remove('active');
+      }
+    }
+    
+    tabIOS.addEventListener('click', () => switchTab('ios'));
+    tabAndroid.addEventListener('click', () => switchTab('android'));
+    
+    // Auto-select tab based on device
+    if (isAndroid) {
+      switchTab('android');
+    } else if (isIOS) {
+      switchTab('ios');
+    }
+    
+    // Show already installed message
+    if (isStandalone) {
+      document.getElementById('already-installed').classList.add('show');
+      document.getElementById('instructions-card').style.display = 'none';
+    }
+    
+    // Android install prompt
+    let deferredPrompt;
+    const androidInstallBtn = document.getElementById('android-install-btn');
+    const androidManualSteps = document.getElementById('android-manual-steps');
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Show install button, hide manual steps
+      androidInstallBtn.classList.add('show');
+      androidManualSteps.style.display = 'none';
+    });
+    
+    androidInstallBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('Install outcome:', outcome);
+        deferredPrompt = null;
+        
+        if (outcome === 'accepted') {
+          androidInstallBtn.innerHTML = '✅ Zainstalowano!';
+          androidInstallBtn.disabled = true;
+        }
+      }
+    });
+    
+    // Generate QR codes
+    const currentUrl = window.location.origin + '/install';
+    
+    // Mobile QR
+    if (document.getElementById('qr-mobile')) {
+      new QRCode(document.getElementById('qr-mobile'), {
+        text: currentUrl,
+        width: 150,
+        height: 150,
+        colorDark: '#1E1B4B',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+    
+    // Desktop QR
+    if (document.getElementById('qr-desktop')) {
+      new QRCode(document.getElementById('qr-desktop'), {
+        text: currentUrl,
+        width: 180,
+        height: 180,
+        colorDark: '#1E1B4B',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+    
+    // Show URL
+    const urlDisplay = document.getElementById('current-url-desktop');
+    if (urlDisplay) {
+      urlDisplay.textContent = currentUrl;
+    }
+  </script>
+</body>
+</html>
