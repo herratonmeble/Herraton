@@ -16700,6 +16700,39 @@ Zespół obsługi zamówień
   const handleSendMessage = async (messageData) => {
     if (addMessage) {
       await addMessage(messageData);
+      
+      // Wyślij push notification do odbiorcy
+      const receiver = users.find(u => u.id === messageData.receiverId);
+      if (receiver && receiver.fcmTokens?.length > 0) {
+        const tokens = receiver.fcmTokens.map(t => t.token);
+        
+        console.log('📨 Wysyłam push o nowej wiadomości do:', receiver.name);
+        
+        try {
+          const response = await fetch('/api/send-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tokens,
+              title: `💬 Wiadomość od ${messageData.senderName}`,
+              body: messageData.text?.substring(0, 100) || 'Nowa wiadomość',
+              data: {
+                type: 'message',
+                senderId: messageData.senderId,
+                url: '/'
+              }
+            })
+          });
+          
+          if (response.ok) {
+            console.log('✅ Push o wiadomości wysłany');
+          } else {
+            console.error('❌ Błąd wysyłania push o wiadomości');
+          }
+        } catch (error) {
+          console.error('❌ Błąd wysyłania push:', error);
+        }
+      }
     }
   };
 
