@@ -14308,3 +14308,162 @@ input.margin-negative {
     text-align: center;
   }
 }
+
+
+
+/* ============================================ */
+/* MODAL WYBORU TYPU FAKTURY                   */
+/* ============================================ */
+
+.invoice-type-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.invoice-type-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+.invoice-type-modal h3 {
+  font-size: 20px;
+  color: #1E293B;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.invoice-details {
+  background: #F8FAFC;
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.invoice-details p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #475569;
+}
+
+.invoice-details p strong {
+  color: #1E293B;
+}
+
+.invoice-type-select {
+  margin-bottom: 20px;
+}
+
+.invoice-type-select label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  margin-bottom: 10px;
+}
+
+.invoice-type-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.invoice-type-btn {
+  padding: 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  background: white;
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.invoice-type-btn:hover {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.invoice-type-btn:first-child:hover {
+  border-color: #10B981;
+  background: #ECFDF5;
+  color: #047857;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.invoice-email-option {
+  padding: 14px;
+  background: #FEF3C7;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.invoice-email-option label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #92400E;
+  cursor: pointer;
+}
+
+.invoice-email-option input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #F59E0B;
+}
+
+.invoice-email-option input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invoice-modal-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.invoice-modal-actions .btn-cancel {
+  padding: 10px 24px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  background: white;
+  color: #64748B;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.invoice-modal-actions .btn-cancel:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
