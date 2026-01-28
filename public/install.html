@@ -326,7 +326,7 @@
       opacity: 0.7;
     }
     
-    /* QR Code section */
+    <!-- QR Code section -->
     .qr-section {
       margin-top: 30px;
       text-align: center;
@@ -340,12 +340,15 @@
     
     .qr-code {
       background: white;
-      padding: 16px;
+      padding: 20px;
       border-radius: 16px;
       display: inline-block;
+      margin-bottom: 20px;
     }
     
-    .qr-code canvas {
+    .qr-code svg,
+    .qr-code canvas,
+    .qr-code img {
       display: block;
     }
     
@@ -353,6 +356,106 @@
       margin-top: 12px;
       font-size: 13px;
       opacity: 0.7;
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      gap: 16px;
+    }
+    
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .divider-text {
+      font-size: 13px;
+      opacity: 0.7;
+    }
+    
+    .link-section {
+      margin-top: 20px;
+    }
+    
+    .link-box {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    
+    .link-label {
+      font-size: 13px;
+      opacity: 0.7;
+      margin-bottom: 12px;
+    }
+    
+    .link-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .link-input {
+      flex: 1;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: white;
+      font-size: 14px;
+      font-family: monospace;
+      outline: none;
+    }
+    
+    .link-input:focus {
+      border-color: rgba(255,255,255,0.5);
+    }
+    
+    .copy-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .copy-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .copy-btn.copied {
+      background: #10B981;
+      border-color: #10B981;
+    }
+    
+    .open-link-btn {
+      width: 100%;
+      padding: 16px;
+      background: white;
+      color: #1E1B4B;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+    }
+    
+    .open-link-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
     
     /* Footer */
@@ -432,11 +535,24 @@
       <div class="desktop-message">
         <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
         <h2 style="margin-bottom: 8px;">Otwórz na telefonie</h2>
-        <p style="opacity: 0.8; margin-bottom: 20px;">Zeskanuj kod QR poniżej lub wpisz adres w przeglądarce telefonu</p>
-        <div class="qr-code" style="margin-bottom: 16px;">
-          <canvas id="qr-desktop"></canvas>
+        <p style="opacity: 0.8; margin-bottom: 20px;">Zeskanuj kod QR lub skopiuj link</p>
+        <div class="qr-code" id="qr-desktop" style="margin-bottom: 20px;">
+          <!-- QR będzie wygenerowany przez JS -->
         </div>
-        <p style="font-size: 14px; opacity: 0.7;" id="current-url-desktop"></p>
+        
+        <div class="divider" style="max-width: 300px; margin: 20px auto;">
+          <div class="divider-line"></div>
+          <div class="divider-text">lub</div>
+          <div class="divider-line"></div>
+        </div>
+        
+        <div class="link-box" style="max-width: 400px; margin: 0 auto;">
+          <div class="link-label">🔗 Skopiuj link i wyślij</div>
+          <div class="link-input-group">
+            <input type="text" class="link-input" id="link-input-desktop" readonly />
+            <button class="copy-btn" id="copy-btn-desktop" title="Kopiuj link">📋</button>
+          </div>
+        </div>
       </div>
       
       <!-- Already installed -->
@@ -602,13 +718,31 @@
         </div>
       </div>
       
-      <!-- QR Code -->
+      <!-- QR Code & Link section -->
       <div class="qr-section mobile-only">
-        <div class="qr-title">📷 Lub zeskanuj kod QR</div>
-        <div class="qr-code">
-          <canvas id="qr-mobile"></canvas>
+        <div class="qr-title">📷 Zeskanuj kod QR</div>
+        <div class="qr-code" id="qr-mobile-container">
+          <!-- QR będzie wygenerowany przez JS -->
         </div>
-        <div class="qr-hint">Wyślij ten link znajomemu</div>
+        
+        <div class="divider">
+          <div class="divider-line"></div>
+          <div class="divider-text">lub</div>
+          <div class="divider-line"></div>
+        </div>
+        
+        <div class="link-section">
+          <div class="link-box">
+            <div class="link-label">🔗 Wyślij link znajomemu</div>
+            <div class="link-input-group">
+              <input type="text" class="link-input" id="link-input" readonly />
+              <button class="copy-btn" id="copy-btn" title="Kopiuj link">📋</button>
+            </div>
+            <a href="/" class="open-link-btn" id="open-link-btn">
+              🚀 Otwórz aplikację
+            </a>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -619,14 +753,33 @@
     </div>
   </div>
   
-  <!-- QR Code library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  
+  <!-- QR Code library - używamy innej, bardziej niezawodnej -->
   <script>
+    // Simple QR Code generator (inline, no external dependency)
+    // Based on qr-creator
+    function generateQR(container, text, size) {
+      // Używamy API do generowania QR
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=1E1B4B&margin=0`;
+      
+      const img = document.createElement('img');
+      img.src = qrUrl;
+      img.width = size;
+      img.height = size;
+      img.alt = 'QR Code';
+      img.style.borderRadius = '8px';
+      
+      container.innerHTML = '';
+      container.appendChild(img);
+    }
+    
     // Detect device
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isAndroid = /Android/.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    
+    // Current URL for install page
+    const currentUrl = window.location.origin + '/install';
+    const appUrl = window.location.origin;
     
     // Tab switching
     const tabIOS = document.getElementById('tab-ios');
@@ -693,36 +846,88 @@
     });
     
     // Generate QR codes
-    const currentUrl = window.location.origin + '/install';
+    const qrMobileContainer = document.getElementById('qr-mobile-container');
+    const qrDesktopContainer = document.getElementById('qr-desktop');
     
-    // Mobile QR
-    if (document.getElementById('qr-mobile')) {
-      new QRCode(document.getElementById('qr-mobile'), {
-        text: currentUrl,
-        width: 150,
-        height: 150,
-        colorDark: '#1E1B4B',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
+    if (qrMobileContainer) {
+      generateQR(qrMobileContainer, currentUrl, 150);
+    }
+    
+    if (qrDesktopContainer) {
+      generateQR(qrDesktopContainer, currentUrl, 180);
+    }
+    
+    // Link input
+    const linkInput = document.getElementById('link-input');
+    if (linkInput) {
+      linkInput.value = currentUrl;
+    }
+    
+    // Desktop URL display
+    const urlDisplayDesktop = document.getElementById('current-url-desktop');
+    if (urlDisplayDesktop) {
+      urlDisplayDesktop.textContent = currentUrl;
+    }
+    
+    // Copy button
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(currentUrl);
+          copyBtn.innerHTML = '✅';
+          copyBtn.classList.add('copied');
+          
+          setTimeout(() => {
+            copyBtn.innerHTML = '📋';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        } catch (err) {
+          // Fallback for older browsers
+          linkInput.select();
+          document.execCommand('copy');
+          copyBtn.innerHTML = '✅';
+          setTimeout(() => {
+            copyBtn.innerHTML = '📋';
+          }, 2000);
+        }
       });
     }
     
-    // Desktop QR
-    if (document.getElementById('qr-desktop')) {
-      new QRCode(document.getElementById('qr-desktop'), {
-        text: currentUrl,
-        width: 180,
-        height: 180,
-        colorDark: '#1E1B4B',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
+    // Open app button
+    const openLinkBtn = document.getElementById('open-link-btn');
+    if (openLinkBtn) {
+      openLinkBtn.href = appUrl;
     }
     
-    // Show URL
-    const urlDisplay = document.getElementById('current-url-desktop');
-    if (urlDisplay) {
-      urlDisplay.textContent = currentUrl;
+    // Desktop link input
+    const linkInputDesktop = document.getElementById('link-input-desktop');
+    if (linkInputDesktop) {
+      linkInputDesktop.value = currentUrl;
+    }
+    
+    // Desktop copy button
+    const copyBtnDesktop = document.getElementById('copy-btn-desktop');
+    if (copyBtnDesktop) {
+      copyBtnDesktop.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(currentUrl);
+          copyBtnDesktop.innerHTML = '✅';
+          copyBtnDesktop.classList.add('copied');
+          
+          setTimeout(() => {
+            copyBtnDesktop.innerHTML = '📋';
+            copyBtnDesktop.classList.remove('copied');
+          }, 2000);
+        } catch (err) {
+          linkInputDesktop.select();
+          document.execCommand('copy');
+          copyBtnDesktop.innerHTML = '✅';
+          setTimeout(() => {
+            copyBtnDesktop.innerHTML = '📋';
+          }, 2000);
+        }
+      });
     }
   </script>
 </body>
