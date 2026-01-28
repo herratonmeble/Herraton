@@ -12493,6 +12493,553 @@ const ContactsPanel = ({ orders, onClose, isContractor, currentUser, onCreateOrd
 };
 
 // ============================================
+// PANEL PRÓBEK (WYSYŁKA)
+// ============================================
+
+const SHIPPING_STATUSES = [
+  { id: 'nowe', label: 'Nowe', color: '#3B82F6', icon: '🆕' },
+  { id: 'potwierdzone', label: 'Potwierdzone', color: '#F59E0B', icon: '✅' },
+  { id: 'w_trakcie', label: 'W trakcie', color: '#8B5CF6', icon: '📋' },
+  { id: 'wyslane', label: 'Wysłane', color: '#10B981', icon: '📬' }
+];
+
+const SamplesPanel = ({ samples, onSave, onDelete, onClose, currentUser }) => {
+  const [view, setView] = useState('list');
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [editingSample, setEditingSample] = useState(null);
+  const [formData, setFormData] = useState({
+    imie: '',
+    telefon: '',
+    email: '',
+    adres: '',
+    opis: '',
+    status: 'nowe'
+  });
+
+  const resetForm = () => {
+    setFormData({
+      imie: '',
+      telefon: '',
+      email: '',
+      adres: '',
+      opis: '',
+      status: 'nowe'
+    });
+    setEditingSample(null);
+  };
+
+  const handleSave = () => {
+    if (!formData.imie.trim() || !formData.opis.trim()) {
+      alert('Wypełnij imię/nazwę i opis próbki');
+      return;
+    }
+
+    const sampleData = {
+      ...formData,
+      id: editingSample?.id || `sample-${Date.now()}`,
+      createdAt: editingSample?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: editingSample?.createdBy || currentUser?.name
+    };
+
+    onSave(sampleData);
+    resetForm();
+    setView('list');
+  };
+
+  const handleEdit = (sample) => {
+    setFormData({
+      imie: sample.imie || '',
+      telefon: sample.telefon || '',
+      email: sample.email || '',
+      adres: sample.adres || '',
+      opis: sample.opis || '',
+      status: sample.status || 'nowe'
+    });
+    setEditingSample(sample);
+    setView('form');
+  };
+
+  const handleStatusChange = (sample, newStatus) => {
+    onSave({ ...sample, status: newStatus, updatedAt: new Date().toISOString() });
+  };
+
+  const filteredSamples = samples.filter(s => {
+    if (filter !== 'all' && s.status !== filter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const hay = [s.imie, s.telefon, s.email, s.adres, s.opis].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const statusCounts = {
+    all: samples.length,
+    nowe: samples.filter(s => s.status === 'nowe').length,
+    potwierdzone: samples.filter(s => s.status === 'potwierdzone').length,
+    w_trakcie: samples.filter(s => s.status === 'w_trakcie').length,
+    wyslane: samples.filter(s => s.status === 'wyslane').length
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>🧪 Próbki do wysłania</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="shipping-panel-content">
+          {view === 'list' && (
+            <>
+              <div className="shipping-toolbar">
+                <button className="btn-primary" onClick={() => { resetForm(); setView('form'); }}>
+                  ➕ Nowa próbka
+                </button>
+                <input
+                  type="text"
+                  placeholder="🔍 Szukaj..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="shipping-search"
+                />
+              </div>
+
+              <div className="shipping-filters">
+                <button 
+                  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilter('all')}
+                >
+                  Wszystkie ({statusCounts.all})
+                </button>
+                {SHIPPING_STATUSES.map(st => (
+                  <button
+                    key={st.id}
+                    className={`filter-btn ${filter === st.id ? 'active' : ''}`}
+                    onClick={() => setFilter(st.id)}
+                    style={{ '--filter-color': st.color }}
+                  >
+                    {st.icon} {st.label} ({statusCounts[st.id]})
+                  </button>
+                ))}
+              </div>
+
+              <div className="shipping-list">
+                {filteredSamples.length === 0 ? (
+                  <div className="empty-state">
+                    <p>🧪 Brak próbek do wyświetlenia</p>
+                  </div>
+                ) : (
+                  filteredSamples.map(sample => {
+                    const status = SHIPPING_STATUSES.find(s => s.id === sample.status) || SHIPPING_STATUSES[0];
+                    return (
+                      <div key={sample.id} className="shipping-item">
+                        <div className="shipping-item-header">
+                          <div className="shipping-item-client">
+                            <strong>{sample.imie}</strong>
+                            {sample.telefon && <span>📞 {sample.telefon}</span>}
+                            {sample.email && <span>✉️ {sample.email}</span>}
+                          </div>
+                          <div 
+                            className="shipping-status-badge"
+                            style={{ background: status.color }}
+                          >
+                            {status.icon} {status.label}
+                          </div>
+                        </div>
+                        {sample.adres && (
+                          <div className="shipping-item-address">📍 {sample.adres}</div>
+                        )}
+                        <div className="shipping-item-desc">{sample.opis}</div>
+                        <div className="shipping-item-footer">
+                          <span className="shipping-item-date">
+                            {new Date(sample.createdAt).toLocaleDateString('pl-PL')} • {sample.createdBy}
+                          </span>
+                          <div className="shipping-item-actions">
+                            <select
+                              value={sample.status}
+                              onChange={e => handleStatusChange(sample, e.target.value)}
+                              className="status-select-mini"
+                            >
+                              {SHIPPING_STATUSES.map(st => (
+                                <option key={st.id} value={st.id}>{st.icon} {st.label}</option>
+                              ))}
+                            </select>
+                            <button className="btn-icon" onClick={() => handleEdit(sample)} title="Edytuj">✏️</button>
+                            <button className="btn-icon btn-danger" onClick={() => {
+                              if (window.confirm('Usunąć tę próbkę?')) onDelete(sample.id);
+                            }} title="Usuń">🗑️</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {view === 'form' && (
+            <div className="shipping-form">
+              <h3>{editingSample ? '✏️ Edytuj próbkę' : '➕ Nowa próbka'}</h3>
+              
+              <div className="form-section">
+                <h4>👤 Dane klienta</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Imię / Nazwa firmy *</label>
+                    <input
+                      type="text"
+                      value={formData.imie}
+                      onChange={e => setFormData({...formData, imie: e.target.value})}
+                      placeholder="Jan Kowalski"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Telefon</label>
+                    <input
+                      type="tel"
+                      value={formData.telefon}
+                      onChange={e => setFormData({...formData, telefon: e.target.value})}
+                      placeholder="+48 123 456 789"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                      placeholder="jan@example.com"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Status</label>
+                    <select
+                      value={formData.status}
+                      onChange={e => setFormData({...formData, status: e.target.value})}
+                    >
+                      {SHIPPING_STATUSES.map(st => (
+                        <option key={st.id} value={st.id}>{st.icon} {st.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Adres wysyłki</label>
+                  <input
+                    type="text"
+                    value={formData.adres}
+                    onChange={e => setFormData({...formData, adres: e.target.value})}
+                    placeholder="ul. Przykładowa 1, 00-000 Miasto"
+                  />
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>🧪 Co wysłać</h4>
+                <div className="form-group">
+                  <label>Opis próbki *</label>
+                  <textarea
+                    value={formData.opis}
+                    onChange={e => setFormData({...formData, opis: e.target.value})}
+                    placeholder="Opisz co dokładnie ma być wysłane..."
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button className="btn-secondary" onClick={() => { resetForm(); setView('list'); }}>
+                  Anuluj
+                </button>
+                <button className="btn-primary" onClick={handleSave}>
+                  💾 {editingSample ? 'Zapisz zmiany' : 'Dodaj próbkę'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// PANEL POCZTY (WYSYŁKA)
+// ============================================
+
+const MailPanel = ({ mailItems, onSave, onDelete, onClose, currentUser }) => {
+  const [view, setView] = useState('list');
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [editingMail, setEditingMail] = useState(null);
+  const [formData, setFormData] = useState({
+    imie: '',
+    telefon: '',
+    email: '',
+    adres: '',
+    opis: '',
+    status: 'nowe'
+  });
+
+  const resetForm = () => {
+    setFormData({
+      imie: '',
+      telefon: '',
+      email: '',
+      adres: '',
+      opis: '',
+      status: 'nowe'
+    });
+    setEditingMail(null);
+  };
+
+  const handleSave = () => {
+    if (!formData.imie.trim() || !formData.opis.trim()) {
+      alert('Wypełnij imię/nazwę i opis przesyłki');
+      return;
+    }
+
+    const mailData = {
+      ...formData,
+      id: editingMail?.id || `mail-${Date.now()}`,
+      createdAt: editingMail?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: editingMail?.createdBy || currentUser?.name
+    };
+
+    onSave(mailData);
+    resetForm();
+    setView('list');
+  };
+
+  const handleEdit = (mail) => {
+    setFormData({
+      imie: mail.imie || '',
+      telefon: mail.telefon || '',
+      email: mail.email || '',
+      adres: mail.adres || '',
+      opis: mail.opis || '',
+      status: mail.status || 'nowe'
+    });
+    setEditingMail(mail);
+    setView('form');
+  };
+
+  const handleStatusChange = (mail, newStatus) => {
+    onSave({ ...mail, status: newStatus, updatedAt: new Date().toISOString() });
+  };
+
+  const filteredMail = mailItems.filter(m => {
+    if (filter !== 'all' && m.status !== filter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const hay = [m.imie, m.telefon, m.email, m.adres, m.opis].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const statusCounts = {
+    all: mailItems.length,
+    nowe: mailItems.filter(m => m.status === 'nowe').length,
+    potwierdzone: mailItems.filter(m => m.status === 'potwierdzone').length,
+    w_trakcie: mailItems.filter(m => m.status === 'w_trakcie').length,
+    wyslane: mailItems.filter(m => m.status === 'wyslane').length
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>✉️ Poczta do wysłania</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="shipping-panel-content">
+          {view === 'list' && (
+            <>
+              <div className="shipping-toolbar">
+                <button className="btn-primary" onClick={() => { resetForm(); setView('form'); }}>
+                  ➕ Nowa przesyłka
+                </button>
+                <input
+                  type="text"
+                  placeholder="🔍 Szukaj..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="shipping-search"
+                />
+              </div>
+
+              <div className="shipping-filters">
+                <button 
+                  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilter('all')}
+                >
+                  Wszystkie ({statusCounts.all})
+                </button>
+                {SHIPPING_STATUSES.map(st => (
+                  <button
+                    key={st.id}
+                    className={`filter-btn ${filter === st.id ? 'active' : ''}`}
+                    onClick={() => setFilter(st.id)}
+                    style={{ '--filter-color': st.color }}
+                  >
+                    {st.icon} {st.label} ({statusCounts[st.id]})
+                  </button>
+                ))}
+              </div>
+
+              <div className="shipping-list">
+                {filteredMail.length === 0 ? (
+                  <div className="empty-state">
+                    <p>✉️ Brak przesyłek do wyświetlenia</p>
+                  </div>
+                ) : (
+                  filteredMail.map(mail => {
+                    const status = SHIPPING_STATUSES.find(s => s.id === mail.status) || SHIPPING_STATUSES[0];
+                    return (
+                      <div key={mail.id} className="shipping-item">
+                        <div className="shipping-item-header">
+                          <div className="shipping-item-client">
+                            <strong>{mail.imie}</strong>
+                            {mail.telefon && <span>📞 {mail.telefon}</span>}
+                            {mail.email && <span>✉️ {mail.email}</span>}
+                          </div>
+                          <div 
+                            className="shipping-status-badge"
+                            style={{ background: status.color }}
+                          >
+                            {status.icon} {status.label}
+                          </div>
+                        </div>
+                        {mail.adres && (
+                          <div className="shipping-item-address">📍 {mail.adres}</div>
+                        )}
+                        <div className="shipping-item-desc">{mail.opis}</div>
+                        <div className="shipping-item-footer">
+                          <span className="shipping-item-date">
+                            {new Date(mail.createdAt).toLocaleDateString('pl-PL')} • {mail.createdBy}
+                          </span>
+                          <div className="shipping-item-actions">
+                            <select
+                              value={mail.status}
+                              onChange={e => handleStatusChange(mail, e.target.value)}
+                              className="status-select-mini"
+                            >
+                              {SHIPPING_STATUSES.map(st => (
+                                <option key={st.id} value={st.id}>{st.icon} {st.label}</option>
+                              ))}
+                            </select>
+                            <button className="btn-icon" onClick={() => handleEdit(mail)} title="Edytuj">✏️</button>
+                            <button className="btn-icon btn-danger" onClick={() => {
+                              if (window.confirm('Usunąć tę przesyłkę?')) onDelete(mail.id);
+                            }} title="Usuń">🗑️</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {view === 'form' && (
+            <div className="shipping-form">
+              <h3>{editingMail ? '✏️ Edytuj przesyłkę' : '➕ Nowa przesyłka'}</h3>
+              
+              <div className="form-section">
+                <h4>👤 Dane odbiorcy</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Imię / Nazwa firmy *</label>
+                    <input
+                      type="text"
+                      value={formData.imie}
+                      onChange={e => setFormData({...formData, imie: e.target.value})}
+                      placeholder="Jan Kowalski"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Telefon</label>
+                    <input
+                      type="tel"
+                      value={formData.telefon}
+                      onChange={e => setFormData({...formData, telefon: e.target.value})}
+                      placeholder="+48 123 456 789"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                      placeholder="jan@example.com"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Status</label>
+                    <select
+                      value={formData.status}
+                      onChange={e => setFormData({...formData, status: e.target.value})}
+                    >
+                      {SHIPPING_STATUSES.map(st => (
+                        <option key={st.id} value={st.id}>{st.icon} {st.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Adres wysyłki</label>
+                  <input
+                    type="text"
+                    value={formData.adres}
+                    onChange={e => setFormData({...formData, adres: e.target.value})}
+                    placeholder="ul. Przykładowa 1, 00-000 Miasto"
+                  />
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>📝 Co wysłać</h4>
+                <div className="form-group">
+                  <label>Opis przesyłki *</label>
+                  <textarea
+                    value={formData.opis}
+                    onChange={e => setFormData({...formData, opis: e.target.value})}
+                    placeholder="Opisz co dokładnie ma być wysłane..."
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button className="btn-secondary" onClick={() => { resetForm(); setView('list'); }}>
+                  Anuluj
+                </button>
+                <button className="btn-primary" onClick={handleSave}>
+                  💾 {editingMail ? 'Zapisz zmiany' : 'Dodaj przesyłkę'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // PANEL KOSZA
 // ============================================
 
@@ -16069,6 +16616,9 @@ const App = () => {
   const [showTrashPanel, setShowTrashPanel] = useState(false); // Kosz
   const [showContactsPanel, setShowContactsPanel] = useState(false); // Kontakty
   const [showSettingsMenu, setShowSettingsMenu] = useState(false); // Menu rozwijane
+  const [showShippingMenu, setShowShippingMenu] = useState(false); // Menu Wysyłka
+  const [showSamplesPanel, setShowSamplesPanel] = useState(false); // Próbki
+  const [showMailPanel, setShowMailPanel] = useState(false); // Poczta
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
@@ -16076,6 +16626,16 @@ const App = () => {
   const [emailModal, setEmailModal] = useState(null);
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
+  
+  // Dane dla Wysyłki (próbki i poczta)
+  const [samples, setSamples] = useState(() => {
+    const saved = localStorage.getItem('herratonSamples');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [mailItems, setMailItems] = useState(() => {
+    const saved = localStorage.getItem('herratonMailItems');
+    return saved ? JSON.parse(saved) : [];
+  });
   
   // Messenger state
   const [messages, setMessages] = useState([]);
@@ -16093,16 +16653,29 @@ const App = () => {
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
   const settingsMenuRef = useRef(null);
+  const shippingMenuRef = useRef(null);
 
   const drivers = users.filter(u => u.role === 'driver');
   const isContractor = user?.role === 'contractor';
   const isAdmin = user?.role === 'admin';
+
+  // Zapisz samples i mailItems do localStorage
+  useEffect(() => {
+    localStorage.setItem('herratonSamples', JSON.stringify(samples));
+  }, [samples]);
+  
+  useEffect(() => {
+    localStorage.setItem('herratonMailItems', JSON.stringify(mailItems));
+  }, [mailItems]);
 
   // Zamknij menu po kliknięciu poza nim
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target)) {
         setShowSettingsMenu(false);
+      }
+      if (shippingMenuRef.current && !shippingMenuRef.current.contains(e.target)) {
+        setShowShippingMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -17024,11 +17597,26 @@ Zespół obsługi zamówień
               </button>
             )}
 
-            {/* Przycisk Kontakty - dla admina i pracownika */}
+            {/* Menu rozwijane Wysyłka - dla admina i pracownika */}
             {(isAdmin || user?.role === 'worker') && (
-              <button className="btn-secondary contacts-btn" onClick={() => setShowContactsPanel(true)}>
-                📇 Kontakty
-              </button>
+              <div className="settings-dropdown" ref={shippingMenuRef}>
+                <button 
+                  className="btn-secondary shipping-btn" 
+                  onClick={() => setShowShippingMenu(!showShippingMenu)}
+                >
+                  📦 Wysyłka {showShippingMenu ? '▲' : '▼'}
+                </button>
+                {showShippingMenu && (
+                  <div className="settings-menu">
+                    <button onClick={() => { setShowSamplesPanel(true); setShowShippingMenu(false); }}>
+                      🧪 Próbki ({samples.filter(s => s.status !== 'wyslane').length})
+                    </button>
+                    <button onClick={() => { setShowMailPanel(true); setShowShippingMenu(false); }}>
+                      ✉️ Poczta ({mailItems.filter(m => m.status !== 'wyslane').length})
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Kosz - dla admina i pracownika */}
@@ -17054,6 +17642,9 @@ Zespół obsługi zamówień
                     </button>
                     <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
                       💰 Rozliczenia transportowe
+                    </button>
+                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
+                      📇 Kontakty
                     </button>
                     <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
                       👥 Użytkownicy
@@ -17092,6 +17683,9 @@ Zespół obsługi zamówień
                   <div className="settings-menu">
                     <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
                       📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
+                      📇 Kontakty
                     </button>
                     <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
                       🏭 Producenci
@@ -17738,6 +18332,48 @@ Zespół obsługi zamówień
             setEditingOrder(contactData);
             setShowOrderModal(true);
           }}
+        />
+      )}
+
+      {/* Panel Próbek */}
+      {showSamplesPanel && (
+        <SamplesPanel
+          samples={samples}
+          onSave={(sample) => {
+            setSamples(prev => {
+              const existing = prev.findIndex(s => s.id === sample.id);
+              if (existing >= 0) {
+                const updated = [...prev];
+                updated[existing] = sample;
+                return updated;
+              }
+              return [...prev, sample];
+            });
+          }}
+          onDelete={(id) => setSamples(prev => prev.filter(s => s.id !== id))}
+          onClose={() => setShowSamplesPanel(false)}
+          currentUser={user}
+        />
+      )}
+
+      {/* Panel Poczty */}
+      {showMailPanel && (
+        <MailPanel
+          mailItems={mailItems}
+          onSave={(mail) => {
+            setMailItems(prev => {
+              const existing = prev.findIndex(m => m.id === mail.id);
+              if (existing >= 0) {
+                const updated = [...prev];
+                updated[existing] = mail;
+                return updated;
+              }
+              return [...prev, mail];
+            });
+          }}
+          onDelete={(id) => setMailItems(prev => prev.filter(m => m.id !== id))}
+          onClose={() => setShowMailPanel(false)}
+          currentUser={user}
         />
       )}
 
