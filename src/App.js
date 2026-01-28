@@ -20,7 +20,7 @@ import './App.css';
 // ============================================
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // Firebase config (już używane w projekcie)
 const firebaseConfig = {
@@ -95,17 +95,35 @@ const usePushNotifications = (currentUser, db, onNotificationReceived) => {
     if (!db || !userId || !token) return;
     
     try {
+      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
       const userRef = doc(db, 'users', userId);
+      
+      // Pobierz aktualne tokeny użytkownika
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+      const existingTokens = userData?.fcmTokens || [];
+      
+      // Sprawdź czy token już istnieje
+      const tokenExists = existingTokens.some(t => t.token === token);
+      
+      if (tokenExists) {
+        console.log('Token FCM już istnieje dla użytkownika:', userId);
+        return;
+      }
+      
       const deviceInfo = navigator.userAgent.substring(0, 100);
       
+      // Dodaj nowy token
+      const newToken = {
+        token,
+        device: deviceInfo,
+        createdAt: new Date().toISOString(),
+        platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 
+                 /Android/.test(navigator.userAgent) ? 'android' : 'web'
+      };
+      
       await updateDoc(userRef, {
-        fcmTokens: arrayUnion({
-          token,
-          device: deviceInfo,
-          createdAt: new Date().toISOString(),
-          platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 
-                   /Android/.test(navigator.userAgent) ? 'android' : 'web'
-        }),
+        fcmTokens: [...existingTokens, newToken],
         lastFcmUpdate: new Date().toISOString()
       });
       
@@ -16242,6 +16260,9 @@ const App = () => {
       
       console.log(`📤 Wysyłam push do ${tokens.length} urządzeń`);
       
+      // Generuj unikalny tag dla tego powiadomienia (zapobiega duplikatom)
+      const notificationTag = `${data.type || 'notif'}-${Date.now()}`;
+      
       const response = await fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -16251,7 +16272,8 @@ const App = () => {
           body,
           data: {
             ...data,
-            url: '/'
+            url: '/',
+            tag: notificationTag
           }
         })
       });
