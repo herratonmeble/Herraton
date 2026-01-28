@@ -17353,7 +17353,7 @@ Zespół obsługi zamówień
         <SettingsModal 
           onClose={() => setShowSettingsModal(false)} 
           currentUser={user}
-          onNotificationReceived={handleAddNotification}
+          onNotificationReceived={addNotif}
         />
       )}
 
