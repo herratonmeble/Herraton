@@ -4297,6 +4297,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   return;
                 }
                 
+                // Zapisz referencję do przycisku PRZED async operacjami
+                const btn = e.currentTarget;
+                const originalText = btn.innerHTML;
+                
                 const confirmCreate = await new Promise((resolve) => {
                   // Tworzymy modal wyboru typu faktury
                   const modalDiv = document.createElement('div');
@@ -4369,8 +4373,6 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 if (!confirmCreate) return;
                 
                 // Pokaż loading
-                const btn = e.currentTarget;
-                const originalText = btn.innerHTML;
                 btn.innerHTML = '⏳ Tworzę dokument...';
                 btn.disabled = true;
                 
