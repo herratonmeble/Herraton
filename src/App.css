@@ -14227,3 +14227,84 @@ input.margin-negative {
     grid-template-columns: 1fr;
   }
 }
+
+
+
+/* Numer przesyłki - tracking */
+.shipping-tracking-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.shipping-tracking-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #ECFDF5;
+  border: 1px solid #10B981;
+  border-radius: 8px;
+}
+
+.tracking-label {
+  font-size: 12px;
+  color: #059669;
+}
+
+.tracking-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: #047857;
+  font-family: monospace;
+}
+
+.btn-edit-tracking {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.btn-edit-tracking:hover {
+  opacity: 1;
+}
+
+.btn-add-tracking {
+  padding: 6px 14px;
+  background: #F0FDF4;
+  border: 2px dashed #86EFAC;
+  border-radius: 8px;
+  color: #16A34A;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-tracking:hover {
+  background: #DCFCE7;
+  border-color: #22C55E;
+}
+
+/* Mobile - tracking */
+@media (max-width: 768px) {
+  .shipping-item-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .shipping-tracking-wrapper {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .btn-add-tracking {
+    width: 100%;
+    text-align: center;
+  }
+}
