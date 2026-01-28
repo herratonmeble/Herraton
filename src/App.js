@@ -20,7 +20,7 @@ import './App.css';
 // ============================================
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion, getFirestore } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 // Firebase config (już używane w projekcie)
 const firebaseConfig = {
