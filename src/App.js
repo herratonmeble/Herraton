@@ -393,7 +393,7 @@ const sendEmailViaMailerSend = async (toEmail, toName, subject, textContent, htm
 // Klucze API wFirma są bezpiecznie przechowywane w Vercel Environment Variables:
 // WFIRMA_ACCESS_KEY, WFIRMA_SECRET_KEY, WFIRMA_COMPANY_ID
 
-const createWFirmaInvoice = async (orderData) => {
+const createWFirmaInvoice = async (orderData, invoiceType = 'normal') => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
@@ -466,7 +466,7 @@ const createWFirmaInvoice = async (orderData) => {
       }
     }
     
-    // Dane faktury
+    // Dane faktury - typ: 'normal' (faktura VAT) lub 'proforma'
     const invoiceData = {
       invoice: {
         contractor: {
@@ -480,11 +480,11 @@ const createWFirmaInvoice = async (orderData) => {
           phone: orderData.klient?.telefon || '',
           tax_id_type: 'none'
         },
-        type: 'normal',
+        type: invoiceType, // 'normal' = Faktura VAT, 'proforma' = Proforma
         date: today,
         paymentdate: today,
         paymentmethod: 'transfer',
-        alreadypaid: zaplacono,
+        alreadypaid: invoiceType === 'proforma' ? 0 : zaplacono, // Proforma nie ma zaliczki
         currency: waluta === 'EUR' ? 'EUR' : 'PLN',
         description: `Zamówienie nr ${orderData.nrWlasny || ''}`,
         invoicecontents: invoiceContents
@@ -520,14 +520,15 @@ const createWFirmaInvoice = async (orderData) => {
     const result = await response.json();
     
     if (result.success) {
+      const docType = invoiceType === 'proforma' ? 'Proforma' : 'Faktura';
       return { 
         success: true, 
         invoiceId: result.invoiceId,
         invoiceNumber: result.invoiceNumber,
-        message: `Faktura ${result.invoiceNumber || ''} została utworzona!`
+        message: `${docType} ${result.invoiceNumber || ''} została utworzona!`
       };
     } else {
-      return { success: false, error: result.error || 'Błąd tworzenia faktury' };
+      return { success: false, error: result.error || 'Błąd tworzenia dokumentu' };
     }
     
   } catch (error) {
@@ -4296,27 +4297,113 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   return;
                 }
                 
-                const confirmCreate = window.confirm(
-                  `📄 Utworzyć fakturę w wFirma?\n\n` +
-                  `Klient: ${form.klient?.imie || '—'}\n` +
-                  `Kwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}\n` +
-                  `VAT: 23%\n\n` +
-                  `Kontynuować?`
-                );
+                const confirmCreate = await new Promise((resolve) => {
+                  // Tworzymy modal wyboru typu faktury
+                  const modalDiv = document.createElement('div');
+                  modalDiv.className = 'invoice-type-modal-overlay';
+                  modalDiv.innerHTML = `
+                    <div class="invoice-type-modal">
+                      <h3>📄 Wystaw dokument w wFirma</h3>
+                      <div class="invoice-details">
+                        <p><strong>Klient:</strong> ${form.klient?.imie || '—'}</p>
+                        <p><strong>Email:</strong> ${form.klient?.email || 'brak'}</p>
+                        <p><strong>Kwota:</strong> ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}</p>
+                      </div>
+                      <div class="invoice-type-select">
+                        <label>Typ dokumentu:</label>
+                        <div class="invoice-type-buttons">
+                          <button class="invoice-type-btn" data-type="normal">
+                            📄 Faktura VAT
+                          </button>
+                          <button class="invoice-type-btn" data-type="proforma">
+                            📋 Proforma
+                          </button>
+                        </div>
+                      </div>
+                      <div class="invoice-email-option">
+                        <label>
+                          <input type="checkbox" id="sendInvoiceEmail" ${form.klient?.email ? 'checked' : 'disabled'}>
+                          Wyślij dokument na email klienta
+                        </label>
+                        ${!form.klient?.email ? '<small style="color: #EF4444;">Brak adresu email klienta</small>' : ''}
+                      </div>
+                      <div class="invoice-modal-actions">
+                        <button class="btn-cancel">Anuluj</button>
+                      </div>
+                    </div>
+                  `;
+                  document.body.appendChild(modalDiv);
+                  
+                  // Obsługa kliknięć
+                  modalDiv.querySelector('.btn-cancel').onclick = () => {
+                    document.body.removeChild(modalDiv);
+                    resolve(null);
+                  };
+                  modalDiv.querySelector('.invoice-type-modal-overlay').onclick = (e) => {
+                    if (e.target === modalDiv) {
+                      document.body.removeChild(modalDiv);
+                      resolve(null);
+                    }
+                  };
+                  modalDiv.querySelectorAll('.invoice-type-btn').forEach(btn => {
+                    btn.onclick = () => {
+                      const type = btn.dataset.type;
+                      const sendEmail = modalDiv.querySelector('#sendInvoiceEmail')?.checked || false;
+                      document.body.removeChild(modalDiv);
+                      resolve({ type, sendEmail });
+                    };
+                  });
+                });
                 
                 if (!confirmCreate) return;
                 
                 // Pokaż loading
                 const btn = e.currentTarget;
                 const originalText = btn.innerHTML;
-                btn.innerHTML = '⏳ Tworzę fakturę...';
+                btn.innerHTML = '⏳ Tworzę dokument...';
                 btn.disabled = true;
                 
                 try {
-                  const result = await createWFirmaInvoice(form);
+                  const result = await createWFirmaInvoice(form, confirmCreate.type);
                   
                   if (result.success) {
-                    alert(`✅ ${result.message}\n\nFaktura została utworzona w systemie wFirma.`);
+                    let message = `✅ ${result.message}`;
+                    
+                    // Jeśli zaznaczono wysyłkę email i mamy email klienta
+                    if (confirmCreate.sendEmail && form.klient?.email) {
+                      btn.innerHTML = '📧 Wysyłam email...';
+                      
+                      try {
+                        const emailResult = await sendEmailViaMailerSend(
+                          form.klient.email,
+                          form.klient.imie || 'Klient',
+                          `${confirmCreate.type === 'proforma' ? 'Proforma' : 'Faktura'} - ${result.invoiceNumber || 'Herraton'}`,
+                          `Szanowny Kliencie,\n\nW załączniku przesyłamy ${confirmCreate.type === 'proforma' ? 'proformę' : 'fakturę'} nr ${result.invoiceNumber || ''}.\n\nZamówienie: ${form.nrWlasny || ''}\nKwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}\n\nDziękujemy za zakupy!\n\nPozdrawiamy,\nZespół Herraton`,
+                          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #1E40AF;">📄 ${confirmCreate.type === 'proforma' ? 'Proforma' : 'Faktura'}</h2>
+                            <p>Szanowny Kliencie,</p>
+                            <p>Przesyłamy ${confirmCreate.type === 'proforma' ? 'proformę' : 'fakturę'} nr <strong>${result.invoiceNumber || ''}</strong>.</p>
+                            <div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                              <p><strong>Zamówienie:</strong> ${form.nrWlasny || ''}</p>
+                              <p><strong>Kwota:</strong> ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}</p>
+                            </div>
+                            <p>Dokument jest dostępny w systemie wFirma.</p>
+                            <p>Dziękujemy za zakupy!</p>
+                            <p style="color: #64748B; margin-top: 30px;">Pozdrawiamy,<br>Zespół Herraton</p>
+                          </div>`
+                        );
+                        
+                        if (emailResult.success) {
+                          message += `\n\n📧 Email wysłany na: ${form.klient.email}`;
+                        } else {
+                          message += `\n\n⚠️ Nie udało się wysłać emaila: ${emailResult.error}`;
+                        }
+                      } catch (emailErr) {
+                        message += `\n\n⚠️ Błąd wysyłki emaila: ${emailErr.message}`;
+                      }
+                    }
+                    
+                    alert(message);
                   } else {
                     alert(`❌ Błąd: ${result.error}\n\nSprawdź dane i spróbuj ponownie.`);
                   }
@@ -4328,7 +4415,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 }
               }}
             >
-              📄 Faktura wFirma
+              📄 Faktura / Proforma
             </button>
           </div>
           <div className="footer-right-actions">
