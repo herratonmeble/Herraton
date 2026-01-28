@@ -4312,10 +4312,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                       <div class="invoice-type-select">
                         <label>Typ dokumentu:</label>
                         <div class="invoice-type-buttons">
-                          <button class="invoice-type-btn" data-type="normal">
+                          <button type="button" class="invoice-type-btn btn-invoice-vat">
                             📄 Faktura VAT
                           </button>
-                          <button class="invoice-type-btn" data-type="proforma">
+                          <button type="button" class="invoice-type-btn btn-invoice-proforma">
                             📋 Proforma
                           </button>
                         </div>
@@ -4328,30 +4328,41 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                         ${!form.klient?.email ? '<small style="color: #EF4444;">Brak adresu email klienta</small>' : ''}
                       </div>
                       <div class="invoice-modal-actions">
-                        <button class="btn-cancel">Anuluj</button>
+                        <button type="button" class="btn-cancel">Anuluj</button>
                       </div>
                     </div>
                   `;
                   document.body.appendChild(modalDiv);
                   
-                  // Obsługa kliknięć
-                  modalDiv.querySelector('.btn-cancel').onclick = () => {
+                  // Obsługa przycisku Anuluj
+                  const cancelBtn = modalDiv.querySelector('.btn-cancel');
+                  cancelBtn.addEventListener('click', () => {
                     document.body.removeChild(modalDiv);
                     resolve(null);
-                  };
-                  modalDiv.querySelector('.invoice-type-modal-overlay').onclick = (e) => {
-                    if (e.target === modalDiv) {
+                  });
+                  
+                  // Obsługa kliknięcia w tło
+                  modalDiv.addEventListener('click', (evt) => {
+                    if (evt.target === modalDiv) {
                       document.body.removeChild(modalDiv);
                       resolve(null);
                     }
-                  };
-                  modalDiv.querySelectorAll('.invoice-type-btn').forEach(btn => {
-                    btn.onclick = () => {
-                      const type = btn.dataset.type;
-                      const sendEmail = modalDiv.querySelector('#sendInvoiceEmail')?.checked || false;
-                      document.body.removeChild(modalDiv);
-                      resolve({ type, sendEmail });
-                    };
+                  });
+                  
+                  // Obsługa przycisku Faktura VAT
+                  const vatBtn = modalDiv.querySelector('.btn-invoice-vat');
+                  vatBtn.addEventListener('click', () => {
+                    const sendEmail = modalDiv.querySelector('#sendInvoiceEmail')?.checked || false;
+                    document.body.removeChild(modalDiv);
+                    resolve({ type: 'normal', sendEmail });
+                  });
+                  
+                  // Obsługa przycisku Proforma
+                  const proformaBtn = modalDiv.querySelector('.btn-invoice-proforma');
+                  proformaBtn.addEventListener('click', () => {
+                    const sendEmail = modalDiv.querySelector('#sendInvoiceEmail')?.checked || false;
+                    document.body.removeChild(modalDiv);
+                    resolve({ type: 'proforma', sendEmail });
                   });
                 });
                 
