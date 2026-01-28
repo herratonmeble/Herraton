@@ -2,28 +2,143 @@
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#1E1B4B" />
-    <meta name="description" content="Herraton - System Zarządzania Zamówieniami" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <title>Herraton - System Zamówień</title>
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-      #loading { position: fixed; inset: 0; background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; }
-      #loading .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
+    <meta name="description" content="Herraton - Profesjonalny system zarządzania zamówieniami, kierowcami i fakturami" />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/icons/icon-192x192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Herraton" />
+    
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    
+    <!-- MS Tile -->
+    <meta name="msapplication-TileColor" content="#1E1B4B" />
+    <meta name="msapplication-TileImage" content="%PUBLIC_URL%/icons/icon-144x144.png" />
+    
+    <!-- Preconnect do Firebase -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://www.googleapis.com" />
+    
+    <title>Herraton - System Zarządzania Zamówieniami</title>
   </head>
   <body>
-    <noscript>Musisz włączyć JavaScript żeby uruchomić tę aplikację.</noscript>
-    <div id="root">
-      <div id="loading">
-        <div class="spinner"></div>
-        <div style="font-size: 24px; font-weight: 700;">Herraton</div>
-        <div style="font-size: 14px; opacity: 0.7; margin-top: 8px;">Ładowanie...</div>
-      </div>
-    </div>
+    <noscript>Musisz włączyć JavaScript aby uruchomić tę aplikację.</noscript>
+    <div id="root"></div>
+    
+    <!-- Rejestracja Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(function(registration) {
+              console.log('PWA: Service Worker zarejestrowany:', registration.scope);
+              
+              // Sprawdź aktualizacje
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // Nowa wersja dostępna
+                    if (confirm('Dostępna jest nowa wersja aplikacji. Odświeżyć?')) {
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
+            })
+            .catch(function(error) {
+              console.log('PWA: Błąd rejestracji Service Worker:', error);
+            });
+        });
+      }
+      
+      // Prompt instalacji PWA
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Pokaż przycisk instalacji po 5 sekundach
+        setTimeout(() => {
+          if (deferredPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
+            const installBanner = document.createElement('div');
+            installBanner.id = 'pwa-install-banner';
+            installBanner.innerHTML = `
+              <div style="
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #1E1B4B, #312E81);
+                color: white;
+                padding: 16px 20px;
+                border-radius: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              ">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 28px;">📱</span>
+                  <div>
+                    <div style="font-weight: 600; font-size: 14px;">Zainstaluj aplikację</div>
+                    <div style="font-size: 12px; opacity: 0.8;">Szybki dostęp z ekranu głównego</div>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button id="pwa-install-btn" style="
+                    background: white;
+                    color: #1E1B4B;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 13px;
+                    cursor: pointer;
+                  ">Instaluj</button>
+                  <button id="pwa-dismiss-btn" style="
+                    background: rgba(255,255,255,0.2);
+                    color: white;
+                    border: none;
+                    padding: 10px 16px;
+                    border-radius: 10px;
+                    font-size: 13px;
+                    cursor: pointer;
+                  ">Nie teraz</button>
+                </div>
+              </div>
+            `;
+            document.body.appendChild(installBanner);
+            
+            document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+              installBanner.remove();
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              console.log('PWA: Instalacja:', outcome);
+              deferredPrompt = null;
+            });
+            
+            document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+              installBanner.remove();
+              localStorage.setItem('pwa-dismissed', Date.now());
+            });
+          }
+        }, 5000);
+      });
+    </script>
   </body>
 </html>
