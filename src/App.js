@@ -20,7 +20,7 @@ import './App.css';
 // ============================================
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, updateDoc } from 'firebase/firestore';
+// doc i updateDoc są importowane dynamicznie w saveTokenToFirestore
 
 // Firebase config (już używane w projekcie)
 const firebaseConfig = {
