@@ -13925,3 +13925,305 @@ input.margin-negative {
     order: 0 !important;
   }
 }
+
+
+/* ============================================ */
+/* PANEL WYSYŁKI - PRÓBKI I POCZTA             */
+/* ============================================ */
+
+.shipping-panel-content {
+  padding: 20px;
+  max-height: calc(80vh - 120px);
+  overflow-y: auto;
+}
+
+.shipping-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.shipping-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.shipping-search:focus {
+  border-color: #3B82F6;
+  outline: none;
+}
+
+.shipping-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.shipping-filters .filter-btn {
+  padding: 8px 14px;
+  border: 2px solid #E2E8F0;
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shipping-filters .filter-btn:hover {
+  border-color: var(--filter-color, #3B82F6);
+  background: #F8FAFC;
+}
+
+.shipping-filters .filter-btn.active {
+  border-color: var(--filter-color, #3B82F6);
+  background: var(--filter-color, #3B82F6);
+  color: white;
+}
+
+.shipping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shipping-item {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.shipping-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-color: #CBD5E1;
+}
+
+.shipping-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.shipping-item-client {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shipping-item-client strong {
+  font-size: 16px;
+  color: #1E293B;
+}
+
+.shipping-item-client span {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.shipping-status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.shipping-item-address {
+  font-size: 13px;
+  color: #64748B;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+}
+
+.shipping-item-desc {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #FFFBEB;
+  border-radius: 8px;
+  border-left: 3px solid #F59E0B;
+}
+
+.shipping-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.shipping-item-date {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.shipping-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.status-select-mini {
+  padding: 6px 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: #F1F5F9;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: #E2E8F0;
+}
+
+.btn-icon.btn-danger:hover {
+  background: #FEE2E2;
+}
+
+/* Formularz wysyłki */
+.shipping-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.shipping-form h3 {
+  font-size: 20px;
+  margin-bottom: 24px;
+  color: #1E293B;
+}
+
+.shipping-form .form-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #F8FAFC;
+  border-radius: 12px;
+}
+
+.shipping-form .form-section h4 {
+  font-size: 14px;
+  color: #64748B;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shipping-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.shipping-form .form-group {
+  margin-bottom: 16px;
+}
+
+.shipping-form .form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.shipping-form .form-group input,
+.shipping-form .form-group select,
+.shipping-form .form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.shipping-form .form-group input:focus,
+.shipping-form .form-group select:focus,
+.shipping-form .form-group textarea:focus {
+  border-color: #3B82F6;
+  outline: none;
+}
+
+.shipping-form .form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.shipping-form .form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+/* Przycisk wysyłki w menu */
+.shipping-btn {
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+  color: white !important;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .shipping-toolbar {
+    flex-direction: column;
+  }
+  
+  .shipping-search {
+    width: 100%;
+  }
+  
+  .shipping-filters {
+    overflow-x: auto;
+    padding-bottom: 8px;
+    flex-wrap: nowrap;
+  }
+  
+  .shipping-filters .filter-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
+  .shipping-item-header {
+    flex-direction: column;
+  }
+  
+  .shipping-item-footer {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .shipping-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .shipping-form .form-row {
+    grid-template-columns: 1fr;
+  }
+}
