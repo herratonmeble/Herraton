@@ -18732,73 +18732,143 @@ Zespół obsługi zamówień
 };
 
 // ============================================
-// KOMPONENT SAMOUCZKA
+// KOMPONENT SAMOUCZKA - ROZBUDOWANY
 // ============================================
 
 const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) => {
+  const [targetRect, setTargetRect] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [arrowDirection, setArrowDirection] = useState('bottom');
+  
   const isDriver = userRole === 'driver';
   const isContractor = userRole === 'contractor';
 
-  // Kroki dla admina/pracownika
+  // Rozbudowane kroki dla admina/pracownika
   const adminSteps = [
     {
+      id: 'welcome',
       title: "👋 Witaj w Herraton!",
-      content: "To jest Twój przewodnik po systemie zarządzania zamówieniami. Pokażemy Ci najważniejsze funkcje w kilku krokach.",
-      highlight: null,
+      content: "To jest interaktywny przewodnik po systemie zarządzania zamówieniami. Przeprowadzimy Cię przez wszystkie najważniejsze funkcje krok po kroku. Kliknij 'Dalej' aby rozpocząć.",
+      selector: null,
       position: 'center'
     },
     {
-      title: "📦 Lista zamówień",
-      content: "Tu widzisz wszystkie zamówienia. Każda karta zawiera najważniejsze informacje: numer, klienta, status i cenę. Kliknij kartę żeby zobaczyć szczegóły.",
-      highlight: '.orders-list',
+      id: 'header',
+      title: "📦 Nagłówek aplikacji",
+      content: "W nagłówku widzisz logo firmy, nazwę zalogowanego użytkownika oraz jego rolę. To Twoje centrum dowodzenia!",
+      selector: '.header-brand',
       position: 'bottom'
     },
     {
-      title: "➕ Nowe zamówienie",
-      content: "Kliknij ten przycisk aby dodać nowe zamówienie. Formularz przeprowadzi Cię przez wszystkie dane: klient, produkty, płatności, transport.",
-      highlight: '.btn-primary',
-      position: 'bottom'
-    },
-    {
-      title: "🔍 Filtry i wyszukiwanie",
-      content: "Użyj filtrów aby znaleźć zamówienia po statusie, kraju, pilności lub producencie. Możesz też wyszukać po numerze lub nazwie klienta.",
-      highlight: '.filters-container',
-      position: 'bottom'
-    },
-    {
+      id: 'notifications-btn',
       title: "🔔 Powiadomienia",
-      content: "Tu znajdziesz wszystkie powiadomienia o nowych zamówieniach, zmianach statusów i wiadomościach. Liczba pokazuje nieprzeczytane.",
-      highlight: '.header-actions',
+      content: "Kliknij tutaj aby zobaczyć wszystkie powiadomienia. Liczba w kółku pokazuje ile masz nieprzeczytanych powiadomień o nowych zamówieniach, zmianach statusów i wiadomościach.",
+      selector: '.header-actions button:first-child',
       position: 'bottom'
     },
     {
-      title: "📋 Reklamacje",
-      content: "Panel reklamacji pozwala zarządzać zgłoszeniami od klientów. Możesz dodawać zdjęcia, komentarze i śledzić status.",
-      highlight: '.complaint-btn',
+      id: 'complaints-btn',
+      title: "📋 Panel reklamacji",
+      content: "Tutaj zarządzasz reklamacjami od klientów. Możesz przeglądać zgłoszenia, dodawać zdjęcia, komentarze i zmieniać statusy. Liczba pokazuje aktywne reklamacje.",
+      selector: '.complaint-btn',
       position: 'bottom'
     },
     {
+      id: 'leads-btn',
+      title: "🎯 Zainteresowani (Leady)",
+      content: "Panel leadów służy do zarządzania potencjalnymi klientami. Zapisuj kontakty osób zainteresowanych, śledź ich status i przekształcaj w zamówienia.",
+      selector: '.leads-btn',
+      position: 'bottom'
+    },
+    {
+      id: 'shipping-menu',
+      title: "📦 Menu Wysyłka",
+      content: "Rozwijane menu z dwoma panelami: Próbki (wysyłka próbek produktów do klientów) oraz Poczta (dokumenty i korespondencja do wysłania). Liczniki pokazują ile czeka na wysyłkę.",
+      selector: '.header-actions .settings-dropdown:first-of-type',
+      position: 'bottom'
+    },
+    {
+      id: 'messenger-btn',
       title: "💬 Messenger",
-      content: "Wbudowany komunikator pozwala szybko kontaktować się z innymi użytkownikami systemu. Kliknij ikonę czatu.",
-      highlight: '.messenger-toggle',
+      content: "Wbudowany komunikator do szybkiej wymiany wiadomości z innymi użytkownikami systemu. Czerwona kropka oznacza nieprzeczytane wiadomości.",
+      selector: '.messenger-toggle',
       position: 'bottom'
     },
     {
-      title: "⚙️ Ustawienia",
-      content: "W menu ustawień znajdziesz: zarządzanie użytkownikami, producentami, kontaktami, statystyki i więcej.",
-      highlight: '.settings-dropdown',
+      id: 'settings-menu',
+      title: "⚙️ Menu Ustawień",
+      content: "Tutaj znajdziesz: Zarządzanie użytkownikami, Producentami, Kontaktami, Statystyki, Rozliczenia transportowe, Cenniki produktów, Kosz z usuniętymi zamówieniami oraz Powiadomienia Push.",
+      selector: '.settings-dropdown:last-of-type',
       position: 'bottom'
     },
     {
-      title: "📱 Powiadomienia Push",
-      content: "Włącz powiadomienia push w Ustawieniach → Powiadomienia Push, aby otrzymywać alerty nawet gdy aplikacja jest zamknięta.",
-      highlight: null,
+      id: 'new-order-btn',
+      title: "➕ Nowe zamówienie",
+      content: "Kliknij ten przycisk aby utworzyć nowe zamówienie. Otworzy się formularz z sekcjami: dane klienta, produkty, płatności i transport. Wszystkie pola są jasno opisane.",
+      selector: '.header-actions .btn-primary',
+      position: 'bottom'
+    },
+    {
+      id: 'filters',
+      title: "🔍 Filtry zamówień",
+      content: "Potężne narzędzie do filtrowania! Możesz filtrować po: statusie, kraju, pilności, twórcy zamówienia, kierowcy i producencie. Sortuj od najnowszych lub najstarszych.",
+      selector: '.filters-section',
+      position: 'bottom'
+    },
+    {
+      id: 'search',
+      title: "🔎 Wyszukiwarka",
+      content: "Wpisz numer zamówienia, nazwę klienta, telefon lub produkt - system natychmiast znajdzie pasujące zamówienia.",
+      selector: '.search-input-wrapper',
+      position: 'bottom'
+    },
+    {
+      id: 'order-card',
+      title: "📋 Karta zamówienia",
+      content: "Każde zamówienie wyświetlane jest jako karta. Widzisz: numer i flagę kraju, status (kolorowy znacznik), dane klienta, produkt, cenę i datę. Kliknij kartę aby zobaczyć szczegóły.",
+      selector: '.order-card:first-child',
+      position: 'right'
+    },
+    {
+      id: 'order-status',
+      title: "🔄 Zmiana statusu",
+      content: "Na każdej karcie możesz szybko zmienić status zamówienia używając dropdown menu. Dostępne statusy: Nowe → W realizacji → Gotowe → W transporcie → Dostarczone.",
+      selector: '.order-card:first-child .status-dropdown',
+      position: 'left'
+    },
+    {
+      id: 'order-actions',
+      title: "✏️ Akcje na zamówieniu",
+      content: "Przyciski akcji: ✏️ Edycja - otwiera formularz edycji, 🗑️ Usuń - przenosi do kosza (można przywrócić), Kliknięcie karty - otwiera podgląd szczegółów.",
+      selector: '.order-card:first-child .order-actions',
+      position: 'left'
+    },
+    {
+      id: 'invoice-info',
+      title: "📄 Faktury wFirma",
+      content: "W formularzu edycji zamówienia znajdziesz przycisk 'Faktura/Proforma'. Możesz wystawić Fakturę VAT lub Proformę, a następnie wysłać ją emailem do klienta z linkiem do podglądu.",
+      selector: null,
       position: 'center'
     },
     {
-      title: "🎉 Gotowe!",
-      content: "To wszystko na początek! Jeśli potrzebujesz pomocy, skontaktuj się z administratorem lub zajrzyj do instrukcji.",
-      highlight: null,
+      id: 'push-info',
+      title: "📱 Powiadomienia Push",
+      content: "Włącz powiadomienia push w Ustawienia → Powiadomienia Push. Będziesz otrzymywać alerty o nowych zamówieniach, zmianach statusów i wiadomościach nawet gdy przeglądarka jest zamknięta!",
+      selector: null,
+      position: 'center'
+    },
+    {
+      id: 'export-info',
+      title: "📊 Eksport danych",
+      content: "W widoku szczegółów zamówienia możesz wyeksportować dane do Excela lub zsynchronizować z Google Sheets. Przydatne do raportów i analiz.",
+      selector: null,
+      position: 'center'
+    },
+    {
+      id: 'finish',
+      title: "🎉 Gratulacje!",
+      content: "Znasz już wszystkie podstawowe funkcje systemu Herraton! Pamiętaj - zawsze możesz wrócić do tego samouczka w Ustawieniach. W razie pytań skontaktuj się z administratorem.",
+      selector: null,
       position: 'center'
     }
   ];
@@ -18806,33 +18876,59 @@ const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) =
   // Kroki dla kierowcy
   const driverSteps = [
     {
+      id: 'welcome',
       title: "👋 Witaj kierowco!",
-      content: "To jest Twój panel do zarządzania dostawami. Pokażemy Ci jak korzystać z systemu.",
-      highlight: null,
+      content: "To jest Twój panel do zarządzania dostawami. Pokażemy Ci wszystkie funkcje które będziesz potrzebować na co dzień.",
+      selector: null,
       position: 'center'
     },
     {
+      id: 'header',
+      title: "📦 Twój panel",
+      content: "W nagłówku widzisz swoje imię i rolę. Masz dostęp tylko do zamówień przypisanych do Ciebie.",
+      selector: '.header-brand',
+      position: 'bottom'
+    },
+    {
+      id: 'orders',
       title: "📋 Twoje zamówienia",
-      content: "Tu widzisz wszystkie zamówienia przypisane do Ciebie. Kliknij kartę aby zobaczyć szczegóły trasy.",
-      highlight: '.orders-list',
+      content: "Tu widzisz listę wszystkich zamówień przypisanych do Ciebie do dostarczenia. Kliknij kartę aby zobaczyć szczegóły trasy i dane kontaktowe klienta.",
+      selector: '.orders-list',
       position: 'bottom'
     },
     {
-      title: "🔄 Zmiana statusu",
-      content: "Gdy rozpoczynasz trasę, zmień status na 'W transporcie'. Po dostarczeniu zmień na 'Dostarczone'.",
-      highlight: null,
+      id: 'status-change',
+      title: "🔄 Zmiana statusu dostawy",
+      content: "WAŻNE! Gdy wyruszasz w trasę, zmień status na 'W transporcie'. Po dostarczeniu paczki zmień na 'Dostarczone'. System automatycznie powiadomi biuro.",
+      selector: '.order-card:first-child',
+      position: 'right'
+    },
+    {
+      id: 'client-info',
+      title: "📞 Dane kontaktowe klienta",
+      content: "Na karcie zamówienia widzisz telefon i adres klienta. Kliknij w numer telefonu aby zadzwonić bezpośrednio z aplikacji.",
+      selector: null,
       position: 'center'
     },
     {
+      id: 'messenger',
       title: "💬 Kontakt z biurem",
-      content: "Użyj Messengera aby szybko skontaktować się z biurem w razie problemów.",
-      highlight: '.messenger-toggle',
+      content: "Jeśli masz problem na trasie - użyj Messengera! Możesz szybko skontaktować się z biurem, wysłać wiadomość lub zgłosić problem.",
+      selector: '.messenger-toggle',
       position: 'bottom'
     },
     {
+      id: 'notifications',
+      title: "🔔 Powiadomienia",
+      content: "Tu zobaczysz powiadomienia o nowych zamówieniach przypisanych do Ciebie oraz wiadomości z biura.",
+      selector: '.header-actions button:first-child',
+      position: 'bottom'
+    },
+    {
+      id: 'finish',
       title: "🎉 Gotowe!",
-      content: "Powodzenia na trasie! W razie pytań skontaktuj się z biurem.",
-      highlight: null,
+      content: "Znasz już swój panel! Pamiętaj - aktualizuj statusy dostaw na bieżąco. Powodzenia na trasie! 🚚",
+      selector: null,
       position: 'center'
     }
   ];
@@ -18840,33 +18936,52 @@ const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) =
   // Kroki dla kontrahenta
   const contractorSteps = [
     {
-      title: "👋 Witaj!",
-      content: "To jest Twój panel klienta w systemie Herraton. Możesz tu śledzić swoje zamówienia.",
-      highlight: null,
+      id: 'welcome',
+      title: "👋 Witaj w panelu klienta!",
+      content: "To jest Twój dedykowany panel w systemie Herraton. Możesz tu śledzić swoje zamówienia i kontaktować się z nami.",
+      selector: null,
       position: 'center'
     },
     {
+      id: 'orders',
       title: "📦 Twoje zamówienia",
-      content: "Tu widzisz listę wszystkich swoich zamówień. Kliknij kartę aby zobaczyć szczegóły.",
-      highlight: '.orders-list',
+      content: "Tu widzisz listę wszystkich swoich zamówień. Każda karta pokazuje: numer, status realizacji, produkty i cenę. Kliknij kartę aby zobaczyć szczegóły.",
+      selector: '.orders-list',
       position: 'bottom'
     },
     {
-      title: "📋 Reklamacje",
-      content: "Jeśli masz problem z zamówieniem, możesz zgłosić reklamację klikając przycisk Reklamacje.",
-      highlight: '.complaint-btn',
+      id: 'status',
+      title: "📊 Status zamówienia",
+      content: "Kolorowy znacznik pokazuje aktualny status: 🟡 Nowe, 🔵 W realizacji, 🟢 Gotowe do wysyłki, 🟣 W transporcie, ✅ Dostarczone. Śledź postęp na bieżąco!",
+      selector: '.order-card:first-child',
+      position: 'right'
+    },
+    {
+      id: 'complaints',
+      title: "📋 Zgłaszanie reklamacji",
+      content: "Jeśli masz problem z zamówieniem, kliknij tutaj aby zgłosić reklamację. Możesz dodać opis problemu i zdjęcia. Będziemy śledzić sprawę.",
+      selector: '.complaint-btn',
       position: 'bottom'
     },
     {
-      title: "💬 Kontakt",
-      content: "Użyj Messengera aby skontaktować się z obsługą.",
-      highlight: '.messenger-toggle',
+      id: 'messenger',
+      title: "💬 Kontakt z nami",
+      content: "Masz pytanie? Użyj Messengera aby szybko się z nami skontaktować. Odpowiemy najszybciej jak to możliwe!",
+      selector: '.messenger-toggle',
       position: 'bottom'
     },
     {
-      title: "🎉 Gotowe!",
-      content: "Dziękujemy za zaufanie! W razie pytań jesteśmy do dyspozycji.",
-      highlight: null,
+      id: 'notifications',
+      title: "🔔 Powiadomienia",
+      content: "Tu zobaczysz powiadomienia o zmianach w Twoich zamówieniach - np. gdy zamówienie zostanie wysłane.",
+      selector: '.header-actions button:first-child',
+      position: 'bottom'
+    },
+    {
+      id: 'finish',
+      title: "🎉 Dziękujemy!",
+      content: "Dziękujemy za zaufanie! Jeśli masz jakiekolwiek pytania, zawsze możesz się z nami skontaktować przez Messenger. Życzymy udanych zakupów!",
+      selector: null,
       position: 'center'
     }
   ];
@@ -18880,65 +18995,186 @@ const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) =
   const isLastStep = step >= steps.length - 1;
   const isFirstStep = step === 0;
 
+  // Efekt do pozycjonowania tooltipa przy elemencie
+  useEffect(() => {
+    if (currentStep.selector) {
+      const element = document.querySelector(currentStep.selector);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setTargetRect(rect);
+        
+        // Oblicz pozycję tooltipa
+        const tooltipWidth = 380;
+        const tooltipHeight = 250;
+        const padding = 20;
+        const arrowSize = 15;
+        
+        let top, left, arrow;
+        
+        switch (currentStep.position) {
+          case 'bottom':
+            top = rect.bottom + arrowSize + 10;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            arrow = 'top';
+            break;
+          case 'top':
+            top = rect.top - tooltipHeight - arrowSize - 10;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            arrow = 'bottom';
+            break;
+          case 'left':
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.left - tooltipWidth - arrowSize - 10;
+            arrow = 'right';
+            break;
+          case 'right':
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.right + arrowSize + 10;
+            arrow = 'left';
+            break;
+          default:
+            top = window.innerHeight / 2 - tooltipHeight / 2;
+            left = window.innerWidth / 2 - tooltipWidth / 2;
+            arrow = 'none';
+        }
+        
+        // Korekta jeśli wychodzi poza ekran
+        if (left < padding) left = padding;
+        if (left + tooltipWidth > window.innerWidth - padding) {
+          left = window.innerWidth - tooltipWidth - padding;
+        }
+        if (top < padding) top = padding;
+        if (top + tooltipHeight > window.innerHeight - padding) {
+          top = window.innerHeight - tooltipHeight - padding;
+        }
+        
+        setTooltipPosition({ top, left });
+        setArrowDirection(arrow);
+        
+        // Scroll do elementu jeśli nie widoczny
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      setTargetRect(null);
+      setTooltipPosition({
+        top: window.innerHeight / 2 - 150,
+        left: window.innerWidth / 2 - 190
+      });
+      setArrowDirection('none');
+    }
+  }, [step, currentStep]);
+
   return (
-    <div className="tutorial-overlay">
-      <div className="tutorial-backdrop" onClick={onSkip}></div>
+    <div className="tutorial-overlay-advanced">
+      {/* Ciemne tło z wyciętym otworem na podświetlony element */}
+      <svg className="tutorial-svg-overlay" width="100%" height="100%">
+        <defs>
+          <mask id="tutorial-mask">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {targetRect && (
+              <rect
+                x={targetRect.left - 8}
+                y={targetRect.top - 8}
+                width={targetRect.width + 16}
+                height={targetRect.height + 16}
+                rx="12"
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="rgba(0, 0, 0, 0.75)"
+          mask="url(#tutorial-mask)"
+        />
+      </svg>
       
-      <div className={`tutorial-modal tutorial-${currentStep.position}`}>
-        <div className="tutorial-header">
-          <span className="tutorial-step-counter">
-            {step + 1} / {steps.length}
-          </span>
-          <button className="tutorial-skip" onClick={onSkip}>
-            ✕ Pomiń
+      {/* Ramka wokół podświetlonego elementu */}
+      {targetRect && (
+        <div
+          className="tutorial-highlight-border"
+          style={{
+            top: targetRect.top - 8,
+            left: targetRect.left - 8,
+            width: targetRect.width + 16,
+            height: targetRect.height + 16
+          }}
+        />
+      )}
+      
+      {/* Tooltip z opisem */}
+      <div
+        className={`tutorial-tooltip tutorial-arrow-${arrowDirection}`}
+        style={{
+          top: tooltipPosition.top,
+          left: tooltipPosition.left
+        }}
+      >
+        <div className="tutorial-tooltip-header">
+          <div className="tutorial-progress">
+            <span className="tutorial-step-num">{step + 1}</span>
+            <span className="tutorial-step-total">/ {steps.length}</span>
+          </div>
+          <button className="tutorial-close-btn" onClick={onSkip} title="Zamknij samouczek">
+            ✕
           </button>
         </div>
         
-        <div className="tutorial-content">
-          <h2 className="tutorial-title">{currentStep.title}</h2>
-          <p className="tutorial-text">{currentStep.content}</p>
+        <div className="tutorial-tooltip-content">
+          <h3 className="tutorial-tooltip-title">{currentStep.title}</h3>
+          <p className="tutorial-tooltip-text">{currentStep.content}</p>
         </div>
         
-        <div className="tutorial-footer">
-          <div className="tutorial-dots">
-            {steps.map((_, idx) => (
-              <span 
-                key={idx} 
-                className={`tutorial-dot ${idx === step ? 'active' : ''} ${idx < step ? 'completed' : ''}`}
-              />
-            ))}
+        <div className="tutorial-tooltip-footer">
+          <div className="tutorial-progress-bar">
+            <div 
+              className="tutorial-progress-fill"
+              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+            />
           </div>
           
-          <div className="tutorial-buttons">
+          <div className="tutorial-nav-buttons">
             {!isFirstStep && (
-              <button className="btn-tutorial-prev" onClick={onPrev}>
+              <button className="tutorial-btn tutorial-btn-prev" onClick={onPrev}>
                 ← Wstecz
               </button>
             )}
             
+            {isFirstStep && (
+              <button className="tutorial-btn tutorial-btn-skip" onClick={onSkip}>
+                Pomiń samouczek
+              </button>
+            )}
+            
             {isLastStep ? (
-              <button className="btn-tutorial-finish" onClick={onFinish}>
+              <button className="tutorial-btn tutorial-btn-finish" onClick={onFinish}>
                 Zakończ ✓
               </button>
             ) : (
-              <button className="btn-tutorial-next" onClick={onNext}>
+              <button className="tutorial-btn tutorial-btn-next" onClick={onNext}>
                 Dalej →
               </button>
             )}
           </div>
         </div>
         
-        <label className="tutorial-dont-show">
-          <input 
-            type="checkbox" 
-            onChange={(e) => {
-              if (e.target.checked) {
-                onSkip();
-              }
-            }}
-          />
-          Nie pokazuj więcej
-        </label>
+        {isFirstStep && (
+          <label className="tutorial-dont-show-label">
+            <input 
+              type="checkbox" 
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onSkip();
+                }
+              }}
+            />
+            Nie pokazuj ponownie
+          </label>
+        )}
       </div>
     </div>
   );
