@@ -19082,6 +19082,33 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     ]},
   ];
 
+  // Blokuj scroll gdy jest zaznaczony prostokąt
+  useEffect(() => {
+    if (rect) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [rect]);
+
+  // Blokuj scroll wheel gdy rysujemy lub mamy prostokąt
+  useEffect(() => {
+    const preventScroll = (e) => {
+      if (phase === 'drawing' || rect) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+    };
+  }, [phase, rect]);
+
   // Filtruj elementy
   const filteredItems = searchQuery 
     ? menuItems.map(cat => ({
@@ -19117,37 +19144,28 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     setPhase('drawing');
   };
 
-  // Rysowanie prostokąta
+  // Rysowanie prostokąta - pozycja względem VIEWPORT
   const handleMouseDown = (e) => {
     if (phase !== 'drawing') return;
     if (e.target.closest('.selector-ui')) return;
     setIsDrawing(true);
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-    setStartPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
-    setCurrentPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+    setStartPos({ x: e.clientX, y: e.clientY });
+    setCurrentPos({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e) => {
     if (!isDrawing) return;
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-    setCurrentPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+    setCurrentPos({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseUp = (e) => {
     if (!isDrawing || !startPos) return;
     setIsDrawing(false);
     
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-    const endX = e.clientX + scrollX;
-    const endY = e.clientY + scrollY;
-    
-    const x = Math.min(startPos.x, endX);
-    const y = Math.min(startPos.y, endY);
-    const width = Math.abs(endX - startPos.x);
-    const height = Math.abs(endY - startPos.y);
+    const x = Math.min(startPos.x, e.clientX);
+    const y = Math.min(startPos.y, e.clientY);
+    const width = Math.abs(e.clientX - startPos.x);
+    const height = Math.abs(e.clientY - startPos.y);
     
     if (width > 20 && height > 20) {
       setRect({ x, y, width, height });
@@ -19165,6 +19183,11 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
         arrowPosition: showArrow ? arrowPosition : 'none',
         tooltipPosition: tooltipPosition
       };
+      
+      // Odblokuj scroll
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      
       if (triggerSelector) {
         const selectors = triggerSelector.split(',').map(s => s.trim());
         for (const sel of selectors) {
@@ -19180,9 +19203,16 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     setRect(null);
     setStartPos(null);
     setCurrentPos(null);
+    // Odblokuj scroll przy resecie
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
   };
 
   const handleCancel = useCallback(() => {
+    // Odblokuj scroll
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    
     if (triggerSelector) {
       const selectors = triggerSelector.split(',').map(s => s.trim());
       for (const sel of selectors) {
@@ -19201,9 +19231,6 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleCancel]);
 
-  const scrollX = window.scrollX || window.pageXOffset;
-  const scrollY = window.scrollY || window.pageYOffset;
-  
   const drawingRect = isDrawing && startPos && currentPos ? {
     x: Math.min(startPos.x, currentPos.x),
     y: Math.min(startPos.y, currentPos.y),
@@ -19213,13 +19240,6 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
 
   const displayRect = rect || drawingRect;
   const showPanel = !isDrawing;
-
-  const viewRect = displayRect ? {
-    x: displayRect.x - scrollX,
-    y: displayRect.y - scrollY,
-    width: displayRect.width,
-    height: displayRect.height
-  } : null;
 
   return (
     <div 
@@ -19232,13 +19252,13 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',pointerEvents:'none'}}/>
 
       {/* Narysowany prostokąt */}
-      {phase === 'drawing' && viewRect && (
+      {phase === 'drawing' && displayRect && (
         <div style={{
           position:'fixed',
-          top: viewRect.y,
-          left: viewRect.x,
-          width: viewRect.width,
-          height: viewRect.height,
+          top: displayRect.y,
+          left: displayRect.x,
+          width: displayRect.width,
+          height: displayRect.height,
           border:'3px solid #3B82F6',
           borderRadius:'8px',
           background:'rgba(59, 130, 246, 0.1)',
@@ -19349,7 +19369,7 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
             </div>
           )}
           <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',flexWrap:'wrap'}}>
-            <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
+            <span>🎯 {rect ? '✅ Zaznaczono! (strona zablokowana)' : 'Narysuj prostokąt myszką'}</span>
             {rect ? (
               <>
                 <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
@@ -19386,9 +19406,10 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
         </div>
       )}
 
-      {phase === 'drawing' && viewRect && viewRect.width > 50 && showPanel && (
+      {phase === 'drawing' && displayRect && displayRect.width > 50 && showPanel && (
         <div className="selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#60A5FA',padding:'8px 16px',borderRadius:'8px',fontSize:'13px'}}>
-          📐 {Math.round(viewRect.width)} × {Math.round(viewRect.height)} px
+          📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
+          {rect && <span style={{marginLeft:'10px',color:'#10B981'}}>🔒 Scroll zablokowany</span>}
         </div>
       )}
     </div>
