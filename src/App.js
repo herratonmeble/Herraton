@@ -16861,6 +16861,10 @@ const App = () => {
   // Samouczek / Tutorial
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [showTutorialConfig, setShowTutorialConfig] = useState(false);
+  const [tutorialSteps, setTutorialSteps] = useState([]);
+  const [isSelectingElement, setIsSelectingElement] = useState(false);
+  const [editingTutorialStep, setEditingTutorialStep] = useState(null);
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -16996,12 +17000,80 @@ const App = () => {
   useEffect(() => {
     if (user && !loading) {
       const tutorialSeen = localStorage.getItem(`herratonTutorialSeen_${user.id}`);
-      if (!tutorialSeen) {
-        // Pokaż samouczek po 1 sekundzie
+      if (!tutorialSeen && tutorialSteps.length > 0) {
         setTimeout(() => setShowTutorial(true), 1000);
       }
     }
-  }, [user, loading]);
+  }, [user, loading, tutorialSteps]);
+
+  // Ładuj kroki samouczka z Firebase
+  useEffect(() => {
+    const loadTutorialSteps = async () => {
+      try {
+        const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        const q = query(collection(db, 'tutorialSteps'), orderBy('order', 'asc'));
+        const snapshot = await getDocs(q);
+        setTutorialSteps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (err) {
+        console.log('Brak kroków samouczka');
+        setTutorialSteps([]);
+      }
+    };
+    loadTutorialSteps();
+  }, []);
+
+  // Funkcje zarządzania krokami samouczka
+  const saveTutorialStep = async (stepData) => {
+    try {
+      const { collection, addDoc, doc, updateDoc, getDocs, query, orderBy, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      if (stepData.id) {
+        await updateDoc(doc(db, 'tutorialSteps', stepData.id), { ...stepData, updatedAt: serverTimestamp() });
+      } else {
+        await addDoc(collection(db, 'tutorialSteps'), { ...stepData, order: tutorialSteps.length, createdAt: serverTimestamp() });
+      }
+      
+      const q = query(collection(db, 'tutorialSteps'), orderBy('order', 'asc'));
+      const snapshot = await getDocs(q);
+      setTutorialSteps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd zapisu:', err);
+      return false;
+    }
+  };
+
+  const deleteTutorialStep = async (stepId) => {
+    try {
+      const { doc, deleteDoc, collection, getDocs, query, orderBy } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      await deleteDoc(doc(db, 'tutorialSteps', stepId));
+      const q = query(collection(db, 'tutorialSteps'), orderBy('order', 'asc'));
+      const snapshot = await getDocs(q);
+      setTutorialSteps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd usuwania:', err);
+      return false;
+    }
+  };
+
+  const reorderTutorialSteps = async (newOrder) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      for (let i = 0; i < newOrder.length; i++) {
+        await updateDoc(doc(db, 'tutorialSteps', newOrder[i].id), { order: i });
+      }
+      setTutorialSteps(newOrder.map((s, i) => ({ ...s, order: i })));
+      return true;
+    } catch (err) {
+      console.error('Błąd zmiany kolejności:', err);
+      return false;
+    }
+  };
 
   // Popup dla nowych powiadomień
   useEffect(() => {
