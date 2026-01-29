@@ -19015,14 +19015,14 @@ const TutorialCategorySelector = ({ categories, steps, onSelect, onSkip }) => {
 };
 
 // ============================================
-// OVERLAY WYBIERANIA I RYSOWANIA (połączony)
+// OVERLAY WYBIERANIA I RYSOWANIA (z menu)
 // ============================================
 
 const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
-  const [phase, setPhase] = useState('trigger'); // 'trigger' lub 'drawing'
+  const [phase, setPhase] = useState('menu'); // 'menu' lub 'drawing'
   const [triggerSelector, setTriggerSelector] = useState(null);
   const [triggerLabel, setTriggerLabel] = useState(null);
-  const [highlightedEl, setHighlightedEl] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState(null);
@@ -19032,63 +19032,96 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
   const [tooltipPosition, setTooltipPosition] = useState('bottom');
   const [showArrow, setShowArrow] = useState(true);
 
-  // Generuj selektor
-  const generateSelector = (el) => {
-    if (el.id) return `#${el.id}`;
-    const classes = Array.from(el.classList).filter(c => 
-      !c.includes('hover') && !c.includes('active') && !c.includes('focus') && c.length > 0
-    );
-    if (classes.length > 0) return `.${classes[0]}`;
-    return el.tagName.toLowerCase();
+  // Lista wszystkich elementów do otwarcia
+  const menuItems = [
+    { category: '📋 Zamówienia', items: [
+      { label: '➕ Nowe zamówienie', selector: '.btn-add-order', description: 'Formularz dodawania zamówienia' },
+      { label: '📋 Lista zamówień', selector: '.orders-list', description: 'Tabela zamówień' },
+      { label: '🔍 Filtr statusu', selector: '.status-filter', description: 'Filtrowanie po statusie' },
+      { label: '📅 Filtr daty', selector: '.date-filter', description: 'Filtrowanie po dacie' },
+    ]},
+    { category: '⚙️ Ustawienia', items: [
+      { label: '⚙️ Menu ustawień', selector: '.settings-btn', description: 'Otwiera menu ustawień' },
+      { label: '👥 Użytkownicy', selector: '[data-action="users"]', description: 'Zarządzanie użytkownikami' },
+      { label: '🏭 Producenci', selector: '[data-action="producers"]', description: 'Lista producentów' },
+      { label: '🏢 Dane firmy', selector: '[data-action="company"]', description: 'Ustawienia firmy' },
+      { label: '📊 Statystyki', selector: '[data-action="statistics"]', description: 'Panel statystyk' },
+      { label: '🗑️ Kosz', selector: '[data-action="trash"]', description: 'Usunięte zamówienia' },
+      { label: '🎓 Samouczek', selector: '[data-action="tutorial-config"]', description: 'Konfiguracja samouczka' },
+    ]},
+    { category: '📦 Wysyłka', items: [
+      { label: '📦 Menu wysyłki', selector: '.shipping-btn', description: 'Otwiera menu wysyłki' },
+      { label: '🚚 Wyjazdy', selector: '[data-action="trips"]', description: 'Zarządzanie wyjazdami' },
+      { label: '💰 Stawki transportowe', selector: '[data-action="transport-rates"]', description: 'Cennik transportu' },
+      { label: '📑 Rozliczenia', selector: '[data-action="settlements"]', description: 'Rozliczenia kierowców' },
+    ]},
+    { category: '📋 Reklamacje', items: [
+      { label: '📋 Panel reklamacji', selector: '.complaint-btn, [data-action="complaints"]', description: 'Lista reklamacji' },
+    ]},
+    { category: '🎯 Leady', items: [
+      { label: '🎯 Panel leadów', selector: '.leads-btn, [data-action="leads"]', description: 'Zarządzanie leadami' },
+    ]},
+    { category: '💬 Komunikacja', items: [
+      { label: '💬 Messenger', selector: '.messenger-fab', description: 'Czat wewnętrzny' },
+      { label: '🔔 Powiadomienia', selector: '.notification-btn', description: 'Panel powiadomień' },
+      { label: '📧 Poczta', selector: '[data-action="mail"]', description: 'Skrzynka pocztowa' },
+      { label: '📧 Email masowy', selector: '[data-action="bulk-email"]', description: 'Wysyłka masowa' },
+    ]},
+    { category: '📦 Produkty', items: [
+      { label: '🔍 Wyszukiwarka produktów', selector: '[data-action="product-search"]', description: 'Szukaj w cennikach' },
+      { label: '📋 Cenniki', selector: '[data-action="pricelists"]', description: 'Zarządzanie cennikami' },
+    ]},
+    { category: '👥 Kontakty', items: [
+      { label: '👥 Panel kontaktów', selector: '[data-action="contacts"]', description: 'Lista kontaktów' },
+      { label: '📦 Próbki', selector: '[data-action="samples"]', description: 'Zarządzanie próbkami' },
+    ]},
+    { category: '🖥️ Interfejs', items: [
+      { label: '📊 Nagłówek', selector: '.header, .app-header', description: 'Górny pasek' },
+      { label: '🔍 Wyszukiwarka', selector: '.search-input, .search-box', description: 'Pole wyszukiwania' },
+      { label: '👤 Profil użytkownika', selector: '.user-info, .user-profile', description: 'Info o użytkowniku' },
+    ]},
+  ];
+
+  // Filtruj elementy
+  const filteredItems = searchQuery 
+    ? menuItems.map(cat => ({
+        ...cat,
+        items: cat.items.filter(item => 
+          item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.description.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      })).filter(cat => cat.items.length > 0)
+    : menuItems;
+
+  const selectTrigger = (item) => {
+    setTriggerSelector(item.selector);
+    setTriggerLabel(item.label);
+    
+    // Spróbuj kliknąć element
+    setTimeout(() => {
+      const selectors = item.selector.split(',').map(s => s.trim());
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el) {
+          el.click();
+          break;
+        }
+      }
+      setTimeout(() => setPhase('drawing'), 300);
+    }, 100);
   };
 
-  // Faza 1: Wybieranie elementu do otwarcia
-  useEffect(() => {
-    if (phase !== 'trigger') return;
+  const skipTrigger = () => {
+    setTriggerSelector(null);
+    setTriggerLabel(null);
+    setPhase('drawing');
+  };
 
-    const handleMouseMove = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.selector-ui')) {
-        setHighlightedEl(el);
-      }
-    };
-
-    const handleClick = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.selector-ui')) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const selector = generateSelector(el);
-        const label = el.textContent?.slice(0, 40)?.trim() || 'Element';
-        
-        setTriggerSelector(selector);
-        setTriggerLabel(label);
-        setHighlightedEl(null);
-        
-        // Kliknij element i przejdź do rysowania
-        setTimeout(() => {
-          el.click();
-          setTimeout(() => setPhase('drawing'), 300);
-        }, 100);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('click', handleClick, true);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('click', handleClick, true);
-    };
-  }, [phase]);
-
-  // Faza 2: Rysowanie prostokąta
+  // Rysowanie prostokąta
   const handleMouseDown = (e) => {
     if (phase !== 'drawing') return;
     if (e.target.closest('.selector-ui')) return;
     setIsDrawing(true);
-    // Zapisz pozycję ABSOLUTNĄ (z scrollem)
     const scrollX = window.scrollX || window.pageXOffset;
     const scrollY = window.scrollY || window.pageYOffset;
     setStartPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
@@ -19132,10 +19165,12 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
         arrowPosition: showArrow ? arrowPosition : 'none',
         tooltipPosition: tooltipPosition
       };
-      // Zamknij otwarty element
       if (triggerSelector) {
-        const el = document.querySelector(triggerSelector);
-        if (el) el.click();
+        const selectors = triggerSelector.split(',').map(s => s.trim());
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el) { el.click(); break; }
+        }
       }
       onSelect(JSON.stringify(position));
     }
@@ -19149,17 +19184,14 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
 
   const handleCancel = useCallback(() => {
     if (triggerSelector) {
-      const el = document.querySelector(triggerSelector);
-      if (el) el.click();
+      const selectors = triggerSelector.split(',').map(s => s.trim());
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el) { el.click(); break; }
+      }
     }
     onCancel();
   }, [triggerSelector, onCancel]);
-
-  const skipTrigger = () => {
-    setTriggerSelector(null);
-    setTriggerLabel(null);
-    setPhase('drawing');
-  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -19169,7 +19201,6 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleCancel]);
 
-  // Oblicz prostokąt do wyświetlenia (z uwzględnieniem scrolla)
   const scrollX = window.scrollX || window.pageXOffset;
   const scrollY = window.scrollY || window.pageYOffset;
   
@@ -19183,7 +19214,6 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
   const displayRect = rect || drawingRect;
   const showPanel = !isDrawing;
 
-  // Pozycja wyświetlania (viewport)
   const viewRect = displayRect ? {
     x: displayRect.x - scrollX,
     y: displayRect.y - scrollY,
@@ -19193,30 +19223,15 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
 
   return (
     <div 
-      style={{position:'fixed',inset:0,zIndex:999999,cursor: phase === 'trigger' ? 'pointer' : 'crosshair'}}
+      style={{position:'fixed',inset:0,zIndex:999999,cursor: phase === 'drawing' ? 'crosshair' : 'default'}}
       onMouseDown={phase === 'drawing' ? handleMouseDown : undefined}
       onMouseMove={phase === 'drawing' ? handleMouseMove : undefined}
       onMouseUp={phase === 'drawing' ? handleMouseUp : undefined}
     >
       {/* Tło */}
-      <div style={{position:'fixed',inset:0,background: viewRect ? 'transparent' : 'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',pointerEvents:'none'}}/>
 
-      {/* Faza 1: Podświetlenie elementu do otwarcia */}
-      {phase === 'trigger' && highlightedEl && (
-        <div style={{
-          position:'fixed',
-          top: highlightedEl.getBoundingClientRect().top - 3,
-          left: highlightedEl.getBoundingClientRect().left - 3,
-          width: highlightedEl.getBoundingClientRect().width + 6,
-          height: highlightedEl.getBoundingClientRect().height + 6,
-          border:'3px dashed #F59E0B',
-          borderRadius:'6px',
-          background:'rgba(245, 158, 11, 0.15)',
-          pointerEvents:'none'
-        }} />
-      )}
-
-      {/* Faza 2: Narysowany prostokąt */}
+      {/* Narysowany prostokąt */}
       {phase === 'drawing' && viewRect && (
         <div style={{
           position:'fixed',
@@ -19232,8 +19247,87 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
         }} />
       )}
       
-      {/* Panel na górze */}
-      {showPanel && (
+      {/* FAZA 1: Menu wyboru elementu */}
+      {phase === 'menu' && (
+        <div className="selector-ui" style={{
+          position:'fixed',
+          top:'50%',
+          left:'50%',
+          transform:'translate(-50%,-50%)',
+          background:'white',
+          borderRadius:'16px',
+          boxShadow:'0 25px 50px rgba(0,0,0,0.3)',
+          width:'90%',
+          maxWidth:'700px',
+          maxHeight:'80vh',
+          display:'flex',
+          flexDirection:'column',
+          overflow:'hidden'
+        }}>
+          <div style={{padding:'20px',borderBottom:'1px solid #E2E8F0'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{margin:0,fontSize:'18px',color:'#1E293B'}}>🎯 Co ma się otworzyć?</h2>
+              <button onClick={handleCancel} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8'}}>×</button>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Szukaj... (np. zamówienie, ustawienia, reklamacje)"
+              style={{width:'100%',padding:'12px 16px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+              autoFocus
+            />
+          </div>
+          
+          <div style={{flex:1,overflowY:'auto',padding:'12px 20px'}}>
+            {filteredItems.map((cat, catIdx) => (
+              <div key={catIdx} style={{marginBottom:'16px'}}>
+                <div style={{fontSize:'12px',fontWeight:'700',color:'#64748B',marginBottom:'8px',textTransform:'uppercase'}}>{cat.category}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                  {cat.items.map((item, itemIdx) => (
+                    <button
+                      key={itemIdx}
+                      onClick={() => selectTrigger(item)}
+                      style={{
+                        display:'flex',
+                        alignItems:'center',
+                        gap:'12px',
+                        padding:'10px 14px',
+                        borderRadius:'8px',
+                        border:'1px solid #E2E8F0',
+                        background:'white',
+                        cursor:'pointer',
+                        textAlign:'left',
+                        transition:'all 0.15s'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#3B82F6'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                    >
+                      <span style={{fontSize:'18px'}}>{item.label.split(' ')[0]}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{item.label.split(' ').slice(1).join(' ')}</div>
+                        <div style={{fontSize:'12px',color:'#64748B'}}>{item.description}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',background:'#F8FAFC'}}>
+            <button
+              onClick={skipTrigger}
+              style={{width:'100%',padding:'12px',borderRadius:'8px',border:'2px dashed #94A3B8',background:'transparent',color:'#64748B',fontWeight:'600',cursor:'pointer'}}
+            >
+              ⏭️ Pomiń - nie muszę nic otwierać (zaznaczę element widoczny na ekranie)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FAZA 2: Panel rysowania */}
+      {phase === 'drawing' && showPanel && (
         <div className="selector-ui" style={{
           position:'fixed',
           top:'10px',
@@ -19249,69 +19343,46 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
           gap:'10px',
           maxWidth:'95vw'
         }}>
-          {phase === 'trigger' ? (
-            <>
-              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px'}}>
-                <span>👆 Kliknij element który ma się otworzyć (np. przycisk edycji)</span>
-                <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
-              </div>
-              <div style={{borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'8px'}}>
-                <button onClick={(e) => { e.stopPropagation(); skipTrigger(); }} style={{background:'#8B5CF6',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'500',fontSize:'12px'}}>
-                  ⏭️ Pomiń - nie muszę nic otwierać
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {triggerLabel && (
-                <div style={{fontSize:'12px',opacity:0.8,borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'8px'}}>
-                  📂 Otwarto: {triggerLabel}
-                </div>
-              )}
-              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',flexWrap:'wrap'}}>
-                <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
-                {rect ? (
-                  <>
-                    <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
-                    <button onClick={(e) => { e.stopPropagation(); handleConfirm(); }} style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Zatwierdź</button>
-                  </>
-                ) : (
-                  <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
-                )}
-              </div>
-
-              {rect && (
-                <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                    <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',cursor:'pointer'}}>
-                      <input type="checkbox" checked={showArrow} onChange={(e) => setShowArrow(e.target.checked)} style={{cursor:'pointer'}} onClick={(e) => e.stopPropagation()} />
-                      Strzałka:
-                    </label>
-                    {showArrow && ['top', 'bottom', 'left', 'right'].map(pos => (
-                      <button key={pos} onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }} style={{background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
-                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                    <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
-                    {['top', 'bottom', 'left', 'right', 'center'].map(pos => (
-                      <button key={pos} onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }} style={{background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
-                        {pos === 'center' ? '⬤' : pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+          {triggerLabel && (
+            <div style={{fontSize:'12px',opacity:0.8,borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'8px'}}>
+              📂 Otwarto: {triggerLabel}
+            </div>
           )}
-        </div>
-      )}
+          <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',flexWrap:'wrap'}}>
+            <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
+            {rect ? (
+              <>
+                <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
+                <button onClick={(e) => { e.stopPropagation(); handleConfirm(); }} style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Zatwierdź</button>
+              </>
+            ) : (
+              <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
+            )}
+          </div>
 
-      {/* Info na dole */}
-      {phase === 'trigger' && highlightedEl && (
-        <div className="selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#F59E0B',padding:'8px 16px',borderRadius:'8px',fontSize:'12px',fontFamily:'monospace'}}>
-          {generateSelector(highlightedEl)}
+          {rect && (
+            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',cursor:'pointer'}}>
+                  <input type="checkbox" checked={showArrow} onChange={(e) => setShowArrow(e.target.checked)} style={{cursor:'pointer'}} onClick={(e) => e.stopPropagation()} />
+                  Strzałka:
+                </label>
+                {showArrow && ['top', 'bottom', 'left', 'right'].map(pos => (
+                  <button key={pos} onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }} style={{background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                    {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
+                {['top', 'bottom', 'left', 'right', 'center'].map(pos => (
+                  <button key={pos} onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }} style={{background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                    {pos === 'center' ? '⬤' : pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
