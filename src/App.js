@@ -18875,81 +18875,101 @@ Zespół obsługi zamówień
 };
 
 // ============================================
-// OVERLAY WYBIERANIA ELEMENTU
+// OVERLAY RYSOWANIA PROSTOKĄTA
 // ============================================
 
 const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
-  const [highlightedElement, setHighlightedElement] = useState(null);
-  const [highlightRect, setHighlightRect] = useState(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPos, setStartPos] = useState(null);
+  const [currentPos, setCurrentPos] = useState(null);
+  const [rect, setRect] = useState(null);
 
-  const generateSelector = (el) => {
-    if (el.id) return `#${el.id}`;
-    const classes = Array.from(el.classList).filter(c => 
-      !c.includes('hover') && !c.includes('active') && !c.includes('focus')
-    );
-    if (classes.length > 0) {
-      const specificClass = classes.find(c => 
-        c.includes('btn') || c.includes('card') || c.includes('filter') || 
-        c.includes('header') || c.includes('menu') || c.includes('order') ||
-        c.includes('complaint') || c.includes('lead') || c.includes('messenger')
-      ) || classes[0];
-      return `.${specificClass}`;
+  const handleMouseDown = (e) => {
+    if (e.target.closest('.element-selector-ui')) return;
+    setIsDrawing(true);
+    setStartPos({ x: e.clientX, y: e.clientY });
+    setCurrentPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawing) return;
+    setCurrentPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = (e) => {
+    if (!isDrawing || !startPos) return;
+    setIsDrawing(false);
+    
+    const x = Math.min(startPos.x, e.clientX);
+    const y = Math.min(startPos.y, e.clientY);
+    const width = Math.abs(e.clientX - startPos.x);
+    const height = Math.abs(e.clientY - startPos.y);
+    
+    if (width > 20 && height > 20) {
+      setRect({ x, y, width, height });
+    } else {
+      setStartPos(null);
+      setCurrentPos(null);
     }
-    return el.tagName.toLowerCase();
+  };
+
+  const handleConfirm = () => {
+    if (rect) {
+      // Zapisz pozycję jako obiekt z współrzędnymi
+      const position = {
+        top: rect.y,
+        left: rect.x,
+        width: rect.width,
+        height: rect.height
+      };
+      onSelect(JSON.stringify(position));
+    }
+  };
+
+  const handleReset = () => {
+    setRect(null);
+    setStartPos(null);
+    setCurrentPos(null);
   };
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.element-selector-ui')) {
-        setHighlightedElement(el);
-        const rect = el.getBoundingClientRect();
-        setHighlightRect(rect);
-      }
-    };
-
-    const handleClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.element-selector-ui')) {
-        const selector = generateSelector(el);
-        onSelect(selector);
-      }
-    };
-
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onCancel();
-      }
+      if (e.key === 'Escape') onCancel();
     };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('click', handleClick, true);
     document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('click', handleClick, true);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onSelect, onCancel]);
+  // Oblicz prostokąt podczas rysowania
+  const drawingRect = isDrawing && startPos && currentPos ? {
+    x: Math.min(startPos.x, currentPos.x),
+    y: Math.min(startPos.y, currentPos.y),
+    width: Math.abs(currentPos.x - startPos.x),
+    height: Math.abs(currentPos.y - startPos.y)
+  } : null;
+
+  const displayRect = rect || drawingRect;
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}>
-      {/* Podświetlenie elementu */}
-      {highlightRect && (
+    <div 
+      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair',background:'rgba(0,0,0,0.3)'}}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      {/* Narysowany prostokąt */}
+      {displayRect && (
         <div style={{
           position:'fixed',
-          top: highlightRect.top - 4,
-          left: highlightRect.left - 4,
-          width: highlightRect.width + 8,
-          height: highlightRect.height + 8,
-          border:'3px dashed #3B82F6',
+          top: displayRect.y,
+          left: displayRect.x,
+          width: displayRect.width,
+          height: displayRect.height,
+          border:'3px solid #3B82F6',
           borderRadius:'8px',
-          background:'rgba(59, 130, 246, 0.15)',
-          pointerEvents:'none',
-          transition:'all 0.1s ease'
+          background:'rgba(59, 130, 246, 0.1)',
+          boxShadow:'0 0 0 9999px rgba(0,0,0,0.5)',
+          pointerEvents:'none'
         }} />
       )}
       
@@ -18970,25 +18990,34 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
         fontSize:'15px',
         fontWeight:'500'
       }}>
-        <span>🎯 Kliknij na element który chcesz podświetlić</span>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onCancel(); }}
-          style={{
-            background:'rgba(255,255,255,0.2)',
-            border:'none',
-            color:'white',
-            padding:'8px 16px',
-            borderRadius:'6px',
-            cursor:'pointer',
-            fontWeight:'600'
-          }}
-        >
-          Anuluj (Esc)
-        </button>
+        <span>🎯 {rect ? 'Obszar zaznaczony!' : 'Narysuj prostokąt myszką - przeciągnij od rogu do rogu'}</span>
+        {rect ? (
+          <>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleReset(); }}
+              style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+            >
+              🔄 Zaznacz ponownie
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
+              style={{background:'#10B981',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+            >
+              ✓ Zatwierdź
+            </button>
+          </>
+        ) : (
+          <button 
+            onClick={(e) => { e.stopPropagation(); onCancel(); }}
+            style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+          >
+            Anuluj (Esc)
+          </button>
+        )}
       </div>
 
-      {/* Podgląd selektora */}
-      {highlightedElement && (
+      {/* Wymiary prostokąta */}
+      {displayRect && displayRect.width > 50 && (
         <div className="element-selector-ui" style={{
           position:'fixed',
           bottom:'20px',
@@ -18996,13 +19025,12 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           transform:'translateX(-50%)',
           background:'#1E293B',
           color:'#60A5FA',
-          padding:'12px 20px',
+          padding:'10px 20px',
           borderRadius:'8px',
-          fontFamily:'monospace',
           fontSize:'14px',
           boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
         }}>
-          {generateSelector(highlightedElement)}
+          📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
         </div>
       )}
     </div>
@@ -19038,23 +19066,6 @@ const TutorialConfigPanel = ({
     if (success) { 
       setFormData({ title: '', content: '', selector: '', role: 'all' }); 
       setEditingStep(null); 
-    }
-  };
-
-  const testSelector = (selector) => {
-    if (!selector) return;
-    try {
-      const el = document.querySelector(selector);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.outline = '4px solid #3B82F6';
-        el.style.outlineOffset = '4px';
-        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 2500);
-      } else { 
-        alert('Element nie znaleziony! Sprawdź selektor.'); 
-      }
-    } catch { 
-      alert('Błędny selektor CSS'); 
     }
   };
 
@@ -19163,14 +19174,6 @@ const TutorialConfigPanel = ({
                       >
                         ✏️ Edytuj
                       </button>
-                      {s.selector && (
-                        <button 
-                          onClick={() => testSelector(s.selector)} 
-                          style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
-                        >
-                          👁️ Test
-                        </button>
-                      )}
                       <button 
                         onClick={() => window.confirm('Usunąć ten krok?') && onDelete(s.id)} 
                         style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontWeight:'500'}}
@@ -19219,15 +19222,17 @@ const TutorialConfigPanel = ({
 
               <div>
                 <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
-                  Element do podświetlenia
+                  Obszar do podświetlenia
                 </label>
                 <div style={{display:'flex',gap:'8px'}}>
                   <input
                     type="text"
                     value={formData.selector}
                     onChange={(e) => setFormData({...formData, selector: e.target.value})}
-                    placeholder=".btn-primary lub #id"
-                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontFamily:'monospace',fontSize:'13px'}}
+                    placeholder="Kliknij 'Wybierz' aby zaznaczyć obszar"
+                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontFamily:'monospace',fontSize:'13px',background:'#F8FAFC'}}
+                    readOnly
+                  />
                   />
                   <button
                     type="button"
@@ -19247,7 +19252,7 @@ const TutorialConfigPanel = ({
                   </button>
                 </div>
                 <div style={{fontSize:'12px',color:'#94A3B8',marginTop:'6px'}}>
-                  Kliknij "Wybierz" i wskaż element na stronie myszką
+                  Kliknij "Wybierz" i narysuj prostokąt myszką (przeciągnij)
                 </div>
               </div>
 
@@ -19300,7 +19305,7 @@ const TutorialConfigPanel = ({
         {/* Footer */}
         <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#F8FAFC'}}>
           <div style={{fontSize:'13px',color:'#64748B'}}>
-            💡 Kliknij "Test" aby sprawdzić czy selektor poprawnie podświetla element
+            💡 Narysuj prostokąt myszką aby oznaczyć obszar do podświetlenia
           </div>
           <button 
             onClick={onClose} 
@@ -19318,10 +19323,6 @@ const TutorialConfigPanel = ({
 // ============================================
 
 const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip, onFinish }) => {
-  const [elementRect, setElementRect] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
-  const [arrowDir, setArrowDir] = useState('none');
-
   // Filtruj kroki dla danej roli
   const filteredSteps = steps.filter(s => s.role === 'all' || s.role === userRole);
   const step = filteredSteps[currentStep];
@@ -19329,71 +19330,58 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
   const isLast = currentStep >= total - 1;
   const isFirst = currentStep === 0;
 
-  useEffect(() => {
-    if (!step) return;
-
-    const timer = setTimeout(() => {
-      if (step.selector) {
-        try {
-          const el = document.querySelector(step.selector);
-          if (el) {
-            const r = el.getBoundingClientRect();
-            setElementRect(r);
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            const tw = 320, th = 180, gap = 16;
-            const below = window.innerHeight - r.bottom;
-            const above = r.top;
-
-            let t, l, dir;
-            if (below >= th + gap) {
-              t = r.bottom + gap;
-              l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
-              dir = 'up';
-            } else if (above >= th + gap) {
-              t = r.top - th - gap;
-              l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
-              dir = 'down';
-            } else {
-              t = Math.max(10, r.top);
-              l = r.right + gap < window.innerWidth - tw ? r.right + gap : Math.max(10, r.left - tw - gap);
-              dir = r.right + gap < window.innerWidth - tw ? 'left' : 'right';
-            }
-
-            setTooltipPos({ top: t, left: l, width: tw });
-            setArrowDir(dir);
-          } else {
-            setElementRect(null);
-            setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
-            setArrowDir('none');
-          }
-        } catch {
-          setElementRect(null);
-          setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
-          setArrowDir('none');
-        }
-      } else {
-        setElementRect(null);
-        setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
-        setArrowDir('none');
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [currentStep, step]);
-
   if (!step) return null;
 
-  const arrows = { up: '⬆️', down: '⬇️', left: '⬅️', right: '➡️' };
+  // Parsuj pozycję z JSON (selector przechowuje JSON z współrzędnymi)
+  let rect = null;
+  if (step.selector) {
+    try {
+      rect = JSON.parse(step.selector);
+    } catch {
+      rect = null;
+    }
+  }
+
+  // Oblicz pozycję tooltipa - zawsze POD ramką
+  const tooltipWidth = 360;
+  let tooltipStyle = {};
+  
+  if (rect) {
+    const tooltipTop = rect.top + rect.height + 20; // 20px pod ramką
+    const tooltipLeft = Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10));
+    
+    // Jeśli nie mieści się na dole, daj na górze
+    if (tooltipTop + 250 > window.innerHeight) {
+      tooltipStyle = {
+        bottom: window.innerHeight - rect.top + 20,
+        left: tooltipLeft,
+        width: tooltipWidth
+      };
+    } else {
+      tooltipStyle = {
+        top: tooltipTop,
+        left: tooltipLeft,
+        width: tooltipWidth
+      };
+    }
+  } else {
+    tooltipStyle = {
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: tooltipWidth
+    };
+  }
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:999999}}>
-      {elementRect ? (
+      {/* Ciemne tło z wyciętym otworem */}
+      {rect ? (
         <svg style={{position:'fixed',inset:0,width:'100%',height:'100%'}}>
           <defs>
             <mask id="tutmask">
               <rect width="100%" height="100%" fill="white"/>
-              <rect x={elementRect.left-8} y={elementRect.top-8} width={elementRect.width+16} height={elementRect.height+16} rx="10" fill="black"/>
+              <rect x={rect.left-4} y={rect.top-4} width={rect.width+8} height={rect.height+8} rx="8" fill="black"/>
             </mask>
           </defs>
           <rect width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#tutmask)"/>
@@ -19402,61 +19390,104 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)'}}/>
       )}
 
-      {elementRect && (
+      {/* Ramka podświetlenia */}
+      {rect && (
         <div style={{
           position:'fixed',
-          top: elementRect.top-8,
-          left: elementRect.left-8,
-          width: elementRect.width+16,
-          height: elementRect.height+16,
+          top: rect.top - 4,
+          left: rect.left - 4,
+          width: rect.width + 8,
+          height: rect.height + 8,
           border:'3px solid #3B82F6',
-          borderRadius:'12px',
-          boxShadow:'0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)',
-          animation:'tutpulse 1.5s infinite',
-          pointerEvents:'none'
+          borderRadius:'10px',
+          boxShadow:'0 0 0 4px rgba(59,130,246,0.3), 0 0 40px rgba(59,130,246,0.6)',
+          pointerEvents:'none',
+          animation:'tutpulse 1.5s infinite'
         }}/>
       )}
 
-      {elementRect && arrowDir !== 'none' && (
+      {/* Strzałka wskazująca w dół na ramkę */}
+      {rect && (
         <div style={{
           position:'fixed',
+          top: rect.top + rect.height + 6,
+          left: rect.left + rect.width/2 - 14,
           fontSize:'28px',
-          animation:'tutbounce 0.6s infinite',
-          top: arrowDir === 'up' ? elementRect.bottom + 4 : arrowDir === 'down' ? elementRect.top - 36 : elementRect.top + elementRect.height/2 - 14,
-          left: arrowDir === 'left' ? elementRect.right + 4 : arrowDir === 'right' ? elementRect.left - 36 : elementRect.left + elementRect.width/2 - 14
+          animation:'tutbounce 0.6s infinite'
         }}>
-          {arrows[arrowDir]}
+          ⬆️
         </div>
       )}
 
-      <div style={{position:'fixed',...tooltipPos,background:'white',borderRadius:'16px',boxShadow:'0 20px 50px rgba(0,0,0,0.4)',overflow:'hidden'}}>
-        <div style={{background:'linear-gradient(135deg,#1E3A5F,#2D5A87)',color:'white',padding:'14px 18px',display:'flex',alignItems:'center',gap:'10px'}}>
+      {/* Tooltip POD ramką */}
+      <div style={{
+        position:'fixed',
+        ...tooltipStyle,
+        background:'white',
+        borderRadius:'16px',
+        boxShadow:'0 20px 50px rgba(0,0,0,0.4)',
+        overflow:'hidden'
+      }}>
+        {/* Header */}
+        <div style={{
+          background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
+          color:'white',
+          padding:'14px 18px',
+          display:'flex',
+          alignItems:'center',
+          gap:'10px'
+        }}>
           <span style={{fontSize:'22px',fontWeight:'700'}}>{currentStep + 1}</span>
           <span style={{opacity:0.7}}>/ {total}</span>
           <div style={{flex:1,height:'4px',background:'rgba(255,255,255,0.2)',borderRadius:'2px',margin:'0 12px'}}>
-            <div style={{height:'100%',width:`${((currentStep+1)/total)*100}%`,background:'linear-gradient(90deg,#60A5FA,#34D399)',borderRadius:'2px',transition:'width 0.3s'}}/>
+            <div style={{
+              height:'100%',
+              width:`${((currentStep+1)/total)*100}%`,
+              background:'linear-gradient(90deg, #60A5FA, #34D399)',
+              borderRadius:'2px',
+              transition:'width 0.3s'
+            }}/>
           </div>
-          <button onClick={onSkip} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}>✕</button>
+          <button 
+            onClick={onSkip} 
+            style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}
+          >
+            ✕
+          </button>
         </div>
 
+        {/* Body */}
         <div style={{padding:'20px'}}>
-          <h3 style={{margin:'0 0 12px',fontSize:'17px',fontWeight:'700',color:'#1E293B'}}>{step.title}</h3>
+          <h3 style={{margin:'0 0 12px',fontSize:'18px',fontWeight:'700',color:'#1E293B'}}>{step.title}</h3>
           <p style={{margin:0,fontSize:'14px',color:'#64748B',lineHeight:1.7,whiteSpace:'pre-line'}}>{step.content}</p>
         </div>
 
+        {/* Footer */}
         <div style={{padding:'14px 20px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
-          {!isFirst && <button onClick={onPrev} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>← Wstecz</button>}
-          {isFirst && <button onClick={onSkip} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>Pomiń</button>}
+          {!isFirst && (
+            <button onClick={onPrev} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>
+              ← Wstecz
+            </button>
+          )}
+          {isFirst && (
+            <button onClick={onSkip} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>
+              Pomiń
+            </button>
+          )}
           {isLast ? (
-            <button onClick={onFinish} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>Zakończ ✓</button>
+            <button onClick={onFinish} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #10B981, #059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>
+              Zakończ ✓
+            </button>
           ) : (
-            <button onClick={onNext} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>Dalej →</button>
+            <button onClick={onNext} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #3B82F6, #2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>
+              Dalej →
+            </button>
           )}
         </div>
       </div>
 
       <style>{`
-        @keyframes tutpulse { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 0 50px rgba(59,130,246,0.8)} }
+        @keyframes tutpulse { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 40px rgba(59,130,246,0.6)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 0 60px rgba(59,130,246,0.8)} }
         @keyframes tutbounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
       `}</style>
     </div>
