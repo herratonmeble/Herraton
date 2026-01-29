@@ -40,6 +40,9 @@ export default async function handler(req, res) {
     if (action === 'createInvoice') {
       const invoiceData = data.invoice;
       
+      // Typ dokumentu: 'normal' = Faktura VAT, 'proforma' = Proforma
+      const invoiceType = invoiceData.type || 'normal';
+      
       // Przygotuj dane faktury w formacie wFirma (zgodnie z modułem PrestaShop)
       const invoiceBody = {
         invoices: [{
@@ -54,7 +57,7 @@ export default async function handler(req, res) {
               phone: invoiceData.contractor.phone || '',
               tax_id_type: 'none'
             },
-            type: 'normal',
+            type: invoiceType, // 'normal' lub 'proforma'
             date: invoiceData.date,
             paymentdate: invoiceData.paymentdate,
             disposaldate: invoiceData.date, // data sprzedaży = data wystawienia
@@ -76,7 +79,7 @@ export default async function handler(req, res) {
         }]
       };
 
-      console.log('Wysyłam do wFirma:', JSON.stringify(invoiceBody, null, 2));
+      console.log('Wysyłam do wFirma (typ:', invoiceType, '):', JSON.stringify(invoiceBody, null, 2));
 
       const url = `${baseUrl}/invoices/add${extParams}`;
       
