@@ -18738,186 +18738,303 @@ Zespół obsługi zamówień
         </div>
       )}
 
+      {/* PANEL KONFIGURACJI SAMOUCZKA */}
+      {showTutorialConfig && (
+        <TutorialConfigPanel
+          steps={tutorialSteps}
+          onSave={saveTutorialStep}
+          onDelete={deleteTutorialStep}
+          onReorder={reorderTutorialSteps}
+          onClose={() => setShowTutorialConfig(false)}
+          isSelectingElement={isSelectingElement}
+          setIsSelectingElement={setIsSelectingElement}
+          editingStep={editingTutorialStep}
+          setEditingStep={setEditingTutorialStep}
+        />
+      )}
+
       {/* SAMOUCZEK / TUTORIAL */}
-      {showTutorial && (
+      {showTutorial && tutorialSteps.length > 0 && (
         <TutorialOverlay
-          step={tutorialStep}
+          steps={tutorialSteps}
+          currentStep={tutorialStep}
           userRole={user?.role}
-          onNext={() => setTutorialStep(prev => prev + 1)}
+          onNext={() => setTutorialStep(prev => Math.min(prev + 1, tutorialSteps.length - 1))}
           onPrev={() => setTutorialStep(prev => Math.max(0, prev - 1))}
           onSkip={() => {
             localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
             setShowTutorial(false);
             setTutorialStep(0);
-            setShowOrderModal(false);
-            setShowSettingsMenu(false);
-            setShowShippingMenu(false);
           }}
           onFinish={() => {
             localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
             setShowTutorial(false);
             setTutorialStep(0);
-            setShowOrderModal(false);
-            setShowSettingsMenu(false);
-            setShowShippingMenu(false);
           }}
-          // Funkcje do otwierania paneli
-          openOrderModal={() => { setEditingOrder(null); setShowOrderModal(true); }}
-          closeOrderModal={() => setShowOrderModal(false)}
-          openSettings={() => setShowSettingsMenu(true)}
-          closeSettings={() => setShowSettingsMenu(false)}
-          openShipping={() => setShowShippingMenu(true)}
-          closeShipping={() => setShowShippingMenu(false)}
-          // Stan paneli
-          isOrderModalOpen={showOrderModal}
-          isSettingsOpen={showSettingsMenu}
-          isShippingOpen={showShippingMenu}
         />
       )}
     </div>
   );
 };
 
-
 // ============================================
-// KOMPONENT SAMOUCZKA - PROFESJONALNY
+// PANEL KONFIGURACJI SAMOUCZKA
 // ============================================
 
-const TutorialOverlay = ({ 
-  step, 
-  userRole, 
-  onNext, 
-  onPrev, 
-  onSkip, 
-  onFinish,
-  openOrderModal,
-  closeOrderModal,
-  openSettings,
-  closeSettings,
-  openShipping,
-  closeShipping
+const TutorialConfigPanel = ({ 
+  steps, onSave, onDelete, onReorder, onClose,
+  isSelectingElement, setIsSelectingElement,
+  editingStep, setEditingStep
 }) => {
-  const [elementRect, setElementRect] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
-  const [arrowPos, setArrowPos] = useState({ top: 0, left: 0, direction: 'none' });
-  
-  const isDriver = userRole === 'driver';
-  const isContractor = userRole === 'contractor';
-
-  // KROKI DLA ADMINA
-  const adminSteps = [
-    { title: "👋 Witaj w Herraton!", content: "Ten przewodnik pokaże Ci wszystkie funkcje systemu.\n\nKażdy element będzie podświetlony i opisany.", selector: null },
-    { title: "📦 Logo Herraton", content: "Kliknięcie w logo zawsze przenosi do głównego widoku zamówień.", selector: '.header-brand' },
-    { title: "🔔 Powiadomienia", content: "Liczba pokazuje nieprzeczytane powiadomienia.\n\n• Nowe zamówienia\n• Zmiany statusów\n• Wiadomości", selector: '.header-actions > button:first-child' },
-    { title: "📋 Reklamacje", content: "Panel reklamacji od klientów.\n\nLiczba = aktywne reklamacje.", selector: '.complaint-btn' },
-    { title: "🎯 Zainteresowani", content: "Panel potencjalnych klientów (leadów).\n\nZapisuj kontakty i śledź status.", selector: '.leads-btn' },
-    { title: "📦 Wysyłka", content: "Menu wysyłki:\n\n🧪 Próbki\n✉️ Poczta", selector: '.shipping-btn', action: 'openShipping' },
-    { title: "📦 Menu wysyłki", content: "Opcje wysyłki z licznikami elementów do wysłania.", selector: '.settings-menu', action: 'closeShipping' },
-    { title: "🗑️ Kosz", content: "Usunięte zamówienia.\n\nMożna je przywrócić.", selector: '.trash-btn' },
-    { title: "⚙️ Ustawienia", content: "Menu ustawień systemu.", selector: '.settings-btn', action: 'openSettings' },
-    { title: "⚙️ Menu ustawień", content: "📊 Statystyki\n💰 Rozliczenia\n📇 Kontakty\n👥 Użytkownicy\n🏭 Producenci\n📋 Cenniki\n🎓 Samouczek\n📖 Instrukcja", selector: '.settings-menu', action: 'closeSettings' },
-    { title: "💬 Messenger", content: "Wewnętrzny komunikator.\n\nCzerwona kropka = nowe wiadomości.", selector: '.messenger-fab' },
-    { title: "➕ Nowe zamówienie", content: "Utwórz nowe zamówienie.\n\nTeraz pokażemy formularz.", selector: '.btn-add-order', action: 'openOrder' },
-    { title: "📝 Formularz", content: "Główny formularz zamówienia.\n\nZawiera wszystkie dane.", selector: '.modal-content' },
-    { title: "💾 Zapisz", content: "Zapisz zamówienie po wypełnieniu.", selector: '.btn-save-order', action: 'closeOrder' },
-    { title: "🔍 Wyszukiwarka", content: "Szukaj po:\n\n• Numerze\n• Kliencie\n• Telefonie\n• Adresie", selector: '.search-input' },
-    { title: "🔍 Filtry", content: "Filtruj i sortuj zamówienia.", selector: '.filters-section' },
-    { title: "📊 Status", content: "Filtruj po statusie zamówienia.", selector: '.filter-status' },
-    { title: "🌍 Kraj", content: "Filtruj po kraju dostawy.", selector: '.filter-country' },
-    { title: "📅 Sortowanie", content: "Sortuj od najnowszych lub najstarszych.", selector: '.filter-sort' },
-    { title: "📋 Karta zamówienia", content: "Kliknij kartę aby zobaczyć szczegóły.", selector: '.order-card' },
-    { title: "🔄 Zmiana statusu", content: "Szybka zmiana statusu bez otwierania formularza.", selector: '.order-card .status-select' },
-    { title: "✏️ Akcje", content: "✏️ Edycja\n🗑️ Usuń\n📧 Email", selector: '.order-actions' },
-    { title: "📱 Push", content: "Włącz powiadomienia push w Ustawieniach.\n\nAlerty nawet gdy przeglądarka zamknięta!", selector: null },
-    { title: "🎉 Gratulacje!", content: "Znasz już system!\n\n🎓 Ponownie: Ustawienia → Samouczek\n📖 Instrukcja: Ustawienia → PDF", selector: null }
-  ];
-
-  const driverSteps = [
-    { title: "👋 Witaj kierowco!", content: "Twój panel dostaw.", selector: null },
-    { title: "📋 Zamówienia", content: "Lista Twoich dostaw.", selector: '.orders-grid' },
-    { title: "📦 Karta", content: "Szczegóły zamówienia.", selector: '.order-card' },
-    { title: "🔄 Status", content: "🟣 W transporcie - wyruszasz\n✅ Dostarczone - po dostawie", selector: '.order-card .status-select' },
-    { title: "💬 Messenger", content: "Kontakt z biurem.", selector: '.messenger-fab' },
-    { title: "🎉 Gotowe!", content: "Aktualizuj statusy!\nPowodzenia! 🚚", selector: null }
-  ];
-
-  const contractorSteps = [
-    { title: "👋 Witaj!", content: "Twój panel klienta.", selector: null },
-    { title: "📦 Zamówienia", content: "Lista Twoich zamówień.", selector: '.orders-grid' },
-    { title: "📊 Status", content: "🟡 Nowe\n🔵 W realizacji\n🟢 Gotowe\n🟣 W transporcie\n✅ Dostarczone", selector: '.order-card' },
-    { title: "📋 Reklamacje", content: "Zgłoś problem.", selector: '.complaint-btn' },
-    { title: "💬 Kontakt", content: "Napisz do nas.", selector: '.messenger-fab' },
-    { title: "🎉 Dziękujemy!", content: "Udanych zakupów!", selector: null }
-  ];
-
-  let steps = adminSteps;
-  if (isDriver) steps = driverSteps;
-  if (isContractor) steps = contractorSteps;
-
-  const curr = steps[step] || steps[0];
-  const total = steps.length;
-  const isLast = step >= total - 1;
-  const isFirst = step === 0;
+  const [formData, setFormData] = useState({ title: '', content: '', selector: '', role: 'all' });
+  const [highlightedElement, setHighlightedElement] = useState(null);
 
   useEffect(() => {
-    // Akcje
-    if (curr.action === 'openShipping') openShipping?.();
-    if (curr.action === 'closeShipping') closeShipping?.();
-    if (curr.action === 'openSettings') openSettings?.();
-    if (curr.action === 'closeSettings') closeSettings?.();
-    if (curr.action === 'openOrder') setTimeout(() => openOrderModal?.(), 200);
-    if (curr.action === 'closeOrder') closeOrderModal?.();
+    if (editingStep) {
+      setFormData({
+        title: editingStep.title || '',
+        content: editingStep.content || '',
+        selector: editingStep.selector || '',
+        role: editingStep.role || 'all'
+      });
+    } else {
+      setFormData({ title: '', content: '', selector: '', role: 'all' });
+    }
+  }, [editingStep]);
+
+  useEffect(() => {
+    if (!isSelectingElement) { setHighlightedElement(null); return; }
+
+    const handleMouseMove = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.tutorial-config-panel') && !el.closest('.element-selector-overlay')) {
+        setHighlightedElement(el);
+      }
+    };
+
+    const handleClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.tutorial-config-panel') && !el.closest('.element-selector-overlay')) {
+        const selector = generateSelector(el);
+        setFormData(prev => ({ ...prev, selector }));
+        setIsSelectingElement(false);
+        setHighlightedElement(null);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('click', handleClick, true);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [isSelectingElement, setIsSelectingElement]);
+
+  const generateSelector = (el) => {
+    if (el.id) return `#${el.id}`;
+    const classes = Array.from(el.classList).filter(c => !c.includes('hover') && !c.includes('active'));
+    if (classes.length > 0) {
+      const specificClass = classes.find(c => c.includes('btn') || c.includes('card') || c.includes('filter') || c.includes('header') || c.includes('menu')) || classes[0];
+      return `.${specificClass}`;
+    }
+    return el.tagName.toLowerCase();
+  };
+
+  const handleSave = async () => {
+    if (!formData.title.trim()) { alert('Wprowadź tytuł'); return; }
+    const stepData = { ...formData, ...(editingStep ? { id: editingStep.id } : {}) };
+    const success = await onSave(stepData);
+    if (success) { setFormData({ title: '', content: '', selector: '', role: 'all' }); setEditingStep(null); }
+  };
+
+  const testSelector = (selector) => {
+    if (!selector) return;
+    try {
+      const el = document.querySelector(selector);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.outline = '3px solid #3B82F6';
+        el.style.outlineOffset = '4px';
+        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 2000);
+      } else { alert('Element nie znaleziony!'); }
+    } catch { alert('Błędny selektor'); }
+  };
+
+  return (
+    <>
+      {isSelectingElement && (
+        <div className="element-selector-overlay" style={{position:'fixed',inset:0,zIndex:999998,cursor:'crosshair'}}>
+          {highlightedElement && (
+            <div style={{
+              position:'fixed',
+              top: highlightedElement.getBoundingClientRect().top - 4,
+              left: highlightedElement.getBoundingClientRect().left - 4,
+              width: highlightedElement.getBoundingClientRect().width + 8,
+              height: highlightedElement.getBoundingClientRect().height + 8,
+              border:'3px dashed #3B82F6',borderRadius:'4px',background:'rgba(59,130,246,0.1)',pointerEvents:'none',zIndex:999999
+            }} />
+          )}
+          <div style={{position:'fixed',top:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E3A5F',color:'white',padding:'12px 24px',borderRadius:'8px',zIndex:1000000,boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}>
+            🎯 Kliknij element do podświetlenia
+            <button onClick={() => setIsSelectingElement(false)} style={{marginLeft:'16px',background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'4px 12px',borderRadius:'4px',cursor:'pointer'}}>Anuluj</button>
+          </div>
+        </div>
+      )}
+
+      <div className="modal-backdrop" onClick={onClose}></div>
+      <div className="tutorial-config-panel modal" style={{maxWidth:'900px',maxHeight:'90vh'}}>
+        <div className="modal-header">
+          <h2>🎓 Konfiguracja samouczka</h2>
+          <button className="btn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body" style={{display:'flex',gap:'20px',overflow:'hidden'}}>
+          <div style={{flex:1,minWidth:'300px',maxHeight:'60vh',overflowY:'auto'}}>
+            <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>Kroki ({steps.length})</h3>
+            {steps.length === 0 ? (
+              <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'8px'}}>
+                <div style={{fontSize:'48px',marginBottom:'12px'}}>📝</div>
+                <div>Brak kroków - dodaj pierwszy krok</div>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                {steps.map((s, i) => (
+                  <div key={s.id} style={{padding:'12px',background:editingStep?.id === s.id ? '#DBEAFE' : 'white',border:'1px solid #E2E8F0',borderRadius:'8px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                      <span style={{background:'#3B82F6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:'700'}}>{i + 1}</span>
+                      <strong style={{flex:1,fontSize:'14px'}}>{s.title}</strong>
+                      <span style={{fontSize:'10px',padding:'2px 6px',background:'#E2E8F0',borderRadius:'4px'}}>{s.role === 'all' ? 'Wszyscy' : s.role}</span>
+                    </div>
+                    {s.selector && <div style={{fontSize:'11px',color:'#64748B',marginBottom:'8px',fontFamily:'monospace'}}>🎯 {s.selector}</div>}
+                    <div style={{display:'flex',gap:'6px'}}>
+                      <button className="btn-small" onClick={() => setEditingStep(s)}>✏️ Edytuj</button>
+                      {s.selector && <button className="btn-small" onClick={() => testSelector(s.selector)}>👁️ Test</button>}
+                      <button className="btn-small btn-danger" onClick={() => window.confirm('Usunąć?') && onDelete(s.id)}>🗑️</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{flex:1,minWidth:'300px'}}>
+            <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{editingStep ? '✏️ Edytuj' : '➕ Nowy krok'}</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              <div>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Tytuł *</label>
+                <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="np. 🔔 Powiadomienia" style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0'}} />
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Opis</label>
+                <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Opis kroku..." rows={4} style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',resize:'vertical'}} />
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Selektor CSS</label>
+                <div style={{display:'flex',gap:'8px'}}>
+                  <input type="text" value={formData.selector} onChange={(e) => setFormData({...formData, selector: e.target.value})} placeholder=".btn-primary lub #moj-element" style={{flex:1,padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',fontFamily:'monospace'}} />
+                  <button type="button" onClick={() => setIsSelectingElement(true)} className="btn-secondary">🎯 Wybierz</button>
+                </div>
+                <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'4px'}}>Kliknij "Wybierz" i wskaż element na stronie</div>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Dla kogo</label>
+                <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0'}}>
+                  <option value="all">Wszyscy</option>
+                  <option value="admin">Administrator</option>
+                  <option value="worker">Pracownik</option>
+                  <option value="driver">Kierowca</option>
+                  <option value="contractor">Kontrahent</option>
+                </select>
+              </div>
+              <div style={{display:'flex',gap:'10px',marginTop:'8px'}}>
+                {editingStep && <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }} className="btn-secondary" style={{flex:1}}>Anuluj</button>}
+                <button onClick={handleSave} className="btn-primary" style={{flex:1}}>{editingStep ? '💾 Zapisz' : '➕ Dodaj'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <div style={{fontSize:'13px',color:'#64748B'}}>💡 Kliknij "Test" aby sprawdzić czy selektor działa</div>
+          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ============================================
+// KOMPONENT SAMOUCZKA
+// ============================================
+
+const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip, onFinish }) => {
+  const [elementRect, setElementRect] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+  const [arrowDir, setArrowDir] = useState('none');
+
+  // Filtruj kroki dla danej roli
+  const filteredSteps = steps.filter(s => s.role === 'all' || s.role === userRole);
+  const step = filteredSteps[currentStep];
+  const total = filteredSteps.length;
+  const isLast = currentStep >= total - 1;
+  const isFirst = currentStep === 0;
+
+  useEffect(() => {
+    if (!step) return;
 
     const timer = setTimeout(() => {
-      if (curr.selector) {
-        const el = document.querySelector(curr.selector);
-        if (el) {
-          const r = el.getBoundingClientRect();
-          setElementRect(r);
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          
-          // Pozycja tooltip
-          const tw = 300, th = 180, gap = 16;
-          const below = window.innerHeight - r.bottom;
-          const above = r.top;
-          const right = window.innerWidth - r.right;
-          
-          let t, l, at, al, dir;
-          
-          if (below >= th + gap) {
-            t = r.bottom + gap; l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
-            at = r.bottom + 4; al = r.left + r.width/2 - 10; dir = 'up';
-          } else if (above >= th + gap) {
-            t = r.top - th - gap; l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
-            at = r.top - 28; al = r.left + r.width/2 - 10; dir = 'down';
-          } else if (right >= tw + gap) {
-            t = Math.max(10, r.top + r.height/2 - th/2); l = r.right + gap;
-            at = r.top + r.height/2 - 10; al = r.right + 4; dir = 'left';
+      if (step.selector) {
+        try {
+          const el = document.querySelector(step.selector);
+          if (el) {
+            const r = el.getBoundingClientRect();
+            setElementRect(r);
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            const tw = 320, th = 180, gap = 16;
+            const below = window.innerHeight - r.bottom;
+            const above = r.top;
+
+            let t, l, dir;
+            if (below >= th + gap) {
+              t = r.bottom + gap;
+              l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
+              dir = 'up';
+            } else if (above >= th + gap) {
+              t = r.top - th - gap;
+              l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
+              dir = 'down';
+            } else {
+              t = Math.max(10, r.top);
+              l = r.right + gap < window.innerWidth - tw ? r.right + gap : Math.max(10, r.left - tw - gap);
+              dir = r.right + gap < window.innerWidth - tw ? 'left' : 'right';
+            }
+
+            setTooltipPos({ top: t, left: l, width: tw });
+            setArrowDir(dir);
           } else {
-            t = Math.max(10, r.top + r.height/2 - th/2); l = Math.max(10, r.left - tw - gap);
-            at = r.top + r.height/2 - 10; al = r.left - 28; dir = 'right';
+            setElementRect(null);
+            setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
+            setArrowDir('none');
           }
-          
-          setTooltipPos({ top: t, left: l, width: tw });
-          setArrowPos({ top: at, left: al, direction: dir });
-        } else {
+        } catch {
           setElementRect(null);
-          setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 340 });
-          setArrowPos({ direction: 'none' });
+          setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
+          setArrowDir('none');
         }
       } else {
         setElementRect(null);
-        setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 340 });
-        setArrowPos({ direction: 'none' });
+        setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360 });
+        setArrowDir('none');
       }
-    }, 350);
-    
-    return () => clearTimeout(timer);
-  }, [step, curr, openShipping, closeShipping, openSettings, closeSettings, openOrderModal, closeOrderModal]);
+    }, 300);
 
-  useEffect(() => {
-    return () => { closeOrderModal?.(); closeSettings?.(); closeShipping?.(); };
-  }, [closeOrderModal, closeSettings, closeShipping]);
+    return () => clearTimeout(timer);
+  }, [currentStep, step]);
+
+  if (!step) return null;
 
   const arrows = { up: '⬆️', down: '⬇️', left: '⬅️', right: '➡️' };
 
@@ -18926,17 +19043,17 @@ const TutorialOverlay = ({
       {elementRect ? (
         <svg style={{position:'fixed',inset:0,width:'100%',height:'100%'}}>
           <defs>
-            <mask id="mask">
+            <mask id="tutmask">
               <rect width="100%" height="100%" fill="white"/>
               <rect x={elementRect.left-8} y={elementRect.top-8} width={elementRect.width+16} height={elementRect.height+16} rx="10" fill="black"/>
             </mask>
           </defs>
-          <rect width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#mask)"/>
+          <rect width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#tutmask)"/>
         </svg>
       ) : (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)'}}/>
       )}
-      
+
       {elementRect && (
         <div style={{
           position:'fixed',
@@ -18947,53 +19064,52 @@ const TutorialOverlay = ({
           border:'3px solid #3B82F6',
           borderRadius:'12px',
           boxShadow:'0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)',
-          animation:'pulse 1.5s infinite',
+          animation:'tutpulse 1.5s infinite',
           pointerEvents:'none'
         }}/>
       )}
-      
-      {elementRect && arrowPos.direction !== 'none' && (
-        <div style={{position:'fixed',top:arrowPos.top,left:arrowPos.left,fontSize:'24px',animation:'bounce 0.6s infinite'}}>
-          {arrows[arrowPos.direction]}
+
+      {elementRect && arrowDir !== 'none' && (
+        <div style={{
+          position:'fixed',
+          fontSize:'28px',
+          animation:'tutbounce 0.6s infinite',
+          top: arrowDir === 'up' ? elementRect.bottom + 4 : arrowDir === 'down' ? elementRect.top - 36 : elementRect.top + elementRect.height/2 - 14,
+          left: arrowDir === 'left' ? elementRect.right + 4 : arrowDir === 'right' ? elementRect.left - 36 : elementRect.left + elementRect.width/2 - 14
+        }}>
+          {arrows[arrowDir]}
         </div>
       )}
-      
-      <div style={{
-        position:'fixed',
-        ...tooltipPos,
-        background:'white',
-        borderRadius:'16px',
-        boxShadow:'0 20px 50px rgba(0,0,0,0.4)',
-        overflow:'hidden'
-      }}>
-        <div style={{background:'linear-gradient(135deg,#1E3A5F,#2D5A87)',color:'white',padding:'12px 16px',display:'flex',alignItems:'center',gap:'10px'}}>
-          <span style={{fontSize:'20px',fontWeight:'700'}}>{step+1}</span>
+
+      <div style={{position:'fixed',...tooltipPos,background:'white',borderRadius:'16px',boxShadow:'0 20px 50px rgba(0,0,0,0.4)',overflow:'hidden'}}>
+        <div style={{background:'linear-gradient(135deg,#1E3A5F,#2D5A87)',color:'white',padding:'14px 18px',display:'flex',alignItems:'center',gap:'10px'}}>
+          <span style={{fontSize:'22px',fontWeight:'700'}}>{currentStep + 1}</span>
           <span style={{opacity:0.7}}>/ {total}</span>
-          <div style={{flex:1,height:'4px',background:'rgba(255,255,255,0.2)',borderRadius:'2px',margin:'0 10px'}}>
-            <div style={{height:'100%',width:`${((step+1)/total)*100}%`,background:'linear-gradient(90deg,#60A5FA,#34D399)',borderRadius:'2px',transition:'width 0.3s'}}/>
+          <div style={{flex:1,height:'4px',background:'rgba(255,255,255,0.2)',borderRadius:'2px',margin:'0 12px'}}>
+            <div style={{height:'100%',width:`${((currentStep+1)/total)*100}%`,background:'linear-gradient(90deg,#60A5FA,#34D399)',borderRadius:'2px',transition:'width 0.3s'}}/>
           </div>
-          <button onClick={onSkip} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer'}}>✕</button>
+          <button onClick={onSkip} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}>✕</button>
         </div>
-        
-        <div style={{padding:'16px'}}>
-          <h3 style={{margin:'0 0 10px',fontSize:'16px',fontWeight:'700',color:'#1E293B'}}>{curr.title}</h3>
-          <p style={{margin:0,fontSize:'13px',color:'#64748B',lineHeight:1.6,whiteSpace:'pre-line'}}>{curr.content}</p>
+
+        <div style={{padding:'20px'}}>
+          <h3 style={{margin:'0 0 12px',fontSize:'17px',fontWeight:'700',color:'#1E293B'}}>{step.title}</h3>
+          <p style={{margin:0,fontSize:'14px',color:'#64748B',lineHeight:1.7,whiteSpace:'pre-line'}}>{step.content}</p>
         </div>
-        
-        <div style={{padding:'12px 16px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
-          {!isFirst && <button onClick={onPrev} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>← Wstecz</button>}
-          {isFirst && <button onClick={onSkip} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>Pomiń</button>}
+
+        <div style={{padding:'14px 20px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
+          {!isFirst && <button onClick={onPrev} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>← Wstecz</button>}
+          {isFirst && <button onClick={onSkip} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>Pomiń</button>}
           {isLast ? (
-            <button onClick={onFinish} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>Zakończ ✓</button>
+            <button onClick={onFinish} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>Zakończ ✓</button>
           ) : (
-            <button onClick={onNext} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>Dalej →</button>
+            <button onClick={onNext} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>Dalej →</button>
           )}
         </div>
       </div>
-      
+
       <style>{`
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 0 50px rgba(59,130,246,0.8)} }
-        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes tutpulse { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 0 50px rgba(59,130,246,0.8)} }
+        @keyframes tutbounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
       `}</style>
     </div>
   );
