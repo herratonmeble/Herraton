@@ -7309,12 +7309,12 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           </div>
         )}
 
-        <div className="order-client">
+        <div className="order-client order-client-info">
           <div className="client-name">{order.klient?.imie || '—'}</div>
           <div className="client-address">📍 {order.klient?.adres || '—'}</div>
         </div>
 
-        <div className="order-payment">
+        <div className="order-payment order-price">
           {order.platnosci?.cenaCalkowita > 0 && (
             <span>Cena: <strong>{formatCurrency(order.platnosci.cenaCalkowita, order.platnosci.waluta)}</strong></span>
           )}
@@ -7398,9 +7398,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
           </div>
         )}
 
-        <div className="order-card-footer">
+        <div className="order-card-footer order-date">
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
-          <div className="order-actions">
+          <div className="order-actions order-buttons">
             <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
             {/* Przycisk email - obsługa wielu producentów */}
             {uniqueProducers.length > 0 && !isContractor && (
@@ -18058,11 +18058,11 @@ Zespół obsługi zamówień
 
         <div className="top-bar">
           <div className="top-left">
-            <button className="btn-primary" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
+            <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
               ➕ Nowe zamówienie
             </button>
             <input
-              className="search-input"
+              className="search-input search-box"
               placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -18135,8 +18135,8 @@ Zespół obsługi zamówień
           })()}
         </div>
 
-        <div className="filters">
-          <div className="filter-buttons">
+        <div className="filters filters-section">
+          <div className="filter-buttons filter-status">
             <button onClick={() => setFilter('all')} className={`status-filter-btn ${filter === 'all' ? 'active' : ''}`}>
               <span className="sf-icon">📋</span>
               <span className="sf-count">{visibleOrders.length}</span>
@@ -18170,7 +18170,7 @@ Zespół obsługi zamówień
           <div className="extra-filters">
             {/* Sortowanie po dacie - tylko dla admina/pracownika */}
             {!isContractor && (
-              <div className="filter-group">
+              <div className="filter-group filter-sort">
                 <label>📅 Sortuj:</label>
                 <select value={dateSort} onChange={e => setDateSort(e.target.value)}>
                   <option value="newest">Najnowsze</option>
@@ -18179,7 +18179,7 @@ Zespół obsługi zamówień
               </div>
             )}
 
-            <div className="filter-group">
+            <div className="filter-group filter-country">
               <label>🌍 Kraj:</label>
               <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
                 <option value="all">Wszystkie kraje</option>
@@ -18191,7 +18191,7 @@ Zespół obsługi zamówień
             </div>
 
             {creators.length > 1 && (
-              <div className="filter-group">
+              <div className="filter-group filter-creator">
                 <label>👤 Twórca:</label>
                 <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}>
                   <option value="all">Wszyscy</option>
@@ -18201,7 +18201,7 @@ Zespół obsługi zamówień
             )}
 
             {drivers.length > 0 && !isContractor && (
-              <div className="filter-group">
+              <div className="filter-group filter-driver">
                 <label>🚚 Kierowca:</label>
                 <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}>
                   <option value="all">Wszyscy</option>
@@ -18212,7 +18212,7 @@ Zespół obsługi zamówień
             )}
 
             {Object.keys(producers).length > 0 && !isContractor && (
-              <div className="filter-group">
+              <div className="filter-group filter-producer">
                 <label>🏭 Producent:</label>
                 <select value={producerFilter} onChange={e => setProducerFilter(e.target.value)}>
                   <option value="all">Wszyscy</option>
@@ -18750,7 +18750,7 @@ Zespół obsługi zamówień
 };
 
 // ============================================
-// KOMPONENT SAMOUCZKA - UPROSZCZONY I NIEZAWODNY
+// KOMPONENT SAMOUCZKA - WSKAZUJĄCY ELEMENTY
 // ============================================
 
 const TutorialOverlay = ({ 
@@ -18773,121 +18773,241 @@ const TutorialOverlay = ({
   openShipping,
   closeShipping
 }) => {
+  const [elementRect, setElementRect] = useState(null);
+  const [tooltipStyle, setTooltipStyle] = useState({});
+  const [arrowPosition, setArrowPosition] = useState('top');
+  
   const isDriver = userRole === 'driver';
   const isContractor = userRole === 'contractor';
 
-  // Kroki dla admina/pracownika - uproszczone, bez selektorów które mogą nie istnieć
+  // Rozbudowane kroki dla admina - KAŻDY element osobno
   const adminSteps = [
+    // POWITANIE
     {
       id: 'welcome',
       title: "👋 Witaj w Herraton!",
-      content: "To jest interaktywny przewodnik po systemie zarządzania zamówieniami. Przeprowadzimy Cię przez wszystkie najważniejsze funkcje. Kliknij 'Dalej' aby rozpocząć.",
-      icon: "📦",
+      content: "Przeprowadzimy Cię przez wszystkie funkcje systemu. Będziemy wskazywać każdy element na ekranie.",
+      selector: null,
       action: null
     },
+    
+    // NAGŁÓWEK
     {
-      id: 'header',
-      title: "🏠 Panel główny",
-      content: "Jesteś w głównym panelu systemu. W górnej części widzisz nagłówek z logo, swoim imieniem i rolą. Poniżej znajduje się lista zamówień.",
-      icon: "🖥️",
+      id: 'logo',
+      title: "📦 Logo i nazwa",
+      content: "Logo firmy i nazwa systemu. Kliknięcie przenosi do głównego widoku zamówień.",
+      selector: '.header-brand',
       action: null
     },
+    
+    // POWIADOMIENIA
     {
-      id: 'notifications',
-      title: "🔔 Powiadomienia",
-      content: "Przycisk powiadomień (🔔) pokazuje liczbę nieprzeczytanych alertów. Kliknij go aby zobaczyć: nowe zamówienia, zmiany statusów, wiadomości. System automatycznie powiadamia o ważnych zdarzeniach.",
-      icon: "🔔",
+      id: 'notifications-btn',
+      title: "🔔 Przycisk powiadomień",
+      content: "Kliknij aby otworzyć panel powiadomień. Liczba pokazuje nieprzeczytane alerty.",
+      selector: '.header-actions > button:first-child',
       action: null
     },
+    
+    // REKLAMACJE
     {
-      id: 'complaints',
-      title: "📋 Reklamacje",
-      content: "Przycisk 'Reklamacje' otwiera panel zarządzania reklamacjami. Możesz tutaj: przeglądać zgłoszenia, dodawać zdjęcia i komentarze, zmieniać statusy (Nowa → W trakcie → Rozwiązana).",
-      icon: "📋",
+      id: 'complaints-btn',
+      title: "📋 Przycisk reklamacji",
+      content: "Otwiera panel zarządzania reklamacjami. Liczba to aktywne zgłoszenia.",
+      selector: '.complaint-btn',
       action: null
     },
+    
+    // LEADY
     {
-      id: 'leads',
-      title: "🎯 Zainteresowani (Leady)",
-      content: "Panel 'Zainteresowani' służy do zarządzania potencjalnymi klientami. Zapisuj kontakty osób które się zgłosiły, notuj czym są zainteresowane, śledź status i przekształcaj w zamówienia.",
-      icon: "🎯",
+      id: 'leads-btn',
+      title: "🎯 Przycisk zainteresowanych",
+      content: "Panel potencjalnych klientów (leadów). Zapisuj kontakty i śledź ich status.",
+      selector: '.leads-btn',
       action: null
     },
+    
+    // WYSYŁKA MENU
     {
-      id: 'shipping',
-      title: "📦 Wysyłka",
-      content: "Menu 'Wysyłka' zawiera dwa panele:\n\n🧪 Próbki - do wysyłki próbek produktów\n✉️ Poczta - dokumenty i korespondencja\n\nKażdy element ma statusy: Nowe → Potwierdzone → W trakcie → Wysłane.",
-      icon: "📦",
-      action: null
+      id: 'shipping-menu',
+      title: "📦 Menu Wysyłka",
+      content: "Rozwiń to menu aby zobaczyć: Próbki i Pocztę do wysłania.",
+      selector: '.shipping-dropdown-btn',
+      action: () => openShipping && openShipping()
     },
+    
+    // MESSENGER
     {
-      id: 'messenger',
+      id: 'messenger-btn',
       title: "💬 Messenger",
-      content: "Wbudowany komunikator (💬) pozwala szybko wymieniać wiadomości z innymi użytkownikami systemu. Czerwona kropka oznacza nieprzeczytane wiadomości. Możesz też omawiać konkretne zamówienia!",
-      icon: "💬",
+      content: "Wewnętrzny komunikator. Czerwona kropka = nowe wiadomości.",
+      selector: '.messenger-toggle',
       action: null
     },
+    
+    // USTAWIENIA MENU
     {
-      id: 'settings',
-      title: "⚙️ Ustawienia",
-      content: "Menu Ustawienia (⚙️) zawiera:\n\n👥 Zarządzanie użytkownikami\n🏭 Producenci\n📇 Kontakty\n📊 Statystyki\n💰 Rozliczenia transportowe\n📋 Cenniki\n🗑️ Kosz\n🔔 Powiadomienia Push",
-      icon: "⚙️",
-      action: null
+      id: 'settings-menu',
+      title: "⚙️ Menu Ustawienia",
+      content: "Rozwiń aby zobaczyć: Użytkownicy, Producenci, Kontakty, Statystyki i więcej.",
+      selector: '.settings-dropdown-btn',
+      action: () => openSettings && openSettings()
     },
+    
+    // NOWE ZAMÓWIENIE
     {
-      id: 'new-order',
+      id: 'new-order-btn',
       title: "➕ Nowe zamówienie",
-      content: "Przycisk 'Nowe zamówienie' otwiera formularz tworzenia. Wypełnij sekcje:\n\n👤 Dane klienta\n📦 Produkty\n💳 Płatności\n🚚 Transport\n\nWszystkie pola są jasno opisane.",
-      icon: "➕",
+      content: "Kliknij aby utworzyć nowe zamówienie. Otworzy się formularz.",
+      selector: '.btn-add-order',
+      action: null
+    },
+    
+    // ===== FILTRY =====
+    {
+      id: 'filters-intro',
+      title: "🔍 Sekcja filtrów",
+      content: "Tutaj znajdują się wszystkie filtry do wyszukiwania zamówień. Pokażemy każdy osobno.",
+      selector: '.filters-section',
       action: null
     },
     {
-      id: 'filters',
-      title: "🔍 Filtry i wyszukiwanie",
-      content: "Pod nagłówkiem znajdziesz filtry do wyszukiwania zamówień:\n\n• Status (Nowe, W realizacji, Gotowe...)\n• Kraj dostawy\n• Pilność (PILNE/STANDARD)\n• Twórca, Kierowca, Producent\n• Wyszukiwarka tekstowa",
-      icon: "🔍",
+      id: 'filter-status',
+      title: "📊 Filtr: Status",
+      content: "Filtruj zamówienia po statusie: Wszystkie, Nowe, W realizacji, Gotowe do wysyłki, W transporcie, Dostarczone.",
+      selector: '.filter-status',
       action: null
     },
     {
-      id: 'order-card',
+      id: 'filter-country',
+      title: "🌍 Filtr: Kraj",
+      content: "Filtruj po kraju dostawy: PL, DE, GB, FR, NL, CZ i inne.",
+      selector: '.filter-country',
+      action: null
+    },
+    {
+      id: 'filter-urgency',
+      title: "⚡ Filtr: Pilność",
+      content: "Filtruj po pilności: Wszystkie, PILNE (czerwone), STANDARD.",
+      selector: '.filter-urgency',
+      action: null
+    },
+    {
+      id: 'filter-creator',
+      title: "👤 Filtr: Twórca",
+      content: "Filtruj po osobie która utworzyła zamówienie.",
+      selector: '.filter-creator',
+      action: null
+    },
+    {
+      id: 'filter-driver',
+      title: "🚚 Filtr: Kierowca",
+      content: "Filtruj po przypisanym kierowcy do transportu.",
+      selector: '.filter-driver',
+      action: null
+    },
+    {
+      id: 'filter-producer',
+      title: "🏭 Filtr: Producent",
+      content: "Filtruj po producencie towaru.",
+      selector: '.filter-producer',
+      action: null
+    },
+    {
+      id: 'filter-sort',
+      title: "📅 Sortowanie",
+      content: "Sortuj zamówienia: Od najnowszych lub Od najstarszych.",
+      selector: '.filter-sort',
+      action: null
+    },
+    {
+      id: 'search-box',
+      title: "🔎 Wyszukiwarka",
+      content: "Wpisz numer zamówienia, nazwę klienta, telefon lub produkt aby szybko znaleźć.",
+      selector: '.search-input',
+      action: null
+    },
+    
+    // ===== KARTA ZAMÓWIENIA =====
+    {
+      id: 'order-card-intro',
       title: "📋 Karta zamówienia",
-      content: "Każde zamówienie to karta pokazująca:\n\n• Numer i flagę kraju 🇵🇱\n• Status (kolorowy znacznik)\n• Dane klienta i telefon\n• Produkt i cenę\n• Datę i kierowcę\n\nKliknij kartę = szczegóły.",
-      icon: "📋",
+      content: "Każde zamówienie wyświetlane jest jako karta. Pokażemy wszystkie jej elementy.",
+      selector: '.order-card',
+      action: null
+    },
+    {
+      id: 'order-number',
+      title: "🔢 Numer zamówienia",
+      content: "Unikalny numer zamówienia z flagą kraju dostawy.",
+      selector: '.order-card .order-number',
+      action: null
+    },
+    {
+      id: 'order-status-badge',
+      title: "🏷️ Status zamówienia",
+      content: "Kolorowy znacznik pokazujący aktualny status. Kliknij aby zmienić.",
+      selector: '.order-card .status-badge',
+      action: null
+    },
+    {
+      id: 'order-client',
+      title: "👤 Dane klienta",
+      content: "Imię/firma klienta i numer telefonu. Kliknij telefon aby zadzwonić.",
+      selector: '.order-card .order-client',
+      action: null
+    },
+    {
+      id: 'order-product',
+      title: "📦 Produkt",
+      content: "Nazwa zamówionego produktu i producent.",
+      selector: '.order-card .order-product',
+      action: null
+    },
+    {
+      id: 'order-price',
+      title: "💰 Cena",
+      content: "Cena dla klienta i status płatności (zapłacone/do zapłaty).",
+      selector: '.order-card .order-price',
+      action: null
+    },
+    {
+      id: 'order-date',
+      title: "📅 Data",
+      content: "Data zlecenia zamówienia.",
+      selector: '.order-card .order-date',
       action: null
     },
     {
       id: 'order-actions',
-      title: "✏️ Akcje na zamówieniu",
-      content: "Na każdej karcie masz przyciski:\n\n✏️ Edycja - otwiera formularz\n🗑️ Usuń - przenosi do kosza\n📋 Dropdown statusu - szybka zmiana\n\nZ kosza można przywrócić zamówienie!",
-      icon: "✏️",
+      title: "✏️ Przyciski akcji",
+      content: "✏️ Edycja - otwiera formularz, 🗑️ Usuń - przenosi do kosza.",
+      selector: '.order-card .order-actions',
       action: null
     },
+    
+    // ===== DODATKOWE INFO =====
     {
-      id: 'invoices',
+      id: 'invoices-info',
       title: "📄 Faktury wFirma",
-      content: "W formularzu edycji znajdziesz przycisk 'Faktura/Proforma'. Możesz:\n\n📄 Wystawić Fakturę VAT\n📋 Wystawić Proformę\n📧 Wysłać emailem do klienta\n\nKlient otrzyma link do podglądu!",
-      icon: "📄",
+      content: "W edycji zamówienia znajdziesz przycisk 'Faktura/Proforma' do wystawiania dokumentów.",
+      selector: null,
       action: null
     },
     {
-      id: 'push',
+      id: 'push-info',
       title: "📱 Powiadomienia Push",
-      content: "Włącz powiadomienia push w:\nUstawienia → Powiadomienia Push\n\nOtrzymasz alerty o:\n• Nowych zamówieniach\n• Zmianach statusów\n• Wiadomościach\n\nNawet gdy przeglądarka zamknięta!",
-      icon: "📱",
+      content: "W Ustawieniach → Powiadomienia Push włączysz alerty nawet gdy przeglądarka zamknięta.",
+      selector: null,
       action: null
     },
-    {
-      id: 'export',
-      title: "📊 Eksport danych",
-      content: "System pozwala eksportować dane:\n\n📊 Excel - pełna lista zamówień\n📋 Google Sheets - synchronizacja\n🖨️ Drukuj - potwierdzenie dla klienta\n\nPrzydatne do raportów i analiz!",
-      icon: "📊",
-      action: null
-    },
+    
+    // ZAKOŃCZENIE
     {
       id: 'finish',
       title: "🎉 Gratulacje!",
-      content: "Znasz już wszystkie funkcje systemu Herraton!\n\nPamiętaj - zawsze możesz uruchomić samouczek ponownie w Ustawieniach.\n\nW razie pytań skontaktuj się z administratorem.\n\nPowodzenia! 🚀",
-      icon: "🎉",
+      content: "Znasz już wszystkie elementy systemu! W razie pytań - skontaktuj się z administratorem.",
+      selector: null,
       action: null
     }
   ];
@@ -18897,50 +19017,57 @@ const TutorialOverlay = ({
     {
       id: 'welcome',
       title: "👋 Witaj kierowco!",
-      content: "To jest Twój panel do zarządzania dostawami. Pokażemy Ci wszystkie funkcje które będziesz używać na co dzień.",
-      icon: "🚚",
+      content: "Pokażemy Ci wszystkie elementy Twojego panelu.",
+      selector: null,
       action: null
     },
     {
-      id: 'orders',
-      title: "📋 Twoje zamówienia",
-      content: "Na głównym ekranie widzisz listę zamówień przypisanych do Ciebie. Każda karta pokazuje:\n\n• Adres dostawy\n• Telefon klienta\n• Co dostarczyć\n\nKliknij kartę = szczegóły trasy.",
-      icon: "📋",
+      id: 'orders-list',
+      title: "📋 Lista zamówień",
+      content: "Tu widzisz zamówienia przypisane do Ciebie do dostarczenia.",
+      selector: '.orders-list',
       action: null
     },
     {
-      id: 'status',
-      title: "🔄 Zmiana statusu",
-      content: "WAŻNE! Aktualizuj statusy na bieżąco:\n\n🟡 Gdy wyruszasz → 'W transporcie'\n✅ Po dostarczeniu → 'Dostarczone'\n\nSystem automatycznie powiadomi biuro i klienta!",
-      icon: "🔄",
+      id: 'order-card',
+      title: "📦 Karta zamówienia",
+      content: "Kliknij kartę aby zobaczyć szczegóły trasy i dane klienta.",
+      selector: '.order-card',
       action: null
     },
     {
-      id: 'contact',
-      title: "📞 Kontakt z klientem",
-      content: "Na karcie zamówienia widzisz telefon klienta. Kliknij numer aby zadzwonić bezpośrednio z telefonu.\n\nW szczegółach znajdziesz też dokładny adres i uwagi.",
-      icon: "📞",
+      id: 'order-status',
+      title: "🔄 Status dostawy",
+      content: "WAŻNE! Kliknij status aby zmienić na 'W transporcie' lub 'Dostarczone'.",
+      selector: '.order-card .status-badge',
+      action: null
+    },
+    {
+      id: 'order-phone',
+      title: "📞 Telefon klienta",
+      content: "Kliknij numer aby zadzwonić bezpośrednio z telefonu.",
+      selector: '.order-card .order-client',
       action: null
     },
     {
       id: 'messenger',
-      title: "💬 Kontakt z biurem",
-      content: "Problem na trasie? Użyj Messengera (💬)!\n\nMożesz szybko napisać do biura, zgłosić problem lub zapytać o szczegóły zamówienia.",
-      icon: "💬",
+      title: "💬 Messenger",
+      content: "Problem na trasie? Napisz do biura przez Messenger.",
+      selector: '.messenger-toggle',
       action: null
     },
     {
       id: 'notifications',
       title: "🔔 Powiadomienia",
-      content: "Przycisk 🔔 pokazuje powiadomienia o:\n\n• Nowych zamówieniach dla Ciebie\n• Wiadomościach z biura\n• Zmianach w trasie\n\nSprawdzaj regularnie!",
-      icon: "🔔",
+      content: "Tu zobaczysz nowe zamówienia i wiadomości z biura.",
+      selector: '.header-actions > button:first-child',
       action: null
     },
     {
       id: 'finish',
       title: "🎉 Gotowe!",
-      content: "Znasz już swój panel!\n\nNajważniejsze:\n✓ Aktualizuj statusy\n✓ Sprawdzaj powiadomienia\n✓ Pisz do biura przez Messenger\n\nPowodzenia na trasie! 🚚",
-      icon: "🎉",
+      content: "Pamiętaj - aktualizuj statusy dostaw! Powodzenia na trasie! 🚚",
+      selector: null,
       action: null
     }
   ];
@@ -18950,55 +19077,55 @@ const TutorialOverlay = ({
     {
       id: 'welcome',
       title: "👋 Witaj!",
-      content: "To jest Twój panel klienta w systemie Herraton. Możesz tutaj śledzić swoje zamówienia i kontaktować się z nami.",
-      icon: "🏢",
+      content: "Pokażemy Ci Twój panel klienta.",
+      selector: null,
       action: null
     },
     {
-      id: 'orders',
+      id: 'orders-list',
       title: "📦 Twoje zamówienia",
-      content: "Na ekranie widzisz listę swoich zamówień. Każda karta pokazuje:\n\n• Numer zamówienia\n• Status realizacji\n• Produkty i cenę\n\nKliknij kartę = szczegóły.",
-      icon: "📦",
+      content: "Lista wszystkich Twoich zamówień.",
+      selector: '.orders-list',
       action: null
     },
     {
-      id: 'status',
-      title: "📊 Status zamówienia",
-      content: "Kolorowy znacznik pokazuje status:\n\n🟡 Nowe - przyjęte\n🔵 W realizacji - trwa produkcja\n🟢 Gotowe - czeka na wysyłkę\n🟣 W transporcie - jedzie do Ciebie\n✅ Dostarczone",
-      icon: "📊",
+      id: 'order-card',
+      title: "📋 Karta zamówienia",
+      content: "Kliknij aby zobaczyć szczegóły. Status pokazuje postęp realizacji.",
+      selector: '.order-card',
+      action: null
+    },
+    {
+      id: 'order-status',
+      title: "📊 Status",
+      content: "🟡 Nowe → 🔵 W realizacji → 🟢 Gotowe → 🟣 W transporcie → ✅ Dostarczone",
+      selector: '.order-card .status-badge',
       action: null
     },
     {
       id: 'complaints',
       title: "📋 Reklamacje",
-      content: "Problem z zamówieniem?\n\nKliknij 'Reklamacje' → 'Nowa reklamacja'\n\n• Wybierz zamówienie\n• Opisz problem\n• Dodaj zdjęcia\n\nBędziemy śledzić sprawę!",
-      icon: "📋",
+      content: "Problem? Kliknij tutaj aby zgłosić reklamację z opisem i zdjęciami.",
+      selector: '.complaint-btn',
       action: null
     },
     {
       id: 'messenger',
-      title: "💬 Kontakt z nami",
-      content: "Masz pytanie? Użyj Messengera (💬)!\n\nMożesz szybko napisać do nas i otrzymać odpowiedź. Odpowiadamy najszybciej jak to możliwe.",
-      icon: "💬",
-      action: null
-    },
-    {
-      id: 'notifications',
-      title: "🔔 Powiadomienia",
-      content: "Przycisk 🔔 pokazuje powiadomienia o zmianach w Twoich zamówieniach:\n\n• Zmiana statusu\n• Wysyłka towaru\n• Odpowiedzi na reklamacje",
-      icon: "🔔",
+      title: "💬 Kontakt",
+      content: "Masz pytanie? Napisz do nas przez Messenger!",
+      selector: '.messenger-toggle',
       action: null
     },
     {
       id: 'finish',
       title: "🎉 Dziękujemy!",
-      content: "Dziękujemy za zaufanie!\n\nJeśli masz pytania - pisz przez Messenger.\n\nŻyczymy udanych zakupów! 🛍️",
-      icon: "🎉",
+      content: "Życzymy udanych zakupów! W razie pytań - pisz przez Messenger.",
+      selector: null,
       action: null
     }
   ];
 
-  // Wybierz odpowiednie kroki
+  // Wybierz kroki
   let steps = adminSteps;
   if (isDriver) steps = driverSteps;
   if (isContractor) steps = contractorSteps;
@@ -19009,87 +19136,217 @@ const TutorialOverlay = ({
   const isFirstStep = step === 0;
   const progress = ((step + 1) / totalSteps) * 100;
 
-  // Obsługa kliknięcia Dalej
-  const handleNext = () => {
-    if (!isLastStep) {
-      onNext();
+  // Znajdź element i ustaw pozycję tooltipa
+  useEffect(() => {
+    // Wykonaj akcję jeśli jest (np. otwórz menu)
+    if (currentStep.action) {
+      currentStep.action();
     }
-  };
 
-  // Obsługa kliknięcia Wstecz
-  const handlePrev = () => {
-    if (!isFirstStep) {
-      onPrev();
-    }
-  };
+    // Małe opóźnienie żeby DOM się zaktualizował
+    const timer = setTimeout(() => {
+      if (currentStep.selector) {
+        const element = document.querySelector(currentStep.selector);
+        
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          setElementRect(rect);
+          
+          // Scroll do elementu
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Oblicz pozycję tooltipa
+          const tooltipWidth = 340;
+          const tooltipHeight = 200;
+          const margin = 16;
+          const arrowHeight = 12;
+          
+          let top, left, arrow;
+          
+          // Sprawdź gdzie jest miejsce
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+          const spaceRight = window.innerWidth - rect.right;
+          const spaceLeft = rect.left;
+          
+          // Preferuj pozycję pod elementem
+          if (spaceBelow > tooltipHeight + margin + arrowHeight) {
+            // Pod elementem
+            top = rect.bottom + margin;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            arrow = 'top';
+          } else if (spaceAbove > tooltipHeight + margin + arrowHeight) {
+            // Nad elementem
+            top = rect.top - tooltipHeight - margin;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            arrow = 'bottom';
+          } else if (spaceRight > tooltipWidth + margin + arrowHeight) {
+            // Po prawej
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.right + margin;
+            arrow = 'left';
+          } else {
+            // Po lewej
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.left - tooltipWidth - margin;
+            arrow = 'right';
+          }
+          
+          // Korekta żeby nie wychodziło poza ekran
+          if (left < margin) left = margin;
+          if (left + tooltipWidth > window.innerWidth - margin) {
+            left = window.innerWidth - tooltipWidth - margin;
+          }
+          if (top < margin) top = margin;
+          if (top + tooltipHeight > window.innerHeight - margin) {
+            top = window.innerHeight - tooltipHeight - margin;
+          }
+          
+          setTooltipStyle({ top, left, width: tooltipWidth });
+          setArrowPosition(arrow);
+        } else {
+          // Element nie znaleziony - wyśrodkuj
+          setElementRect(null);
+          setTooltipStyle({
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 380
+          });
+          setArrowPosition('none');
+        }
+      } else {
+        // Brak selektora - wyśrodkuj
+        setElementRect(null);
+        setTooltipStyle({
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 380
+        });
+        setArrowPosition('none');
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [step, currentStep]);
+
+  // Zamknij menu przy wyjściu
+  useEffect(() => {
+    return () => {
+      closeSettings && closeSettings();
+      closeShipping && closeShipping();
+    };
+  }, []);
 
   return (
-    <div className="tutorial-overlay-simple">
-      {/* Ciemne tło */}
-      <div className="tutorial-backdrop-simple" onClick={onSkip}></div>
+    <div className="tutorial-pointer-overlay">
+      {/* Ciemne tło z wyciętym otworem */}
+      {elementRect ? (
+        <svg className="tutorial-mask-svg" viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}>
+          <defs>
+            <mask id="spotlight-mask">
+              <rect x="0" y="0" width="100%" height="100%" fill="white"/>
+              <rect 
+                x={elementRect.left - 8} 
+                y={elementRect.top - 8} 
+                width={elementRect.width + 16} 
+                height={elementRect.height + 16} 
+                rx="8" 
+                fill="black"
+              />
+            </mask>
+          </defs>
+          <rect 
+            x="0" y="0" 
+            width="100%" height="100%" 
+            fill="rgba(0,0,0,0.8)" 
+            mask="url(#spotlight-mask)"
+          />
+        </svg>
+      ) : (
+        <div className="tutorial-dark-backdrop"></div>
+      )}
       
-      {/* Główny modal */}
-      <div className="tutorial-modal-simple">
-        {/* Nagłówek z postępem */}
-        <div className="tutorial-header-simple">
-          <div className="tutorial-step-indicator">
-            <span className="tutorial-current-step">{step + 1}</span>
-            <span className="tutorial-total-steps">/ {totalSteps}</span>
+      {/* Podświetlona ramka wokół elementu */}
+      {elementRect && (
+        <div 
+          className="tutorial-spotlight-border"
+          style={{
+            top: elementRect.top - 8,
+            left: elementRect.left - 8,
+            width: elementRect.width + 16,
+            height: elementRect.height + 16
+          }}
+        />
+      )}
+      
+      {/* Strzałka wskazująca */}
+      {elementRect && (
+        <div 
+          className={`tutorial-pointer-arrow tutorial-pointer-${arrowPosition}`}
+          style={{
+            top: arrowPosition === 'top' ? elementRect.bottom + 4 : 
+                 arrowPosition === 'bottom' ? elementRect.top - 24 :
+                 elementRect.top + elementRect.height / 2 - 10,
+            left: arrowPosition === 'left' ? elementRect.right + 4 :
+                  arrowPosition === 'right' ? elementRect.left - 24 :
+                  elementRect.left + elementRect.width / 2 - 10
+          }}
+        >
+          {arrowPosition === 'top' && '⬇️'}
+          {arrowPosition === 'bottom' && '⬆️'}
+          {arrowPosition === 'left' && '➡️'}
+          {arrowPosition === 'right' && '⬅️'}
+        </div>
+      )}
+      
+      {/* Tooltip */}
+      <div 
+        className={`tutorial-pointer-tooltip tutorial-arrow-${arrowPosition}`}
+        style={tooltipStyle}
+      >
+        <div className="tutorial-pointer-header">
+          <div className="tutorial-pointer-progress">
+            <span className="tutorial-pointer-step">{step + 1}</span>
+            <span className="tutorial-pointer-total">/{totalSteps}</span>
           </div>
-          <button className="tutorial-close-simple" onClick={onSkip} title="Zamknij">
-            ✕
-          </button>
+          <div className="tutorial-pointer-bar">
+            <div className="tutorial-pointer-bar-fill" style={{ width: `${progress}%` }}></div>
+          </div>
+          <button className="tutorial-pointer-close" onClick={onSkip}>✕</button>
         </div>
-
-        {/* Pasek postępu */}
-        <div className="tutorial-progress-simple">
-          <div 
-            className="tutorial-progress-bar-simple" 
-            style={{ width: `${progress}%` }}
-          ></div>
+        
+        <div className="tutorial-pointer-body">
+          <h3 className="tutorial-pointer-title">{currentStep.title}</h3>
+          <p className="tutorial-pointer-text">{currentStep.content}</p>
         </div>
-
-        {/* Treść */}
-        <div className="tutorial-body-simple">
-          <div className="tutorial-icon-simple">{currentStep.icon}</div>
-          <h2 className="tutorial-title-simple">{currentStep.title}</h2>
-          <p className="tutorial-content-simple">{currentStep.content}</p>
-        </div>
-
-        {/* Przyciski nawigacji */}
-        <div className="tutorial-footer-simple">
-          {isFirstStep ? (
-            <button className="tutorial-btn-simple tutorial-btn-skip-simple" onClick={onSkip}>
-              Pomiń
-            </button>
-          ) : (
-            <button className="tutorial-btn-simple tutorial-btn-prev-simple" onClick={handlePrev}>
+        
+        <div className="tutorial-pointer-footer">
+          {!isFirstStep && (
+            <button className="tutorial-pointer-btn tutorial-pointer-prev" onClick={onPrev}>
               ← Wstecz
             </button>
           )}
-
+          {isFirstStep && (
+            <button className="tutorial-pointer-btn tutorial-pointer-skip" onClick={onSkip}>
+              Pomiń
+            </button>
+          )}
           {isLastStep ? (
-            <button className="tutorial-btn-simple tutorial-btn-finish-simple" onClick={onFinish}>
+            <button className="tutorial-pointer-btn tutorial-pointer-finish" onClick={onFinish}>
               Zakończ ✓
             </button>
           ) : (
-            <button className="tutorial-btn-simple tutorial-btn-next-simple" onClick={handleNext}>
+            <button className="tutorial-pointer-btn tutorial-pointer-next" onClick={onNext}>
               Dalej →
             </button>
           )}
         </div>
-
-        {/* Checkbox nie pokazuj */}
+        
         {isFirstStep && (
-          <label className="tutorial-checkbox-simple">
-            <input 
-              type="checkbox" 
-              onChange={(e) => {
-                if (e.target.checked) {
-                  onSkip();
-                }
-              }}
-            />
+          <label className="tutorial-pointer-checkbox">
+            <input type="checkbox" onChange={(e) => e.target.checked && onSkip()} />
             Nie pokazuj ponownie
           </label>
         )}
