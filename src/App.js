@@ -16867,7 +16867,6 @@ const App = () => {
   const [selectedTutorialCategory, setSelectedTutorialCategory] = useState(null); // Wybrana kategoria do wyświetlenia
   const [isSelectingElement, setIsSelectingElement] = useState(false);
   const [editingTutorialStep, setEditingTutorialStep] = useState(null);
-  const [pendingTrigger, setPendingTrigger] = useState(null); // Element do otwarcia przed zaznaczaniem
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -18861,43 +18860,27 @@ Zespół obsługi zamówień
         </div>
       )}
 
-      {/* OVERLAY WYBIERANIA ELEMENTU DO OTWARCIA */}
-      {pendingTrigger === 'selecting' && (
-        <TriggerSelectorOverlay
-          onSelect={(triggerData) => {
-            setPendingTrigger(triggerData);
-          }}
-          onCancel={() => {
-            setPendingTrigger(null);
-            setShowTutorialConfig(true);
-          }}
-        />
-      )}
-
-      {/* OVERLAY RYSOWANIA PROSTOKĄTA */}
+      {/* OVERLAY WYBIERANIA I RYSOWANIA */}
       {isSelectingElement && (
-        <ElementSelectorOverlay
-          triggerData={pendingTrigger}
-          onSelect={(selector) => {
+        <TutorialSelectorOverlay
+          onSelect={(selectorData) => {
             setIsSelectingElement(false);
-            setPendingTrigger(null);
             setShowTutorialConfig(true);
             if (editingTutorialStep) {
-              setEditingTutorialStep({ ...editingTutorialStep, selector });
+              setEditingTutorialStep({ ...editingTutorialStep, selector: selectorData });
             } else {
-              setEditingTutorialStep({ selector, title: '', content: '', role: 'all', category: '' });
+              setEditingTutorialStep({ selector: selectorData, title: '', content: '', role: 'all', category: '' });
             }
           }}
           onCancel={() => {
             setIsSelectingElement(false);
-            setPendingTrigger(null);
             setShowTutorialConfig(true);
           }}
         />
       )}
 
       {/* PANEL KONFIGURACJI SAMOUCZKA */}
-      {showTutorialConfig && !isSelectingElement && pendingTrigger !== 'selecting' && (
+      {showTutorialConfig && !isSelectingElement && (
         <TutorialConfigPanel
           steps={tutorialSteps}
           categories={tutorialCategories}
@@ -18907,13 +18890,8 @@ Zespół obsługi zamówień
           onSaveCategory={saveTutorialCategory}
           onDeleteCategory={deleteTutorialCategory}
           onClose={() => setShowTutorialConfig(false)}
-          onStartSelectingTrigger={() => {
+          onStartSelecting={() => {
             setShowTutorialConfig(false);
-            setPendingTrigger('selecting');
-          }}
-          onStartSelectingArea={(triggerData) => {
-            setShowTutorialConfig(false);
-            setPendingTrigger(triggerData);
             setTimeout(() => setIsSelectingElement(true), 100);
           }}
           editingStep={editingTutorialStep}
@@ -19037,12 +19015,24 @@ const TutorialCategorySelector = ({ categories, steps, onSelect, onSkip }) => {
 };
 
 // ============================================
-// OVERLAY WYBORU ELEMENTU DO OTWARCIA
+// OVERLAY WYBIERANIA I RYSOWANIA (połączony)
 // ============================================
 
-const TriggerSelectorOverlay = ({ onSelect, onCancel }) => {
+const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
+  const [phase, setPhase] = useState('trigger'); // 'trigger' lub 'drawing'
+  const [triggerSelector, setTriggerSelector] = useState(null);
+  const [triggerLabel, setTriggerLabel] = useState(null);
   const [highlightedEl, setHighlightedEl] = useState(null);
+  
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPos, setStartPos] = useState(null);
+  const [currentPos, setCurrentPos] = useState(null);
+  const [rect, setRect] = useState(null);
+  const [arrowPosition, setArrowPosition] = useState('bottom');
+  const [tooltipPosition, setTooltipPosition] = useState('bottom');
+  const [showArrow, setShowArrow] = useState(true);
 
+  // Generuj selektor
   const generateSelector = (el) => {
     if (el.id) return `#${el.id}`;
     const classes = Array.from(el.classList).filter(c => 
@@ -19052,149 +19042,79 @@ const TriggerSelectorOverlay = ({ onSelect, onCancel }) => {
     return el.tagName.toLowerCase();
   };
 
+  // Faza 1: Wybieranie elementu do otwarcia
   useEffect(() => {
+    if (phase !== 'trigger') return;
+
     const handleMouseMove = (e) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.trigger-selector-ui')) {
+      if (el && !el.closest('.selector-ui')) {
         setHighlightedEl(el);
       }
     };
 
     const handleClick = (e) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.trigger-selector-ui')) {
+      if (el && !el.closest('.selector-ui')) {
         e.preventDefault();
         e.stopPropagation();
         
         const selector = generateSelector(el);
-        const label = el.textContent?.slice(0, 40)?.trim() || el.className?.split(' ')[0] || 'Element';
+        const label = el.textContent?.slice(0, 40)?.trim() || 'Element';
         
-        onSelect({ selector, label });
+        setTriggerSelector(selector);
+        setTriggerLabel(label);
+        setHighlightedEl(null);
+        
+        // Kliknij element i przejdź do rysowania
+        setTimeout(() => {
+          el.click();
+          setTimeout(() => setPhase('drawing'), 300);
+        }, 100);
       }
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onCancel();
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('click', handleClick, true);
-    document.addEventListener('keydown', handleKeyDown);
     
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('click', handleClick, true);
-      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onSelect, onCancel]);
+  }, [phase]);
 
-  return (
-    <div style={{position:'fixed',inset:0,zIndex:999999,cursor:'pointer'}}>
-      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
-      
-      {highlightedEl && (
-        <div style={{
-          position:'fixed',
-          top: highlightedEl.getBoundingClientRect().top - 3,
-          left: highlightedEl.getBoundingClientRect().left - 3,
-          width: highlightedEl.getBoundingClientRect().width + 6,
-          height: highlightedEl.getBoundingClientRect().height + 6,
-          border:'3px dashed #F59E0B',
-          borderRadius:'6px',
-          background:'rgba(245, 158, 11, 0.15)',
-          pointerEvents:'none',
-          zIndex: 1000000
-        }} />
-      )}
-      
-      <div className="trigger-selector-ui" style={{
-        position:'fixed',
-        top:'20px',
-        left:'50%',
-        transform:'translateX(-50%)',
-        background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
-        color:'white',
-        padding:'16px 24px',
-        borderRadius:'12px',
-        boxShadow:'0 10px 40px rgba(0,0,0,0.4)',
-        display:'flex',
-        alignItems:'center',
-        gap:'16px',
-        fontSize:'15px'
-      }}>
-        <span>👆 Kliknij element który ma się otworzyć (np. przycisk, menu)</span>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onCancel(); }}
-          style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
-        >
-          ✕ Anuluj
-        </button>
-      </div>
-
-      {highlightedEl && (
-        <div className="trigger-selector-ui" style={{
-          position:'fixed',
-          bottom:'20px',
-          left:'50%',
-          transform:'translateX(-50%)',
-          background:'#1E293B',
-          color:'#F59E0B',
-          padding:'10px 20px',
-          borderRadius:'8px',
-          fontSize:'13px',
-          fontFamily:'monospace'
-        }}>
-          {generateSelector(highlightedEl)}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ============================================
-// ============================================
-// OVERLAY RYSOWANIA PROSTOKĄTA (uproszczony)
-// ============================================
-
-const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState(null);
-  const [currentPos, setCurrentPos] = useState(null);
-  const [rect, setRect] = useState(null);
-  const [arrowPosition, setArrowPosition] = useState('bottom');
-  const [tooltipPosition, setTooltipPosition] = useState('bottom');
-  const [showArrow, setShowArrow] = useState(true);
-
-  // Otwórz element jeśli jest trigger
-  useEffect(() => {
-    if (triggerData && triggerData.selector) {
-      setTimeout(() => {
-        const el = document.querySelector(triggerData.selector);
-        if (el) el.click();
-      }, 200);
-    }
-  }, [triggerData]);
-
+  // Faza 2: Rysowanie prostokąta
   const handleMouseDown = (e) => {
-    if (e.target.closest('.element-selector-ui')) return;
+    if (phase !== 'drawing') return;
+    if (e.target.closest('.selector-ui')) return;
     setIsDrawing(true);
-    setStartPos({ x: e.clientX, y: e.clientY });
-    setCurrentPos({ x: e.clientX, y: e.clientY });
+    // Zapisz pozycję ABSOLUTNĄ (z scrollem)
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+    setStartPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+    setCurrentPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
   };
 
   const handleMouseMove = (e) => {
     if (!isDrawing) return;
-    setCurrentPos({ x: e.clientX, y: e.clientY });
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+    setCurrentPos({ x: e.clientX + scrollX, y: e.clientY + scrollY });
   };
 
   const handleMouseUp = (e) => {
     if (!isDrawing || !startPos) return;
     setIsDrawing(false);
     
-    const x = Math.min(startPos.x, e.clientX);
-    const y = Math.min(startPos.y, e.clientY);
-    const width = Math.abs(e.clientX - startPos.x);
-    const height = Math.abs(e.clientY - startPos.y);
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+    const endX = e.clientX + scrollX;
+    const endY = e.clientY + scrollY;
+    
+    const x = Math.min(startPos.x, endX);
+    const y = Math.min(startPos.y, endY);
+    const width = Math.abs(endX - startPos.x);
+    const height = Math.abs(endY - startPos.y);
     
     if (width > 20 && height > 20) {
       setRect({ x, y, width, height });
@@ -19208,13 +19128,13 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
         left: rect.x,
         width: rect.width,
         height: rect.height,
-        openMenu: triggerData?.selector || null,
+        openMenu: triggerSelector,
         arrowPosition: showArrow ? arrowPosition : 'none',
         tooltipPosition: tooltipPosition
       };
       // Zamknij otwarty element
-      if (triggerData?.selector) {
-        const el = document.querySelector(triggerData.selector);
+      if (triggerSelector) {
+        const el = document.querySelector(triggerSelector);
         if (el) el.click();
       }
       onSelect(JSON.stringify(position));
@@ -19227,13 +19147,19 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
     setCurrentPos(null);
   };
 
-  const handleCancel = useCallback(() => {
-    if (triggerData?.selector) {
-      const el = document.querySelector(triggerData.selector);
+  const handleCancel = () => {
+    if (triggerSelector) {
+      const el = document.querySelector(triggerSelector);
       if (el) el.click();
     }
     onCancel();
-  }, [triggerData, onCancel]);
+  };
+
+  const skipTrigger = () => {
+    setTriggerSelector(null);
+    setTriggerLabel(null);
+    setPhase('drawing');
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -19241,8 +19167,12 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleCancel]);
+  }, [triggerSelector]);
 
+  // Oblicz prostokąt do wyświetlenia (z uwzględnieniem scrolla)
+  const scrollX = window.scrollX || window.pageXOffset;
+  const scrollY = window.scrollY || window.pageYOffset;
+  
   const drawingRect = isDrawing && startPos && currentPos ? {
     x: Math.min(startPos.x, currentPos.x),
     y: Math.min(startPos.y, currentPos.y),
@@ -19253,22 +19183,47 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
   const displayRect = rect || drawingRect;
   const showPanel = !isDrawing;
 
+  // Pozycja wyświetlania (viewport)
+  const viewRect = displayRect ? {
+    x: displayRect.x - scrollX,
+    y: displayRect.y - scrollY,
+    width: displayRect.width,
+    height: displayRect.height
+  } : null;
+
   return (
     <div 
-      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      style={{position:'fixed',inset:0,zIndex:999999,cursor: phase === 'trigger' ? 'pointer' : 'crosshair'}}
+      onMouseDown={phase === 'drawing' ? handleMouseDown : undefined}
+      onMouseMove={phase === 'drawing' ? handleMouseMove : undefined}
+      onMouseUp={phase === 'drawing' ? handleMouseUp : undefined}
     >
-      <div style={{position:'fixed',inset:0,background: displayRect ? 'transparent' : 'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
+      {/* Tło */}
+      <div style={{position:'fixed',inset:0,background: viewRect ? 'transparent' : 'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
 
-      {displayRect && (
+      {/* Faza 1: Podświetlenie elementu do otwarcia */}
+      {phase === 'trigger' && highlightedEl && (
         <div style={{
           position:'fixed',
-          top: displayRect.y,
-          left: displayRect.x,
-          width: displayRect.width,
-          height: displayRect.height,
+          top: highlightedEl.getBoundingClientRect().top - 3,
+          left: highlightedEl.getBoundingClientRect().left - 3,
+          width: highlightedEl.getBoundingClientRect().width + 6,
+          height: highlightedEl.getBoundingClientRect().height + 6,
+          border:'3px dashed #F59E0B',
+          borderRadius:'6px',
+          background:'rgba(245, 158, 11, 0.15)',
+          pointerEvents:'none'
+        }} />
+      )}
+
+      {/* Faza 2: Narysowany prostokąt */}
+      {phase === 'drawing' && viewRect && (
+        <div style={{
+          position:'fixed',
+          top: viewRect.y,
+          left: viewRect.x,
+          width: viewRect.width,
+          height: viewRect.height,
           border:'3px solid #3B82F6',
           borderRadius:'8px',
           background:'rgba(59, 130, 246, 0.1)',
@@ -19277,8 +19232,9 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
         }} />
       )}
       
+      {/* Panel na górze */}
       {showPanel && (
-        <div className="element-selector-ui" style={{
+        <div className="selector-ui" style={{
           position:'fixed',
           top:'10px',
           left:'50%',
@@ -19293,58 +19249,75 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
           gap:'10px',
           maxWidth:'95vw'
         }}>
-          {/* Info o triggerze */}
-          {triggerData && (
-            <div style={{fontSize:'12px',opacity:0.8,borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'8px'}}>
-              📂 Otwarto: {triggerData.label}
-            </div>
-          )}
-
-          {/* Instrukcja */}
-          <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',fontWeight:'500',flexWrap:'wrap'}}>
-            <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
-            {rect ? (
-              <>
-                <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
-                <button onClick={(e) => { e.stopPropagation(); handleConfirm(); }} style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Zatwierdź</button>
-              </>
-            ) : (
-              <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
-            )}
-          </div>
-
-          {/* Pozycje - tylko gdy zaznaczono */}
-          {rect && (
-            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-              {/* Strzałka */}
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',cursor:'pointer'}}>
-                  <input type="checkbox" checked={showArrow} onChange={(e) => setShowArrow(e.target.checked)} style={{cursor:'pointer'}} />
-                  Strzałka:
-                </label>
-                {showArrow && ['top', 'bottom', 'left', 'right'].map(pos => (
-                  <button key={pos} onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }} style={{background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
-                    {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                  </button>
-                ))}
+          {phase === 'trigger' ? (
+            <>
+              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px'}}>
+                <span>👆 Kliknij element który ma się otworzyć (np. przycisk edycji)</span>
+                <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
               </div>
-              {/* Opis */}
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
-                {['top', 'bottom', 'left', 'right', 'center'].map(pos => (
-                  <button key={pos} onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }} style={{background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
-                    {pos === 'center' ? '⬤' : pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                  </button>
-                ))}
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'8px'}}>
+                <button onClick={(e) => { e.stopPropagation(); skipTrigger(); }} style={{background:'#8B5CF6',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'500',fontSize:'12px'}}>
+                  ⏭️ Pomiń - nie muszę nic otwierać
+                </button>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {triggerLabel && (
+                <div style={{fontSize:'12px',opacity:0.8,borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'8px'}}>
+                  📂 Otwarto: {triggerLabel}
+                </div>
+              )}
+              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',flexWrap:'wrap'}}>
+                <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
+                {rect ? (
+                  <>
+                    <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleConfirm(); }} style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Zatwierdź</button>
+                  </>
+                ) : (
+                  <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
+                )}
+              </div>
+
+              {rect && (
+                <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
+                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                    <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',cursor:'pointer'}}>
+                      <input type="checkbox" checked={showArrow} onChange={(e) => setShowArrow(e.target.checked)} style={{cursor:'pointer'}} onClick={(e) => e.stopPropagation()} />
+                      Strzałka:
+                    </label>
+                    {showArrow && ['top', 'bottom', 'left', 'right'].map(pos => (
+                      <button key={pos} onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }} style={{background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                    <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
+                    {['top', 'bottom', 'left', 'right', 'center'].map(pos => (
+                      <button key={pos} onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }} style={{background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                        {pos === 'center' ? '⬤' : pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {displayRect && displayRect.width > 50 && showPanel && (
-        <div className="element-selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#60A5FA',padding:'8px 16px',borderRadius:'8px',fontSize:'13px'}}>
-          📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
+      {/* Info na dole */}
+      {phase === 'trigger' && highlightedEl && (
+        <div className="selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#F59E0B',padding:'8px 16px',borderRadius:'8px',fontSize:'12px',fontFamily:'monospace'}}>
+          {generateSelector(highlightedEl)}
+        </div>
+      )}
+
+      {phase === 'drawing' && viewRect && viewRect.width > 50 && showPanel && (
+        <div className="selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#60A5FA',padding:'8px 16px',borderRadius:'8px',fontSize:'13px'}}>
+          📐 {Math.round(viewRect.width)} × {Math.round(viewRect.height)} px
         </div>
       )}
     </div>
@@ -19358,12 +19331,11 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
 
 const TutorialConfigPanel = ({ 
   steps, categories, onSave, onDelete, onReorder, onSaveCategory, onDeleteCategory, onClose,
-  onStartSelectingTrigger, onStartSelectingArea,
+  onStartSelecting,
   editingStep, setEditingStep
 }) => {
   const [activeTab, setActiveTab] = useState('steps'); // 'steps', 'categories'
   const [formData, setFormData] = useState({ title: '', content: '', selector: '', role: 'all', category: '' });
-  const [triggerData, setTriggerData] = useState(null); // {selector, label}
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📚', description: '' });
   const [editingCategory, setEditingCategory] = useState(null);
 
@@ -19376,15 +19348,6 @@ const TutorialConfigPanel = ({
         role: editingStep.role || 'all',
         category: editingStep.category || ''
       });
-      // Parsuj triggerData z selector
-      if (editingStep.selector) {
-        try {
-          const parsed = JSON.parse(editingStep.selector);
-          if (parsed.openMenu) {
-            setTriggerData({ selector: parsed.openMenu, label: 'Zapisany element' });
-          }
-        } catch {}
-      }
     }
   }, [editingStep]);
 
@@ -19395,7 +19358,6 @@ const TutorialConfigPanel = ({
     if (success) { 
       setFormData({ title: '', content: '', selector: '', role: 'all', category: '' }); 
       setEditingStep(null);
-      setTriggerData(null);
     }
   };
 
@@ -19411,15 +19373,9 @@ const TutorialConfigPanel = ({
     }
   };
 
-  const startSelectTrigger = () => {
-    // Zapisz obecne dane przed wyjściem
+  const startSelecting = () => {
     setEditingStep({ ...editingStep, ...formData });
-    onStartSelectingTrigger();
-  };
-
-  const startSelectArea = () => {
-    setEditingStep({ ...editingStep, ...formData });
-    onStartSelectingArea(triggerData);
+    onStartSelecting();
   };
 
   return (
@@ -19505,39 +19461,28 @@ const TutorialConfigPanel = ({
                     
                     {/* Krok 1: Co otworzyć */}
                     <div style={{marginBottom:'10px'}}>
-                      <div style={{fontSize:'11px',color:'#64748B',marginBottom:'4px'}}>1. Co najpierw otworzyć? (opcjonalne)</div>
-                      {triggerData ? (
-                        <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#D1FAE5',padding:'6px 10px',borderRadius:'6px'}}>
-                          <span style={{fontSize:'12px'}}>✅ {triggerData.label}</span>
-                          <button onClick={() => setTriggerData(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px'}}>✕</button>
-                        </div>
-                      ) : (
-                        <button onClick={startSelectTrigger} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'2px dashed #F59E0B',background:'#FFFBEB',color:'#B45309',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>
-                          👆 Kliknij aby zaznaczyć element do otwarcia
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Krok 2: Zaznacz obszar */}
-                    <div>
-                      <div style={{fontSize:'11px',color:'#64748B',marginBottom:'4px'}}>2. Zaznacz obszar do podświetlenia:</div>
-                      {formData.selector ? (
-                        <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#DBEAFE',padding:'6px 10px',borderRadius:'6px'}}>
-                          <span style={{fontSize:'12px'}}>✅ Obszar zaznaczony</span>
-                          <button onClick={() => setFormData({...formData, selector: ''})} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px'}}>✕</button>
-                        </div>
-                      ) : (
-                        <button onClick={startSelectArea} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'2px dashed #3B82F6',background:'#EFF6FF',color:'#1D4ED8',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>
-                          🎯 Kliknij aby narysować prostokąt
-                        </button>
-                      )}
+                  {/* Obszar do podświetlenia */}
+                  <div style={{background:'#F8FAFC',padding:'12px',borderRadius:'8px'}}>
+                    <div style={{fontSize:'12px',fontWeight:'600',marginBottom:'8px',color:'#374151'}}>Obszar do podświetlenia:</div>
+                    {formData.selector ? (
+                      <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#DBEAFE',padding:'8px 12px',borderRadius:'6px'}}>
+                        <span style={{fontSize:'12px'}}>✅ Obszar zaznaczony</span>
+                        <button onClick={() => setFormData({...formData, selector: ''})} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px',marginLeft:'auto'}}>✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={startSelecting} style={{width:'100%',padding:'10px',borderRadius:'6px',border:'2px dashed #3B82F6',background:'#EFF6FF',color:'#1D4ED8',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>
+                        🎯 Kliknij aby zaznaczyć obszar
+                      </button>
+                    )}
+                    <div style={{fontSize:'11px',color:'#64748B',marginTop:'6px'}}>
+                      Najpierw klikniesz element do otwarcia (opcjonalne), potem narysujesz prostokąt
                     </div>
                   </div>
 
                   {/* Przyciski */}
                   <div style={{display:'flex',gap:'10px'}}>
                     {editingStep?.id && (
-                      <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all',category:''}); setTriggerData(null); }} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>
+                      <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all',category:''}); }} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>
                     )}
                     <button onClick={handleSave} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',cursor:'pointer',fontWeight:'600'}}>
                       {editingStep?.id ? '💾 Zapisz' : '➕ Dodaj'}
