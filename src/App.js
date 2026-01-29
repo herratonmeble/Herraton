@@ -16857,6 +16857,10 @@ const App = () => {
   // Rozliczenia transportowe
   const [settlements, setSettlements] = useState([]);
   const [showSettlementsPanel, setShowSettlementsPanel] = useState(false);
+  
+  // Samouczek / Tutorial
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -16987,6 +16991,17 @@ const App = () => {
       clearTimeout(safetyTimeout);
     };
   }, []);
+
+  // Sprawdź czy pokazać samouczek (raz po pierwszym zalogowaniu)
+  useEffect(() => {
+    if (user && !loading) {
+      const tutorialSeen = localStorage.getItem(`herratonTutorialSeen_${user.id}`);
+      if (!tutorialSeen) {
+        // Pokaż samouczek po 1 sekundzie
+        setTimeout(() => setShowTutorial(true), 1000);
+      }
+    }
+  }, [user, loading]);
 
   // Popup dla nowych powiadomień
   useEffect(() => {
@@ -18692,6 +18707,241 @@ Zespół obsługi zamówień
           </div>
         </div>
       )}
+
+      {/* SAMOUCZEK / TUTORIAL */}
+      {showTutorial && (
+        <TutorialOverlay
+          step={tutorialStep}
+          userRole={user?.role}
+          onNext={() => setTutorialStep(prev => prev + 1)}
+          onPrev={() => setTutorialStep(prev => prev - 1)}
+          onSkip={() => {
+            localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
+            setShowTutorial(false);
+            setTutorialStep(0);
+          }}
+          onFinish={() => {
+            localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
+            setShowTutorial(false);
+            setTutorialStep(0);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// KOMPONENT SAMOUCZKA
+// ============================================
+
+const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) => {
+  const isAdmin = userRole === 'admin';
+  const isWorker = userRole === 'worker';
+  const isDriver = userRole === 'driver';
+  const isContractor = userRole === 'contractor';
+
+  // Kroki dla admina/pracownika
+  const adminSteps = [
+    {
+      title: "👋 Witaj w Herraton!",
+      content: "To jest Twój przewodnik po systemie zarządzania zamówieniami. Pokażemy Ci najważniejsze funkcje w kilku krokach.",
+      highlight: null,
+      position: 'center'
+    },
+    {
+      title: "📦 Lista zamówień",
+      content: "Tu widzisz wszystkie zamówienia. Każda karta zawiera najważniejsze informacje: numer, klienta, status i cenę. Kliknij kartę żeby zobaczyć szczegóły.",
+      highlight: '.orders-list',
+      position: 'bottom'
+    },
+    {
+      title: "➕ Nowe zamówienie",
+      content: "Kliknij ten przycisk aby dodać nowe zamówienie. Formularz przeprowadzi Cię przez wszystkie dane: klient, produkty, płatności, transport.",
+      highlight: '.btn-primary',
+      position: 'bottom'
+    },
+    {
+      title: "🔍 Filtry i wyszukiwanie",
+      content: "Użyj filtrów aby znaleźć zamówienia po statusie, kraju, pilności lub producencie. Możesz też wyszukać po numerze lub nazwie klienta.",
+      highlight: '.filters-container',
+      position: 'bottom'
+    },
+    {
+      title: "🔔 Powiadomienia",
+      content: "Tu znajdziesz wszystkie powiadomienia o nowych zamówieniach, zmianach statusów i wiadomościach. Liczba pokazuje nieprzeczytane.",
+      highlight: '.header-actions',
+      position: 'bottom'
+    },
+    {
+      title: "📋 Reklamacje",
+      content: "Panel reklamacji pozwala zarządzać zgłoszeniami od klientów. Możesz dodawać zdjęcia, komentarze i śledzić status.",
+      highlight: '.complaint-btn',
+      position: 'bottom'
+    },
+    {
+      title: "💬 Messenger",
+      content: "Wbudowany komunikator pozwala szybko kontaktować się z innymi użytkownikami systemu. Kliknij ikonę czatu.",
+      highlight: '.messenger-toggle',
+      position: 'bottom'
+    },
+    {
+      title: "⚙️ Ustawienia",
+      content: "W menu ustawień znajdziesz: zarządzanie użytkownikami, producentami, kontaktami, statystyki i więcej.",
+      highlight: '.settings-dropdown',
+      position: 'bottom'
+    },
+    {
+      title: "📱 Powiadomienia Push",
+      content: "Włącz powiadomienia push w Ustawieniach → Powiadomienia Push, aby otrzymywać alerty nawet gdy aplikacja jest zamknięta.",
+      highlight: null,
+      position: 'center'
+    },
+    {
+      title: "🎉 Gotowe!",
+      content: "To wszystko na początek! Jeśli potrzebujesz pomocy, skontaktuj się z administratorem lub zajrzyj do instrukcji.",
+      highlight: null,
+      position: 'center'
+    }
+  ];
+
+  // Kroki dla kierowcy
+  const driverSteps = [
+    {
+      title: "👋 Witaj kierowco!",
+      content: "To jest Twój panel do zarządzania dostawami. Pokażemy Ci jak korzystać z systemu.",
+      highlight: null,
+      position: 'center'
+    },
+    {
+      title: "📋 Twoje zamówienia",
+      content: "Tu widzisz wszystkie zamówienia przypisane do Ciebie. Kliknij kartę aby zobaczyć szczegóły trasy.",
+      highlight: '.orders-list',
+      position: 'bottom'
+    },
+    {
+      title: "🔄 Zmiana statusu",
+      content: "Gdy rozpoczynasz trasę, zmień status na 'W transporcie'. Po dostarczeniu zmień na 'Dostarczone'.",
+      highlight: null,
+      position: 'center'
+    },
+    {
+      title: "💬 Kontakt z biurem",
+      content: "Użyj Messengera aby szybko skontaktować się z biurem w razie problemów.",
+      highlight: '.messenger-toggle',
+      position: 'bottom'
+    },
+    {
+      title: "🎉 Gotowe!",
+      content: "Powodzenia na trasie! W razie pytań skontaktuj się z biurem.",
+      highlight: null,
+      position: 'center'
+    }
+  ];
+
+  // Kroki dla kontrahenta
+  const contractorSteps = [
+    {
+      title: "👋 Witaj!",
+      content: "To jest Twój panel klienta w systemie Herraton. Możesz tu śledzić swoje zamówienia.",
+      highlight: null,
+      position: 'center'
+    },
+    {
+      title: "📦 Twoje zamówienia",
+      content: "Tu widzisz listę wszystkich swoich zamówień. Kliknij kartę aby zobaczyć szczegóły.",
+      highlight: '.orders-list',
+      position: 'bottom'
+    },
+    {
+      title: "📋 Reklamacje",
+      content: "Jeśli masz problem z zamówieniem, możesz zgłosić reklamację klikając przycisk Reklamacje.",
+      highlight: '.complaint-btn',
+      position: 'bottom'
+    },
+    {
+      title: "💬 Kontakt",
+      content: "Użyj Messengera aby skontaktować się z obsługą.",
+      highlight: '.messenger-toggle',
+      position: 'bottom'
+    },
+    {
+      title: "🎉 Gotowe!",
+      content: "Dziękujemy za zaufanie! W razie pytań jesteśmy do dyspozycji.",
+      highlight: null,
+      position: 'center'
+    }
+  ];
+
+  // Wybierz odpowiednie kroki
+  let steps = adminSteps;
+  if (isDriver) steps = driverSteps;
+  if (isContractor) steps = contractorSteps;
+
+  const currentStep = steps[step] || steps[0];
+  const isLastStep = step >= steps.length - 1;
+  const isFirstStep = step === 0;
+
+  return (
+    <div className="tutorial-overlay">
+      <div className="tutorial-backdrop" onClick={onSkip}></div>
+      
+      <div className={`tutorial-modal tutorial-${currentStep.position}`}>
+        <div className="tutorial-header">
+          <span className="tutorial-step-counter">
+            {step + 1} / {steps.length}
+          </span>
+          <button className="tutorial-skip" onClick={onSkip}>
+            ✕ Pomiń
+          </button>
+        </div>
+        
+        <div className="tutorial-content">
+          <h2 className="tutorial-title">{currentStep.title}</h2>
+          <p className="tutorial-text">{currentStep.content}</p>
+        </div>
+        
+        <div className="tutorial-footer">
+          <div className="tutorial-dots">
+            {steps.map((_, idx) => (
+              <span 
+                key={idx} 
+                className={`tutorial-dot ${idx === step ? 'active' : ''} ${idx < step ? 'completed' : ''}`}
+              />
+            ))}
+          </div>
+          
+          <div className="tutorial-buttons">
+            {!isFirstStep && (
+              <button className="btn-tutorial-prev" onClick={onPrev}>
+                ← Wstecz
+              </button>
+            )}
+            
+            {isLastStep ? (
+              <button className="btn-tutorial-finish" onClick={onFinish}>
+                Zakończ ✓
+              </button>
+            ) : (
+              <button className="btn-tutorial-next" onClick={onNext}>
+                Dalej →
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <label className="tutorial-dont-show">
+          <input 
+            type="checkbox" 
+            onChange={(e) => {
+              if (e.target.checked) {
+                onSkip();
+              }
+            }}
+          />
+          Nie pokazuj więcej
+        </label>
+      </div>
     </div>
   );
 };
