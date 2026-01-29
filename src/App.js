@@ -18813,16 +18813,38 @@ Zespół obsługi zamówień
         </div>
       )}
 
+      {/* OVERLAY WYBIERANIA ELEMENTU - na zewnątrz panelu */}
+      {isSelectingElement && (
+        <ElementSelectorOverlay
+          onSelect={(selector) => {
+            setIsSelectingElement(false);
+            setShowTutorialConfig(true);
+            // Zapisz selektor do edytowanego kroku
+            if (editingTutorialStep) {
+              setEditingTutorialStep({ ...editingTutorialStep, selector });
+            } else {
+              setEditingTutorialStep({ selector, title: '', content: '', role: 'all' });
+            }
+          }}
+          onCancel={() => {
+            setIsSelectingElement(false);
+            setShowTutorialConfig(true);
+          }}
+        />
+      )}
+
       {/* PANEL KONFIGURACJI SAMOUCZKA */}
-      {showTutorialConfig && (
+      {showTutorialConfig && !isSelectingElement && (
         <TutorialConfigPanel
           steps={tutorialSteps}
           onSave={saveTutorialStep}
           onDelete={deleteTutorialStep}
           onReorder={reorderTutorialSteps}
           onClose={() => setShowTutorialConfig(false)}
-          isSelectingElement={isSelectingElement}
-          setIsSelectingElement={setIsSelectingElement}
+          onStartSelectingElement={() => {
+            setShowTutorialConfig(false);
+            setTimeout(() => setIsSelectingElement(true), 100);
+          }}
           editingStep={editingTutorialStep}
           setEditingStep={setEditingTutorialStep}
         />
@@ -18853,16 +18875,150 @@ Zespół obsługi zamówień
 };
 
 // ============================================
+// OVERLAY WYBIERANIA ELEMENTU
+// ============================================
+
+const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
+  const [highlightedElement, setHighlightedElement] = useState(null);
+  const [highlightRect, setHighlightRect] = useState(null);
+
+  const generateSelector = (el) => {
+    if (el.id) return `#${el.id}`;
+    const classes = Array.from(el.classList).filter(c => 
+      !c.includes('hover') && !c.includes('active') && !c.includes('focus')
+    );
+    if (classes.length > 0) {
+      const specificClass = classes.find(c => 
+        c.includes('btn') || c.includes('card') || c.includes('filter') || 
+        c.includes('header') || c.includes('menu') || c.includes('order') ||
+        c.includes('complaint') || c.includes('lead') || c.includes('messenger')
+      ) || classes[0];
+      return `.${specificClass}`;
+    }
+    return el.tagName.toLowerCase();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.element-selector-ui')) {
+        setHighlightedElement(el);
+        const rect = el.getBoundingClientRect();
+        setHighlightRect(rect);
+      }
+    };
+
+    const handleClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.element-selector-ui')) {
+        const selector = generateSelector(el);
+        onSelect(selector);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('click', handleClick, true);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onSelect, onCancel]);
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}>
+      {/* Podświetlenie elementu */}
+      {highlightRect && (
+        <div style={{
+          position:'fixed',
+          top: highlightRect.top - 4,
+          left: highlightRect.left - 4,
+          width: highlightRect.width + 8,
+          height: highlightRect.height + 8,
+          border:'3px dashed #3B82F6',
+          borderRadius:'8px',
+          background:'rgba(59, 130, 246, 0.15)',
+          pointerEvents:'none',
+          transition:'all 0.1s ease'
+        }} />
+      )}
+      
+      {/* Informacja na górze */}
+      <div className="element-selector-ui" style={{
+        position:'fixed',
+        top:'20px',
+        left:'50%',
+        transform:'translateX(-50%)',
+        background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
+        color:'white',
+        padding:'16px 28px',
+        borderRadius:'12px',
+        boxShadow:'0 10px 40px rgba(0,0,0,0.4)',
+        display:'flex',
+        alignItems:'center',
+        gap:'20px',
+        fontSize:'15px',
+        fontWeight:'500'
+      }}>
+        <span>🎯 Kliknij na element który chcesz podświetlić</span>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onCancel(); }}
+          style={{
+            background:'rgba(255,255,255,0.2)',
+            border:'none',
+            color:'white',
+            padding:'8px 16px',
+            borderRadius:'6px',
+            cursor:'pointer',
+            fontWeight:'600'
+          }}
+        >
+          Anuluj (Esc)
+        </button>
+      </div>
+
+      {/* Podgląd selektora */}
+      {highlightedElement && (
+        <div className="element-selector-ui" style={{
+          position:'fixed',
+          bottom:'20px',
+          left:'50%',
+          transform:'translateX(-50%)',
+          background:'#1E293B',
+          color:'#60A5FA',
+          padding:'12px 20px',
+          borderRadius:'8px',
+          fontFamily:'monospace',
+          fontSize:'14px',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
+        }}>
+          {generateSelector(highlightedElement)}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
 // PANEL KONFIGURACJI SAMOUCZKA
 // ============================================
 
 const TutorialConfigPanel = ({ 
   steps, onSave, onDelete, onReorder, onClose,
-  isSelectingElement, setIsSelectingElement,
+  onStartSelectingElement,
   editingStep, setEditingStep
 }) => {
   const [formData, setFormData] = useState({ title: '', content: '', selector: '', role: 'all' });
-  const [highlightedElement, setHighlightedElement] = useState(null);
 
   useEffect(() => {
     if (editingStep) {
@@ -18872,56 +19028,17 @@ const TutorialConfigPanel = ({
         selector: editingStep.selector || '',
         role: editingStep.role || 'all'
       });
-    } else {
-      setFormData({ title: '', content: '', selector: '', role: 'all' });
     }
   }, [editingStep]);
 
-  useEffect(() => {
-    if (!isSelectingElement) { setHighlightedElement(null); return; }
-
-    const handleMouseMove = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.tutorial-config-panel') && !el.closest('.element-selector-overlay')) {
-        setHighlightedElement(el);
-      }
-    };
-
-    const handleClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.tutorial-config-panel') && !el.closest('.element-selector-overlay')) {
-        const selector = generateSelector(el);
-        setFormData(prev => ({ ...prev, selector }));
-        setIsSelectingElement(false);
-        setHighlightedElement(null);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('click', handleClick, true);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('click', handleClick, true);
-    };
-  }, [isSelectingElement, setIsSelectingElement]);
-
-  const generateSelector = (el) => {
-    if (el.id) return `#${el.id}`;
-    const classes = Array.from(el.classList).filter(c => !c.includes('hover') && !c.includes('active'));
-    if (classes.length > 0) {
-      const specificClass = classes.find(c => c.includes('btn') || c.includes('card') || c.includes('filter') || c.includes('header') || c.includes('menu')) || classes[0];
-      return `.${specificClass}`;
-    }
-    return el.tagName.toLowerCase();
-  };
-
   const handleSave = async () => {
     if (!formData.title.trim()) { alert('Wprowadź tytuł'); return; }
-    const stepData = { ...formData, ...(editingStep ? { id: editingStep.id } : {}) };
+    const stepData = { ...formData, ...(editingStep?.id ? { id: editingStep.id } : {}) };
     const success = await onSave(stepData);
-    if (success) { setFormData({ title: '', content: '', selector: '', role: 'all' }); setEditingStep(null); }
+    if (success) { 
+      setFormData({ title: '', content: '', selector: '', role: 'all' }); 
+      setEditingStep(null); 
+    }
   };
 
   const testSelector = (selector) => {
@@ -18930,63 +19047,136 @@ const TutorialConfigPanel = ({
       const el = document.querySelector(selector);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.outline = '3px solid #3B82F6';
+        el.style.outline = '4px solid #3B82F6';
         el.style.outlineOffset = '4px';
-        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 2000);
-      } else { alert('Element nie znaleziony!'); }
-    } catch { alert('Błędny selektor'); }
+        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 2500);
+      } else { 
+        alert('Element nie znaleziony! Sprawdź selektor.'); 
+      }
+    } catch { 
+      alert('Błędny selektor CSS'); 
+    }
+  };
+
+  const handleStartSelecting = () => {
+    // Zachowaj obecne dane formularza w editingStep
+    setEditingStep({ ...editingStep, ...formData });
+    onStartSelectingElement();
   };
 
   return (
     <>
-      {isSelectingElement && (
-        <div className="element-selector-overlay" style={{position:'fixed',inset:0,zIndex:999998,cursor:'crosshair'}}>
-          {highlightedElement && (
-            <div style={{
-              position:'fixed',
-              top: highlightedElement.getBoundingClientRect().top - 4,
-              left: highlightedElement.getBoundingClientRect().left - 4,
-              width: highlightedElement.getBoundingClientRect().width + 8,
-              height: highlightedElement.getBoundingClientRect().height + 8,
-              border:'3px dashed #3B82F6',borderRadius:'4px',background:'rgba(59,130,246,0.1)',pointerEvents:'none',zIndex:999999
-            }} />
-          )}
-          <div style={{position:'fixed',top:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E3A5F',color:'white',padding:'12px 24px',borderRadius:'8px',zIndex:1000000,boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}>
-            🎯 Kliknij element do podświetlenia
-            <button onClick={() => setIsSelectingElement(false)} style={{marginLeft:'16px',background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'4px 12px',borderRadius:'4px',cursor:'pointer'}}>Anuluj</button>
-          </div>
-        </div>
-      )}
-
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:99998}} onClick={onClose}></div>
-      <div className="tutorial-config-panel" style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'white',borderRadius:'16px',boxShadow:'0 25px 50px rgba(0,0,0,0.3)',zIndex:99999,width:'90%',maxWidth:'900px',maxHeight:'90vh',display:'flex',flexDirection:'column'}}>
+      <div className="tutorial-config-panel" style={{
+        position:'fixed',
+        top:'50%',
+        left:'50%',
+        transform:'translate(-50%,-50%)',
+        background:'white',
+        borderRadius:'16px',
+        boxShadow:'0 25px 50px rgba(0,0,0,0.3)',
+        zIndex:99999,
+        width:'90%',
+        maxWidth:'900px',
+        maxHeight:'90vh',
+        display:'flex',
+        flexDirection:'column',
+        overflow:'hidden'
+      }}>
+        {/* Header */}
         <div style={{padding:'20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <h2 style={{margin:0,fontSize:'20px',fontWeight:'700',color:'#1E293B'}}>🎓 Konfiguracja samouczka</h2>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8',padding:'4px'}}>×</button>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8'}}>×</button>
         </div>
 
-        <div style={{padding:'20px',display:'flex',gap:'20px',overflow:'hidden',flex:1}}>
-          <div style={{flex:1,minWidth:'300px',maxHeight:'60vh',overflowY:'auto'}}>
-            <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>Kroki ({steps.length})</h3>
+        {/* Body */}
+        <div style={{padding:'20px',display:'flex',gap:'24px',overflow:'hidden',flex:1}}>
+          {/* Lista kroków */}
+          <div style={{flex:1,minWidth:'280px',maxHeight:'60vh',overflowY:'auto'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'14px',color:'#64748B',fontWeight:'600'}}>
+              📋 Kroki samouczka ({steps.length})
+            </h3>
+            
             {steps.length === 0 ? (
-              <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'8px'}}>
+              <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'12px'}}>
                 <div style={{fontSize:'48px',marginBottom:'12px'}}>📝</div>
-                <div>Brak kroków - dodaj pierwszy krok</div>
+                <div style={{fontWeight:'500'}}>Brak kroków</div>
+                <div style={{fontSize:'13px',marginTop:'8px'}}>Dodaj pierwszy krok używając formularza →</div>
               </div>
             ) : (
-              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
                 {steps.map((s, i) => (
-                  <div key={s.id} style={{padding:'12px',background:editingStep?.id === s.id ? '#DBEAFE' : 'white',border:'1px solid #E2E8F0',borderRadius:'8px'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
-                      <span style={{background:'#3B82F6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:'700'}}>{i + 1}</span>
-                      <strong style={{flex:1,fontSize:'14px'}}>{s.title}</strong>
-                      <span style={{fontSize:'10px',padding:'2px 6px',background:'#E2E8F0',borderRadius:'4px'}}>{s.role === 'all' ? 'Wszyscy' : s.role}</span>
+                  <div 
+                    key={s.id} 
+                    style={{
+                      padding:'14px',
+                      background: editingStep?.id === s.id ? '#DBEAFE' : 'white',
+                      border: editingStep?.id === s.id ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                      borderRadius:'10px',
+                      transition:'all 0.2s'
+                    }}
+                  >
+                    <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'6px'}}>
+                      <span style={{
+                        background:'linear-gradient(135deg, #3B82F6, #2563EB)',
+                        color:'white',
+                        width:'28px',
+                        height:'28px',
+                        borderRadius:'50%',
+                        display:'flex',
+                        alignItems:'center',
+                        justifyContent:'center',
+                        fontSize:'13px',
+                        fontWeight:'700'
+                      }}>{i + 1}</span>
+                      <strong style={{flex:1,fontSize:'14px',color:'#1E293B'}}>{s.title}</strong>
+                      <span style={{
+                        fontSize:'10px',
+                        padding:'3px 8px',
+                        background: s.role === 'all' ? '#E2E8F0' : '#DBEAFE',
+                        color: s.role === 'all' ? '#64748B' : '#1D4ED8',
+                        borderRadius:'4px',
+                        fontWeight:'600'
+                      }}>
+                        {s.role === 'all' ? 'Wszyscy' : s.role}
+                      </span>
                     </div>
-                    {s.selector && <div style={{fontSize:'11px',color:'#64748B',marginBottom:'8px',fontFamily:'monospace'}}>🎯 {s.selector}</div>}
-                    <div style={{display:'flex',gap:'6px'}}>
-                      <button onClick={() => setEditingStep(s)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>✏️ Edytuj</button>
-                      {s.selector && <button onClick={() => testSelector(s.selector)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>👁️ Test</button>}
-                      <button onClick={() => window.confirm('Usunąć?') && onDelete(s.id)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer'}}>🗑️</button>
+                    
+                    {s.selector && (
+                      <div style={{
+                        fontSize:'11px',
+                        color:'#64748B',
+                        fontFamily:'monospace',
+                        background:'#F1F5F9',
+                        padding:'6px 10px',
+                        borderRadius:'6px',
+                        marginBottom:'10px'
+                      }}>
+                        🎯 {s.selector}
+                      </div>
+                    )}
+                    
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <button 
+                        onClick={() => setEditingStep(s)} 
+                        style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
+                      >
+                        ✏️ Edytuj
+                      </button>
+                      {s.selector && (
+                        <button 
+                          onClick={() => testSelector(s.selector)} 
+                          style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
+                        >
+                          👁️ Test
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => window.confirm('Usunąć ten krok?') && onDelete(s.id)} 
+                        style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontWeight:'500'}}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -18994,52 +19184,135 @@ const TutorialConfigPanel = ({
             )}
           </div>
 
-          <div style={{flex:1,minWidth:'300px'}}>
-            <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{editingStep ? '✏️ Edytuj' : '➕ Nowy krok'}</h3>
-            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+          {/* Formularz */}
+          <div style={{flex:1,minWidth:'280px'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'14px',color:'#64748B',fontWeight:'600'}}>
+              {editingStep?.id ? '✏️ Edytuj krok' : '➕ Dodaj nowy krok'}
+            </h3>
+            
+            <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
               <div>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Tytuł *</label>
-                <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="np. 🔔 Powiadomienia" style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0'}} />
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
+                  Tytuł *
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  placeholder="np. 🔔 Powiadomienia"
+                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                />
               </div>
+
               <div>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Opis</label>
-                <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Opis kroku..." rows={4} style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',resize:'vertical'}} />
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
+                  Opis
+                </label>
+                <textarea
+                  value={formData.content}
+                  onChange={(e) => setFormData({...formData, content: e.target.value})}
+                  placeholder="Opis co robi ta funkcja..."
+                  rows={4}
+                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical'}}
+                />
               </div>
+
               <div>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Selektor CSS</label>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
+                  Element do podświetlenia
+                </label>
                 <div style={{display:'flex',gap:'8px'}}>
-                  <input type="text" value={formData.selector} onChange={(e) => setFormData({...formData, selector: e.target.value})} placeholder=".btn-primary lub #moj-element" style={{flex:1,padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',fontFamily:'monospace'}} />
-                  <button type="button" onClick={() => setIsSelectingElement(true)} style={{padding:'10px 16px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600',whiteSpace:'nowrap'}}>🎯 Wybierz</button>
+                  <input
+                    type="text"
+                    value={formData.selector}
+                    onChange={(e) => setFormData({...formData, selector: e.target.value})}
+                    placeholder=".btn-primary lub #id"
+                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontFamily:'monospace',fontSize:'13px'}}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleStartSelecting}
+                    style={{
+                      padding:'12px 16px',
+                      borderRadius:'8px',
+                      border:'none',
+                      background:'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+                      color:'white',
+                      cursor:'pointer',
+                      fontWeight:'600',
+                      whiteSpace:'nowrap'
+                    }}
+                  >
+                    🎯 Wybierz
+                  </button>
                 </div>
-                <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'4px'}}>Kliknij "Wybierz" i wskaż element na stronie</div>
+                <div style={{fontSize:'12px',color:'#94A3B8',marginTop:'6px'}}>
+                  Kliknij "Wybierz" i wskaż element na stronie myszką
+                </div>
               </div>
+
               <div>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Dla kogo</label>
-                <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0'}}>
-                  <option value="all">Wszyscy</option>
-                  <option value="admin">Administrator</option>
-                  <option value="worker">Pracownik</option>
-                  <option value="driver">Kierowca</option>
-                  <option value="contractor">Kontrahent</option>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
+                  Dla kogo wyświetlać
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                >
+                  <option value="all">👥 Wszyscy użytkownicy</option>
+                  <option value="admin">👑 Tylko administrator</option>
+                  <option value="worker">👷 Tylko pracownik</option>
+                  <option value="driver">🚚 Tylko kierowca</option>
+                  <option value="contractor">🏢 Tylko kontrahent</option>
                 </select>
               </div>
+
               <div style={{display:'flex',gap:'10px',marginTop:'8px'}}>
-                {editingStep && <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }} style={{flex:1,padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>}
-                <button onClick={handleSave} style={{flex:1,padding:'10px',borderRadius:'6px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',cursor:'pointer',fontWeight:'600'}}>{editingStep ? '💾 Zapisz' : '➕ Dodaj'}</button>
+                {editingStep?.id && (
+                  <button
+                    onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }}
+                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
+                  >
+                    Anuluj
+                  </button>
+                )}
+                <button
+                  onClick={handleSave}
+                  style={{
+                    flex:1,
+                    padding:'12px',
+                    borderRadius:'8px',
+                    border:'none',
+                    background:'linear-gradient(135deg, #10B981, #059669)',
+                    color:'white',
+                    cursor:'pointer',
+                    fontWeight:'600'
+                  }}
+                >
+                  {editingStep?.id ? '💾 Zapisz zmiany' : '➕ Dodaj krok'}
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{fontSize:'13px',color:'#64748B'}}>💡 Kliknij "Test" aby sprawdzić czy selektor działa</div>
-          <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Zamknij</button>
+        {/* Footer */}
+        <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#F8FAFC'}}>
+          <div style={{fontSize:'13px',color:'#64748B'}}>
+            💡 Kliknij "Test" aby sprawdzić czy selektor poprawnie podświetla element
+          </div>
+          <button 
+            onClick={onClose} 
+            style={{padding:'10px 24px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
+          >
+            Zamknij
+          </button>
         </div>
       </div>
     </>
   );
 };
-
 // ============================================
 // KOMPONENT SAMOUCZKA
 // ============================================
