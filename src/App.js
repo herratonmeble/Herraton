@@ -18879,18 +18879,86 @@ Zespół obsługi zamówień
 // ============================================
 
 const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
+  const [mode, setMode] = useState('idle'); // 'idle', 'selectingTrigger', 'drawing'
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState(null);
   const [currentPos, setCurrentPos] = useState(null);
   const [rect, setRect] = useState(null);
-  const [openMenu, setOpenMenu] = useState(null);
-  const [customSelector, setCustomSelector] = useState('');
-  const [arrowPosition, setArrowPosition] = useState('bottom'); // top, bottom, left, right
-  const [tooltipPosition, setTooltipPosition] = useState('bottom'); // top, bottom, left, right
+  const [triggerSelector, setTriggerSelector] = useState(null); // Selektor elementu do otwarcia
+  const [triggerLabel, setTriggerLabel] = useState(null); // Nazwa/tekst elementu
+  const [arrowPosition, setArrowPosition] = useState('bottom');
+  const [tooltipPosition, setTooltipPosition] = useState('bottom');
+  const [highlightedEl, setHighlightedEl] = useState(null);
+
+  // Generuj selektor dla elementu
+  const generateSelector = (el) => {
+    if (el.id) return `#${el.id}`;
+    const classes = Array.from(el.classList).filter(c => 
+      !c.includes('hover') && !c.includes('active') && !c.includes('focus') && c.length > 0
+    );
+    if (classes.length > 0) {
+      return `.${classes[0]}`;
+    }
+    // Sprawdź rodzica
+    const parent = el.closest('[class]');
+    if (parent && parent !== el) {
+      const parentClasses = Array.from(parent.classList).filter(c => c.length > 0);
+      if (parentClasses.length > 0) {
+        return `.${parentClasses[0]}`;
+      }
+    }
+    return el.tagName.toLowerCase();
+  };
+
+  // Tryb wybierania elementu do otwarcia
+  useEffect(() => {
+    if (mode !== 'selectingTrigger') {
+      setHighlightedEl(null);
+      return;
+    }
+
+    const handleMouseMove = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.element-selector-ui')) {
+        setHighlightedEl(el);
+      }
+    };
+
+    const handleClick = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && !el.closest('.element-selector-ui')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const selector = generateSelector(el);
+        const label = el.textContent?.slice(0, 30) || el.className?.split(' ')[0] || 'Element';
+        
+        setTriggerSelector(selector);
+        setTriggerLabel(label.trim());
+        setMode('idle');
+        setHighlightedEl(null);
+        
+        // Kliknij element żeby go otworzyć
+        setTimeout(() => {
+          el.click();
+        }, 100);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('click', handleClick, true);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [mode]);
 
   const handleMouseDown = (e) => {
+    if (mode === 'selectingTrigger') return;
     if (e.target.closest('.element-selector-ui')) return;
     setIsDrawing(true);
+    setMode('drawing');
     setStartPos({ x: e.clientX, y: e.clientY });
     setCurrentPos({ x: e.clientX, y: e.clientY });
   };
@@ -18903,6 +18971,7 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
   const handleMouseUp = (e) => {
     if (!isDrawing || !startPos) return;
     setIsDrawing(false);
+    setMode('idle');
     
     const x = Math.min(startPos.x, e.clientX);
     const y = Math.min(startPos.y, e.clientY);
@@ -18924,7 +18993,7 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
         left: rect.x,
         width: rect.width,
         height: rect.height,
-        openMenu: openMenu || customSelector || null,
+        openMenu: triggerSelector,
         arrowPosition: arrowPosition,
         tooltipPosition: tooltipPosition
       };
@@ -18938,76 +19007,35 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
     setCurrentPos(null);
   };
 
-  const toggleMenu = (menuName, selector) => {
-    if (openMenu === menuName) {
-      setOpenMenu(null);
-      const btn = document.querySelector(selector);
-      if (btn) btn.click();
-    } else {
-      if (openMenu) {
-        // Zamknij poprzednie
-        const prevSelectors = {
-          'settings': '.settings-btn',
-          'shipping': '.shipping-btn',
-          'add-order': '.btn-add-order',
-          'notifications': '.header-actions > button:first-child'
-        };
-        const prevBtn = document.querySelector(prevSelectors[openMenu]);
-        if (prevBtn) prevBtn.click();
-      }
-      setOpenMenu(menuName);
-      setTimeout(() => {
-        const btn = document.querySelector(selector);
-        if (btn) btn.click();
-      }, 100);
+  const clearTrigger = () => {
+    // Zamknij otwarty element
+    if (triggerSelector) {
+      const el = document.querySelector(triggerSelector);
+      if (el) el.click();
     }
-    handleReset();
-  };
-
-  const openCustomSelector = () => {
-    if (!customSelector.trim()) return;
-    if (openMenu) {
-      const prevSelectors = {
-        'settings': '.settings-btn',
-        'shipping': '.shipping-btn',
-        'add-order': '.btn-add-order',
-        'notifications': '.header-actions > button:first-child'
-      };
-      const prevBtn = document.querySelector(prevSelectors[openMenu]);
-      if (prevBtn) prevBtn.click();
-      setOpenMenu(null);
-    }
-    setTimeout(() => {
-      const btn = document.querySelector(customSelector);
-      if (btn) {
-        btn.click();
-        setOpenMenu(customSelector);
-      } else {
-        alert('Nie znaleziono elementu: ' + customSelector);
-      }
-    }, 100);
+    setTriggerSelector(null);
+    setTriggerLabel(null);
     handleReset();
   };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (openMenu) {
-          const selectors = {
-            'settings': '.settings-btn',
-            'shipping': '.shipping-btn',
-            'add-order': '.btn-add-order',
-            'notifications': '.header-actions > button:first-child'
-          };
-          const btn = document.querySelector(selectors[openMenu] || openMenu);
-          if (btn) btn.click();
+        if (mode === 'selectingTrigger') {
+          setMode('idle');
+          setHighlightedEl(null);
+        } else {
+          if (triggerSelector) {
+            const el = document.querySelector(triggerSelector);
+            if (el) el.click();
+          }
+          onCancel();
         }
-        onCancel();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, openMenu]);
+  }, [onCancel, triggerSelector, mode]);
 
   const drawingRect = isDrawing && startPos && currentPos ? {
     x: Math.min(startPos.x, currentPos.x),
@@ -19017,11 +19045,11 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
   } : null;
 
   const displayRect = rect || drawingRect;
-  const showPanel = !isDrawing; // Panel znika podczas rysowania
+  const showPanel = mode !== 'drawing'; // Panel znika podczas rysowania
 
   return (
     <div 
-      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}
+      style={{position:'fixed',inset:0,zIndex:999999,cursor: mode === 'selectingTrigger' ? 'pointer' : 'crosshair'}}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -19030,9 +19058,25 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
       <div style={{
         position:'fixed',
         inset:0,
-        background: displayRect ? 'transparent' : 'rgba(0,0,0,0.3)',
+        background: displayRect ? 'transparent' : (mode === 'selectingTrigger' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.3)'),
         pointerEvents:'none'
       }}/>
+
+      {/* Podświetlenie elementu w trybie wybierania triggera */}
+      {mode === 'selectingTrigger' && highlightedEl && (
+        <div style={{
+          position:'fixed',
+          top: highlightedEl.getBoundingClientRect().top - 3,
+          left: highlightedEl.getBoundingClientRect().left - 3,
+          width: highlightedEl.getBoundingClientRect().width + 6,
+          height: highlightedEl.getBoundingClientRect().height + 6,
+          border:'3px dashed #F59E0B',
+          borderRadius:'6px',
+          background:'rgba(245, 158, 11, 0.15)',
+          pointerEvents:'none',
+          zIndex: 1000000
+        }} />
+      )}
 
       {/* Narysowany prostokąt */}
       {displayRect && (
@@ -19065,123 +19109,126 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           display:'flex',
           flexDirection:'column',
           gap:'10px',
-          maxWidth:'95vw',
-          maxHeight:'90vh',
-          overflowY:'auto'
+          maxWidth:'95vw'
         }}>
-          {/* Wiersz 1 - Instrukcja i przyciski akcji */}
-          <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',fontWeight:'500',flexWrap:'wrap'}}>
-            <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
-            {rect ? (
-              <>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleReset(); }}
-                  style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-                >
-                  🔄 Ponownie
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
-                  style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-                >
-                  ✓ Zatwierdź
-                </button>
-              </>
-            ) : (
+          {/* Tryb wybierania triggera */}
+          {mode === 'selectingTrigger' ? (
+            <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px'}}>
+              <span>🎯 Kliknij na element który ma się otworzyć (np. przycisk edycji)</span>
               <button 
-                onClick={(e) => { e.stopPropagation(); onCancel(); }}
+                onClick={(e) => { e.stopPropagation(); setMode('idle'); setHighlightedEl(null); }}
                 style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
               >
                 ✕ Anuluj
               </button>
-            )}
-          </div>
-
-          {/* Wiersz 2 - Szybkie menu */}
-          <div style={{display:'flex',gap:'6px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-            <span style={{fontSize:'11px',opacity:0.8,display:'flex',alignItems:'center',marginRight:'4px'}}>Otwórz:</span>
-            {[
-              { name: 'settings', label: '⚙️ Ustawienia', sel: '.settings-btn' },
-              { name: 'shipping', label: '📦 Wysyłka', sel: '.shipping-btn' },
-              { name: 'add-order', label: '➕ Zamówienie', sel: '.btn-add-order' },
-              { name: 'notifications', label: '🔔 Powiadomienia', sel: '.header-actions > button:first-child' }
-            ].map(m => (
-              <button
-                key={m.name}
-                onClick={(e) => { e.stopPropagation(); toggleMenu(m.name, m.sel); }}
-                style={{
-                  background: openMenu === m.name ? '#10B981' : 'rgba(255,255,255,0.15)',
-                  border:'none',color:'white',padding:'4px 8px',borderRadius:'5px',cursor:'pointer',fontSize:'11px',fontWeight:'500'
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Wiersz 3 - Własny selektor */}
-          <div style={{display:'flex',gap:'6px',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-            <span style={{fontSize:'11px',opacity:0.8}}>Własny:</span>
-            <input
-              type="text"
-              value={customSelector}
-              onChange={(e) => setCustomSelector(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              placeholder=".moja-klasa lub #moj-id"
-              style={{flex:1,padding:'5px 8px',borderRadius:'5px',border:'none',fontSize:'11px',fontFamily:'monospace',minWidth:'150px'}}
-            />
-            <button
-              onClick={(e) => { e.stopPropagation(); openCustomSelector(); }}
-              style={{background:'#8B5CF6',border:'none',color:'white',padding:'5px 10px',borderRadius:'5px',cursor:'pointer',fontSize:'11px',fontWeight:'500'}}
-            >
-              Otwórz
-            </button>
-          </div>
-
-          {/* Wiersz 4 - Pozycja strzałki i tooltipa (tylko gdy zaznaczono) */}
-          {rect && (
-            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-              {/* Pozycja strzałki */}
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                <span style={{fontSize:'11px',opacity:0.8}}>Strzałka:</span>
-                {['top', 'bottom', 'left', 'right'].map(pos => (
-                  <button
-                    key={pos}
-                    onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }}
-                    style={{
-                      background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',
-                      border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
-                    }}
-                  >
-                    {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Pozycja tooltipa */}
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
-                {['top', 'bottom', 'left', 'right'].map(pos => (
-                  <button
-                    key={pos}
-                    onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }}
-                    style={{
-                      background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',
-                      border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
-                    }}
-                  >
-                    {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                  </button>
-                ))}
-              </div>
             </div>
+          ) : (
+            <>
+              {/* Wiersz 1 - Instrukcja i przyciski akcji */}
+              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',fontWeight:'500',flexWrap:'wrap'}}>
+                <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
+                {rect ? (
+                  <>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleReset(); }}
+                      style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
+                    >
+                      🔄 Ponownie
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
+                      style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
+                    >
+                      ✓ Zatwierdź
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); clearTrigger(); onCancel(); }}
+                    style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
+                  >
+                    ✕ Anuluj
+                  </button>
+                )}
+              </div>
+
+              {/* Wiersz 2 - Co ma się otworzyć */}
+              <div style={{display:'flex',gap:'8px',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px',flexWrap:'wrap'}}>
+                <span style={{fontSize:'12px',opacity:0.8}}>Najpierw otwórz:</span>
+                {triggerSelector ? (
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',background:'rgba(16,185,129,0.3)',padding:'4px 10px',borderRadius:'6px'}}>
+                    <span style={{fontSize:'12px'}}>✅ {triggerLabel}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); clearTrigger(); }}
+                      style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'14px',padding:'0'}}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMode('selectingTrigger'); }}
+                    style={{
+                      background:'#F59E0B',
+                      border:'none',
+                      color:'white',
+                      padding:'6px 12px',
+                      borderRadius:'6px',
+                      cursor:'pointer',
+                      fontSize:'12px',
+                      fontWeight:'600'
+                    }}
+                  >
+                    👆 Zaznacz co otworzyć
+                  </button>
+                )}
+                <span style={{fontSize:'11px',opacity:0.6,marginLeft:'8px'}}>
+                  (opcjonalne - jeśli element jest w menu/modalu)
+                </span>
+              </div>
+
+              {/* Wiersz 3 - Pozycja strzałki i tooltipa (tylko gdy zaznaczono) */}
+              {rect && (
+                <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
+                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                    <span style={{fontSize:'11px',opacity:0.8}}>Strzałka:</span>
+                    {['top', 'bottom', 'left', 'right'].map(pos => (
+                      <button
+                        key={pos}
+                        onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }}
+                        style={{
+                          background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',
+                          border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
+                        }}
+                      >
+                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                    <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
+                    {['top', 'bottom', 'left', 'right'].map(pos => (
+                      <button
+                        key={pos}
+                        onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }}
+                        style={{
+                          background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',
+                          border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
+                        }}
+                      >
+                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
       {/* Wymiary - NA DOLE */}
-      {displayRect && displayRect.width > 50 && showPanel && (
+      {displayRect && displayRect.width > 50 && showPanel && mode !== 'selectingTrigger' && (
         <div className="element-selector-ui" style={{
           position:'fixed',
           bottom:'20px',
@@ -19195,7 +19242,26 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
         }}>
           📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
-          {openMenu && <span style={{marginLeft:'10px',color:'#94A3B8'}}>| 📂 {openMenu}</span>}
+          {triggerSelector && <span style={{marginLeft:'10px',color:'#34D399'}}>| 📂 {triggerLabel}</span>}
+        </div>
+      )}
+
+      {/* Info w trybie wybierania triggera */}
+      {mode === 'selectingTrigger' && highlightedEl && (
+        <div className="element-selector-ui" style={{
+          position:'fixed',
+          bottom:'20px',
+          left:'50%',
+          transform:'translateX(-50%)',
+          background:'#1E293B',
+          color:'#F59E0B',
+          padding:'8px 16px',
+          borderRadius:'8px',
+          fontSize:'12px',
+          fontFamily:'monospace',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
+        }}>
+          {generateSelector(highlightedEl)}
         </div>
       )}
     </div>
