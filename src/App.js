@@ -779,12 +779,19 @@ const LoginScreen = ({ onLogin, users, loading }) => {
 
   if (loading) {
     return (
-      <div className="login-screen">
-        <div className="login-box">
-          <div className="login-logo">📦</div>
-          <h1>Herraton</h1>
-          <p>Ładowanie...</p>
-          <div className="spinner"></div>
+      <div className="loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">📦</div>
+          <h1 className="loading-title">Herraton</h1>
+          <div className="loading-spinner-container">
+            <div className="loading-spinner"></div>
+          </div>
+          <p className="loading-text">Trwa ładowanie danych...</p>
+          <div className="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
       </div>
     );
@@ -16930,12 +16937,21 @@ const App = () => {
     const init = async () => {
       await initializeDefaultData();
       await fetchExchangeRates(); // Pobierz kursy walut przy starcie
-      setLoading(false);
     };
     init();
 
+    // Flaga czy users się załadowały
+    let usersLoaded = false;
+    
     const unsubOrders = subscribeToOrders(setOrders);
-    const unsubUsers = subscribeToUsers(setUsers);
+    const unsubUsers = subscribeToUsers((data) => {
+      setUsers(data);
+      // Wyłącz loading gdy users się załadują
+      if (!usersLoaded && data.length > 0) {
+        usersLoaded = true;
+        setLoading(false);
+      }
+    });
     const unsubProducers = subscribeToProducers(setProducers);
     const unsubNotifs = subscribeToNotifications(setNotifications);
     const unsubComplaints = subscribeToComplaints(setComplaints);
@@ -16948,6 +16964,11 @@ const App = () => {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+    
+    // Timeout safety - jeśli ładowanie trwa zbyt długo (10s), wyłącz loading
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
 
     // Odświeżaj kursy co godzinę
     const ratesInterval = setInterval(fetchExchangeRates, 3600000);
@@ -16963,6 +16984,7 @@ const App = () => {
       unsubPriceLists();
       unsubSettlements();
       clearInterval(ratesInterval);
+      clearTimeout(safetyTimeout);
     };
   }, []);
 
