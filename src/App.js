@@ -19530,7 +19530,28 @@ const TutorialConfigPanel = ({
                 <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{editingStep?.id ? '✏️ Edytuj krok' : '➕ Nowy krok'}</h3>
                 <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
                   <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="Tytuł (np. 🔔 Powiadomienia)" style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}} />
-                  <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Opis kroku..." rows={3} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical'}} />
+                  
+                  {/* Opis z ikonkami */}
+                  <div>
+                    <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Opis kroku..." rows={3} style={{width:'100%',padding:'10px',borderRadius:'8px 8px 0 0',border:'1px solid #E2E8F0',borderBottom:'none',fontSize:'14px',resize:'vertical',boxSizing:'border-box'}} />
+                    <div style={{background:'#F1F5F9',padding:'8px',borderRadius:'0 0 8px 8px',border:'1px solid #E2E8F0',borderTop:'none'}}>
+                      <div style={{fontSize:'10px',color:'#64748B',marginBottom:'6px'}}>Kliknij ikonę aby dodać do opisu:</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'2px'}}>
+                        {['📋','📦','⚙️','👥','🏭','🏢','📊','🗑️','🎓','🚚','💰','📑','💬','🔔','📧','🔍','👤','➕','✅','❌','⬆️','⬇️','⬅️','➡️','📅','💾','🔄','✏️','📝','📁','🎯','💡','🔒','📌','📎','👀','📱','💻','⏰','🔧','💳','💵','📈','📉','✓','✕','⚠️','ℹ️','❓','❗','🆕','🏆','🎁','🎉','👍','👎','👋','💪','🤝','🔥','⚡','⭐','💎','🧪','🧾','📸','🖼️','📜','📄','🗂️','📇','📘','📖'].map(icon => (
+                          <button
+                            key={icon}
+                            type="button"
+                            onClick={() => setFormData({...formData, content: formData.content + icon})}
+                            style={{fontSize:'16px',padding:'4px 6px',border:'none',background:'transparent',cursor:'pointer',borderRadius:'4px'}}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#DBEAFE'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                   
                   {/* Kategoria */}
                   <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0'}}>
@@ -19695,10 +19716,23 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
     }
   }
 
-  // BLOKUJ SCROLL podczas samouczka
+  // BLOKUJ SCROLL podczas samouczka + AUTO-SCROLL do elementu
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
+    // Najpierw auto-scroll do zaznaczonego elementu
+    if (rect) {
+      const targetY = rect.top - 100; // 100px marginesu od góry
+      if (targetY > 0) {
+        window.scrollTo({ top: targetY, behavior: 'instant' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+    }
+    
+    // Potem blokuj scroll
+    const timer = setTimeout(() => {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }, 50);
     
     const preventScroll = (e) => {
       e.preventDefault();
@@ -19708,12 +19742,13 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
     window.addEventListener('touchmove', preventScroll, { passive: false });
     
     return () => {
+      clearTimeout(timer);
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       window.removeEventListener('wheel', preventScroll);
       window.removeEventListener('touchmove', preventScroll);
     };
-  }, []);
+  }, [rect, currentStep]);
 
   // Otwórz menu jeśli potrzebne
   useEffect(() => {
