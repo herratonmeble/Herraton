@@ -19147,13 +19147,13 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     setCurrentPos(null);
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (triggerSelector) {
       const el = document.querySelector(triggerSelector);
       if (el) el.click();
     }
     onCancel();
-  };
+  }, [triggerSelector, onCancel]);
 
   const skipTrigger = () => {
     setTriggerSelector(null);
@@ -19167,7 +19167,7 @@ const TutorialSelectorOverlay = ({ onSelect, onCancel }) => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [triggerSelector]);
+  }, [handleCancel]);
 
   // Oblicz prostokąt do wyświetlenia (z uwzględnieniem scrolla)
   const scrollX = window.scrollX || window.pageXOffset;
