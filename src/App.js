@@ -16868,6 +16868,11 @@ const App = () => {
   const [isSelectingElement, setIsSelectingElement] = useState(false);
   const [editingTutorialStep, setEditingTutorialStep] = useState(null);
 
+  // Harmonogram spotkań
+  const [meetings, setMeetings] = useState([]);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState(null);
+
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
   const settingsMenuRef = useRef(null);
@@ -17066,6 +17071,60 @@ const App = () => {
       return true;
     } catch (err) {
       console.error('Błąd usuwania kategorii:', err);
+      return false;
+    }
+  };
+
+  // Ładuj spotkania z Firebase
+  useEffect(() => {
+    const loadMeetings = async () => {
+      try {
+        const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        const q = query(collection(db, 'meetings'), orderBy('dateTime', 'asc'));
+        const snapshot = await getDocs(q);
+        setMeetings(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.log('Brak spotkań');
+        setMeetings([]);
+      }
+    };
+    loadMeetings();
+  }, []);
+
+  // Funkcje zarządzania spotkaniami
+  const saveMeeting = async (meetingData) => {
+    try {
+      const { collection, addDoc, doc, updateDoc, getDocs, query, orderBy, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      if (meetingData.id) {
+        await updateDoc(doc(db, 'meetings', meetingData.id), { ...meetingData, updatedAt: serverTimestamp() });
+      } else {
+        await addDoc(collection(db, 'meetings'), { ...meetingData, createdAt: serverTimestamp() });
+      }
+      
+      const q = query(collection(db, 'meetings'), orderBy('dateTime', 'asc'));
+      const snapshot = await getDocs(q);
+      setMeetings(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd zapisu spotkania:', err);
+      return false;
+    }
+  };
+
+  const deleteMeeting = async (meetingId) => {
+    try {
+      const { doc, deleteDoc, collection, getDocs, query, orderBy } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      await deleteDoc(doc(db, 'meetings', meetingId));
+      const q = query(collection(db, 'meetings'), orderBy('dateTime', 'asc'));
+      const snapshot = await getDocs(q);
+      setMeetings(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd usuwania spotkania:', err);
       return false;
     }
   };
@@ -18127,6 +18186,80 @@ Zespół obsługi zamówień
       )}
 
       <main className="main">
+        {/* Kompaktowy slider harmonogramu spotkań */}
+        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
+          const now = new Date();
+          const upcomingMeetings = meetings
+            .filter(m => new Date(m.dateTime) >= now)
+            .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+            .slice(0, 5);
+
+          return (
+            <div className="meetings-slider-compact" style={{
+              background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              marginBottom: '12px',
+              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.2)'
+            }}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom: upcomingMeetings.length > 0 ? '8px' : '0'}}>
+                <span style={{color:'white',fontWeight:'600',fontSize:'13px'}}>📅 Harmonogram spotkań</span>
+                <button 
+                  onClick={() => { setEditingMeeting(null); setShowMeetingModal(true); }}
+                  style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'4px 10px',borderRadius:'6px',cursor:'pointer',fontSize:'11px',fontWeight:'500'}}
+                >
+                  ✏️ Edytuj
+                </button>
+              </div>
+              {upcomingMeetings.length > 0 ? (
+                <div style={{display:'flex',gap:'8px',overflowX:'auto',paddingBottom:'4px'}}>
+                  {upcomingMeetings.map(meeting => {
+                    const meetDate = new Date(meeting.dateTime);
+                    const isToday = meetDate.toDateString() === now.toDateString();
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const isTomorrow = meetDate.toDateString() === tomorrow.toDateString();
+                    
+                    return (
+                      <div 
+                        key={meeting.id}
+                        onClick={() => { setEditingMeeting(meeting); setShowMeetingModal(true); }}
+                        style={{
+                          background: isToday ? 'rgba(239,68,68,0.9)' : isTomorrow ? 'rgba(245,158,11,0.9)' : 'rgba(255,255,255,0.15)',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          minWidth: '140px',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s',
+                          flexShrink: 0
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        <div style={{color:'white',fontWeight:'700',fontSize:'12px',marginBottom:'2px'}}>
+                          {isToday ? '🔴 DZIŚ' : isTomorrow ? '🟡 JUTRO' : meetDate.toLocaleDateString('pl-PL', {weekday:'short', day:'numeric', month:'short'})}
+                        </div>
+                        <div style={{color:'rgba(255,255,255,0.9)',fontSize:'14px',fontWeight:'600'}}>
+                          {meetDate.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'})}
+                        </div>
+                        {meeting.title && (
+                          <div style={{color:'rgba(255,255,255,0.8)',fontSize:'11px',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'120px'}}>
+                            {meeting.title}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{color:'rgba(255,255,255,0.7)',fontSize:'12px',textAlign:'center',padding:'4px 0'}}>
+                  Brak zaplanowanych spotkań
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Kompaktowy slider planowanych wyjazdów kierowców */}
         {(user?.role === 'admin' || user?.role === 'worker') && (() => {
           const driversWithTrips = users
@@ -18915,6 +19048,17 @@ Zespół obsługi zamówień
         />
       )}
 
+      {/* MODAL EDYCJI SPOTKAŃ */}
+      {showMeetingModal && (
+        <MeetingModal
+          meeting={editingMeeting}
+          meetings={meetings}
+          onSave={saveMeeting}
+          onDelete={deleteMeeting}
+          onClose={() => { setShowMeetingModal(false); setEditingMeeting(null); }}
+        />
+      )}
+
       {/* SAMOUCZEK / TUTORIAL */}
       {showTutorial && (selectedTutorialCategory || tutorialCategories.length === 0) && tutorialSteps.length > 0 && (
         <TutorialOverlay
@@ -18943,6 +19087,146 @@ Zespół obsługi zamówień
         />
       )}
     </div>
+  );
+};
+
+// ============================================
+// MODAL EDYCJI SPOTKAŃ
+// ============================================
+
+const MeetingModal = ({ meeting, meetings, onSave, onDelete, onClose }) => {
+  const [formData, setFormData] = useState({
+    title: meeting?.title || '',
+    dateTime: meeting?.dateTime || new Date().toISOString().slice(0, 16),
+    note: meeting?.note || ''
+  });
+
+  const handleSave = async () => {
+    if (!formData.dateTime) {
+      alert('Wybierz datę i godzinę');
+      return;
+    }
+    const success = await onSave(meeting?.id ? { ...formData, id: meeting.id } : formData);
+    if (success) onClose();
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Usunąć to spotkanie?')) {
+      await onDelete(id);
+    }
+  };
+
+  return (
+    <>
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:99998}} onClick={onClose}></div>
+      <div style={{
+        position:'fixed',
+        top:'50%',
+        left:'50%',
+        transform:'translate(-50%,-50%)',
+        background:'white',
+        borderRadius:'16px',
+        padding:'24px',
+        width:'90%',
+        maxWidth:'500px',
+        maxHeight:'80vh',
+        overflow:'auto',
+        zIndex:99999,
+        boxShadow:'0 25px 50px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+          <h2 style={{margin:0,fontSize:'18px',color:'#1E293B'}}>📅 Harmonogram spotkań</h2>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8'}}>×</button>
+        </div>
+
+        {/* Formularz dodawania/edycji */}
+        <div style={{background:'#F8FAFC',padding:'16px',borderRadius:'12px',marginBottom:'20px'}}>
+          <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{meeting?.id ? '✏️ Edytuj spotkanie' : '➕ Nowe spotkanie'}</h3>
+          <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              placeholder="Tytuł spotkania (opcjonalne)"
+              style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+            />
+            <input
+              type="datetime-local"
+              value={formData.dateTime}
+              onChange={(e) => setFormData({...formData, dateTime: e.target.value})}
+              style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+            />
+            <textarea
+              value={formData.note}
+              onChange={(e) => setFormData({...formData, note: e.target.value})}
+              placeholder="Notatka (opcjonalne)"
+              rows={2}
+              style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical'}}
+            />
+            <button
+              onClick={handleSave}
+              style={{padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#7C3AED,#5B21B6)',color:'white',fontWeight:'600',cursor:'pointer'}}
+            >
+              {meeting?.id ? '💾 Zapisz zmiany' : '➕ Dodaj spotkanie'}
+            </button>
+          </div>
+        </div>
+
+        {/* Lista spotkań */}
+        <div>
+          <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>📋 Lista spotkań</h3>
+          {meetings.length === 0 ? (
+            <div style={{textAlign:'center',padding:'20px',color:'#94A3B8',background:'#F8FAFC',borderRadius:'8px'}}>
+              Brak zaplanowanych spotkań
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:'8px',maxHeight:'250px',overflowY:'auto'}}>
+              {meetings.sort((a,b) => new Date(a.dateTime) - new Date(b.dateTime)).map(m => {
+                const meetDate = new Date(m.dateTime);
+                const now = new Date();
+                const isPast = meetDate < now;
+                
+                return (
+                  <div key={m.id} style={{
+                    display:'flex',
+                    alignItems:'center',
+                    gap:'12px',
+                    padding:'10px 12px',
+                    background: isPast ? '#F1F5F9' : 'white',
+                    border:'1px solid #E2E8F0',
+                    borderRadius:'8px',
+                    opacity: isPast ? 0.6 : 1
+                  }}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:'600',fontSize:'13px',color:'#1E293B'}}>
+                        {meetDate.toLocaleDateString('pl-PL', {weekday:'short', day:'numeric', month:'short', year:'numeric'})}
+                        <span style={{marginLeft:'8px',color:'#7C3AED',fontWeight:'700'}}>
+                          {meetDate.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'})}
+                        </span>
+                      </div>
+                      {m.title && <div style={{fontSize:'12px',color:'#64748B'}}>{m.title}</div>}
+                      {m.note && <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'2px'}}>{m.note}</div>}
+                    </div>
+                    <button
+                      onClick={() => { setFormData({ title: m.title || '', dateTime: m.dateTime, note: m.note || '' }); }}
+                      style={{background:'#EFF6FF',border:'none',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',fontSize:'12px'}}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      style={{background:'#FEE2E2',border:'none',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',fontSize:'12px',color:'#DC2626'}}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 };
 
