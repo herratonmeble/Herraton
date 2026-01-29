@@ -18958,14 +18958,14 @@ const TutorialConfigPanel = ({
         </div>
       )}
 
-      <div className="modal-backdrop" onClick={onClose}></div>
-      <div className="tutorial-config-panel modal" style={{maxWidth:'900px',maxHeight:'90vh'}}>
-        <div className="modal-header">
-          <h2>🎓 Konfiguracja samouczka</h2>
-          <button className="btn-close" onClick={onClose}>×</button>
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:99998}} onClick={onClose}></div>
+      <div className="tutorial-config-panel" style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'white',borderRadius:'16px',boxShadow:'0 25px 50px rgba(0,0,0,0.3)',zIndex:99999,width:'90%',maxWidth:'900px',maxHeight:'90vh',display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h2 style={{margin:0,fontSize:'20px',fontWeight:'700',color:'#1E293B'}}>🎓 Konfiguracja samouczka</h2>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8',padding:'4px'}}>×</button>
         </div>
 
-        <div className="modal-body" style={{display:'flex',gap:'20px',overflow:'hidden'}}>
+        <div style={{padding:'20px',display:'flex',gap:'20px',overflow:'hidden',flex:1}}>
           <div style={{flex:1,minWidth:'300px',maxHeight:'60vh',overflowY:'auto'}}>
             <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>Kroki ({steps.length})</h3>
             {steps.length === 0 ? (
@@ -18984,9 +18984,9 @@ const TutorialConfigPanel = ({
                     </div>
                     {s.selector && <div style={{fontSize:'11px',color:'#64748B',marginBottom:'8px',fontFamily:'monospace'}}>🎯 {s.selector}</div>}
                     <div style={{display:'flex',gap:'6px'}}>
-                      <button className="btn-small" onClick={() => setEditingStep(s)}>✏️ Edytuj</button>
-                      {s.selector && <button className="btn-small" onClick={() => testSelector(s.selector)}>👁️ Test</button>}
-                      <button className="btn-small btn-danger" onClick={() => window.confirm('Usunąć?') && onDelete(s.id)}>🗑️</button>
+                      <button onClick={() => setEditingStep(s)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>✏️ Edytuj</button>
+                      {s.selector && <button onClick={() => testSelector(s.selector)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>👁️ Test</button>}
+                      <button onClick={() => window.confirm('Usunąć?') && onDelete(s.id)} style={{padding:'6px 10px',fontSize:'12px',borderRadius:'4px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer'}}>🗑️</button>
                     </div>
                   </div>
                 ))}
@@ -19009,7 +19009,7 @@ const TutorialConfigPanel = ({
                 <label style={{display:'block',fontSize:'12px',fontWeight:'600',marginBottom:'4px'}}>Selektor CSS</label>
                 <div style={{display:'flex',gap:'8px'}}>
                   <input type="text" value={formData.selector} onChange={(e) => setFormData({...formData, selector: e.target.value})} placeholder=".btn-primary lub #moj-element" style={{flex:1,padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',fontFamily:'monospace'}} />
-                  <button type="button" onClick={() => setIsSelectingElement(true)} className="btn-secondary">🎯 Wybierz</button>
+                  <button type="button" onClick={() => setIsSelectingElement(true)} style={{padding:'10px 16px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600',whiteSpace:'nowrap'}}>🎯 Wybierz</button>
                 </div>
                 <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'4px'}}>Kliknij "Wybierz" i wskaż element na stronie</div>
               </div>
@@ -19024,16 +19024,16 @@ const TutorialConfigPanel = ({
                 </select>
               </div>
               <div style={{display:'flex',gap:'10px',marginTop:'8px'}}>
-                {editingStep && <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }} className="btn-secondary" style={{flex:1}}>Anuluj</button>}
-                <button onClick={handleSave} className="btn-primary" style={{flex:1}}>{editingStep ? '💾 Zapisz' : '➕ Dodaj'}</button>
+                {editingStep && <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }} style={{flex:1,padding:'10px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>}
+                <button onClick={handleSave} style={{flex:1,padding:'10px',borderRadius:'6px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',cursor:'pointer',fontWeight:'600'}}>{editingStep ? '💾 Zapisz' : '➕ Dodaj'}</button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="modal-footer">
+        <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{fontSize:'13px',color:'#64748B'}}>💡 Kliknij "Test" aby sprawdzić czy selektor działa</div>
-          <button className="btn-secondary" onClick={onClose}>Zamknij</button>
+          <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Zamknij</button>
         </div>
       </div>
     </>
