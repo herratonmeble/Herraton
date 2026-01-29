@@ -18780,7 +18780,7 @@ Zespół obsługi zamówień
 
 
 // ============================================
-// KOMPONENT SAMOUCZKA - ROZBUDOWANY
+// KOMPONENT SAMOUCZKA - PROFESJONALNY
 // ============================================
 
 const TutorialOverlay = ({ 
@@ -18795,295 +18795,206 @@ const TutorialOverlay = ({
   openSettings,
   closeSettings,
   openShipping,
-  closeShipping,
-  isOrderModalOpen,
-  isSettingsOpen,
-  isShippingOpen
+  closeShipping
 }) => {
   const [elementRect, setElementRect] = useState(null);
-  const [tooltipStyle, setTooltipStyle] = useState({});
-  const [arrowPosition, setArrowPosition] = useState('top');
+  const [tooltipPos, setTooltipPos] = useState({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+  const [arrowPos, setArrowPos] = useState({ top: 0, left: 0, direction: 'none' });
   
   const isDriver = userRole === 'driver';
   const isContractor = userRole === 'contractor';
 
-  // ROZBUDOWANE KROKI DLA ADMINA - z formularzem zamówienia
+  // KROKI DLA ADMINA
   const adminSteps = [
-    // === POWITANIE ===
-    { id: 'welcome', title: "👋 Witaj w Herraton!", content: "Przeprowadzimy Cię przez wszystkie funkcje systemu. Będziemy wskazywać każdy element na ekranie. Kliknij 'Dalej' aby rozpocząć.", selector: null, action: null },
-    
-    // === NAGŁÓWEK ===
-    { id: 'logo', title: "📦 Logo i nazwa", content: "Logo firmy Herraton. Kliknięcie zawsze przenosi do głównego widoku zamówień.", selector: '.header-brand', action: null },
-    { id: 'notifications', title: "🔔 Powiadomienia", content: "Przycisk powiadomień. Liczba pokazuje nieprzeczytane alerty o nowych zamówieniach, zmianach statusów i wiadomościach.", selector: '.header-actions > button:first-child', action: null },
-    { id: 'complaints', title: "📋 Reklamacje", content: "Panel zarządzania reklamacjami. Liczba pokazuje aktywne zgłoszenia. Możesz dodawać zdjęcia, komentarze i zmieniać statusy.", selector: '.complaint-btn', action: null },
-    { id: 'leads', title: "🎯 Zainteresowani", content: "Panel leadów - potencjalnych klientów. Zapisuj kontakty osób zainteresowanych, śledź ich status i przekształcaj w zamówienia.", selector: '.leads-btn', action: null },
-    
-    // === MENU WYSYŁKA ===
-    { id: 'shipping-btn', title: "📦 Menu Wysyłka", content: "Kliknij aby rozwinąć menu z opcjami wysyłki: Próbki i Poczta.", selector: '.shipping-dropdown', action: () => openShipping && openShipping() },
-    { id: 'shipping-menu', title: "📦 Opcje wysyłki", content: "🧪 Próbki - wysyłka próbek produktów do klientów\n✉️ Poczta - dokumenty i korespondencja do wysłania\n\nKażdy element ma statusy: Nowe → Potwierdzone → W trakcie → Wysłane.", selector: '.shipping-menu', action: null },
-    
-    // === MESSENGER ===
-    { id: 'messenger', title: "💬 Messenger", content: "Wewnętrzny komunikator do szybkiej wymiany wiadomości z innymi użytkownikami. Czerwona kropka oznacza nieprzeczytane wiadomości.", selector: '.messenger-toggle', action: () => closeShipping && closeShipping() },
-    
-    // === MENU USTAWIENIA ===
-    { id: 'settings-btn', title: "⚙️ Menu Ustawienia", content: "Kliknij aby rozwinąć menu ustawień.", selector: '.settings-dropdown', action: () => openSettings && openSettings() },
-    { id: 'settings-menu', title: "⚙️ Opcje ustawień", content: "👥 Użytkownicy - zarządzanie kontami\n🏭 Producenci - lista dostawców\n📇 Kontakty - baza kontaktów\n📊 Statystyki - raporty i wykresy\n💰 Rozliczenia transportowe\n📋 Cenniki produktów\n🎓 Uruchom samouczek\n📖 Instrukcja PDF", selector: '.settings-menu', action: null },
-    
-    // === NOWE ZAMÓWIENIE - przycisk ===
-    { id: 'new-order-btn', title: "➕ Nowe zamówienie", content: "Kliknij ten przycisk aby utworzyć nowe zamówienie. Teraz otworzymy formularz i pokażemy wszystkie jego sekcje.", selector: '.btn-add-order', action: () => { closeSettings && closeSettings(); setTimeout(() => openOrderModal && openOrderModal(), 300); } },
-    
-    // === FORMULARZ ZAMÓWIENIA ===
-    { id: 'order-form', title: "📝 Formularz zamówienia", content: "To jest główny formularz tworzenia/edycji zamówienia. Składa się z kilku sekcji które teraz pokażemy.", selector: '.modal-content', action: null },
-    { id: 'form-client', title: "👤 Sekcja: Dane klienta", content: "Tutaj wprowadzasz dane klienta:\n• Imię i nazwisko / Firma\n• Telefon kontaktowy\n• Adres email\n• Adres dostawy\n• Kraj (z flagą)", selector: '.form-section', action: null },
-    { id: 'form-products', title: "📦 Sekcja: Produkty", content: "Lista produktów w zamówieniu. Dla każdego produktu:\n• Nazwa towaru\n• Producent (z listy)\n• Cena zakupu i cena dla klienta\n• Link do produktu\n• Uwagi specjalne", selector: '.products-section', action: null },
-    { id: 'form-payments', title: "💳 Sekcja: Płatności", content: "Dane finansowe zamówienia:\n• Cena całkowita\n• Waluta (PLN, EUR, GBP, USD...)\n• Kwota już zapłacona\n• Koszt transportu\n\nStatus płatności oblicza się automatycznie!", selector: '.payment-section', action: null },
-    { id: 'form-transport', title: "🚚 Sekcja: Transport", content: "Dane transportu:\n• Przypisany kierowca\n• Planowana data dostawy\n• Miasto załadunku\n• Miasto rozładunku\n• Notatki do transportu", selector: '.transport-section', action: null },
-    { id: 'form-confirmation-btn', title: "✉️ Wyślij potwierdzenie", content: "Ten przycisk wysyła EMAIL do klienta z:\n• Podsumowaniem zamówienia\n• Danymi do przelewu\n• Linkiem do potwierdzenia online\n\nKlient może kliknąć link i potwierdzić zamówienie!", selector: '.btn-send-confirmation', action: null },
-    { id: 'form-producer-btn', title: "📧 Zapytanie do producenta", content: "Wysyła EMAIL do producenta z zapytaniem o:\n• Dostępność towaru\n• Cenę\n• Termin realizacji\n\nProducent odpowie na Twój email.", selector: '.btn-producer-email', action: null },
-    { id: 'form-invoice-btn', title: "📄 Faktura / Proforma", content: "Otwiera okno wystawiania dokumentów w systemie wFirma:\n\n📄 Faktura VAT - oficjalny dokument sprzedaży\n📋 Proforma - dokument pro forma\n\nMożna też wysłać emailem do klienta z linkiem do podglądu!", selector: '.btn-invoice', action: null },
-    { id: 'form-save-btn', title: "💾 Zapisz zamówienie", content: "Przycisk zapisuje wszystkie wprowadzone dane. Zamówienie pojawi się na liście z odpowiednim statusem.", selector: '.modal-footer .btn-primary', action: () => closeOrderModal && closeOrderModal() },
-    
-    // === FILTRY ===
-    { id: 'filters-section', title: "🔍 Sekcja filtrów", content: "Tutaj znajdują się wszystkie filtry do wyszukiwania zamówień. Pokażemy każdy osobno.", selector: '.filters-section, .filters', action: null },
-    { id: 'filter-status', title: "📊 Filtr: Status", content: "Przyciski statusów zamówień:\n• Wszystkie\n• 🆕 Nowe\n• 🔄 W realizacji\n• ✅ Gotowe do wysyłki\n• 🚚 W transporcie\n• ✓ Dostarczone\n\nKliknij aby filtrować.", selector: '.filter-status, .filter-buttons', action: null },
-    { id: 'filter-country', title: "🌍 Filtr: Kraj", content: "Wybierz kraj dostawy aby wyświetlić tylko zamówienia do tego kraju.\n\nDostępne: 🇵🇱 PL, 🇩🇪 DE, 🇬🇧 GB, 🇫🇷 FR, 🇳🇱 NL, 🇨🇿 CZ i inne.", selector: '.filter-country', action: null },
-    { id: 'filter-sort', title: "📅 Sortowanie", content: "Sortuj zamówienia według daty utworzenia:\n• Od najnowszych (domyślnie)\n• Od najstarszych", selector: '.filter-sort', action: null },
-    { id: 'search-box', title: "🔎 Wyszukiwarka", content: "Wpisz cokolwiek aby szybko znaleźć zamówienie:\n• Numer zamówienia\n• Nazwa klienta\n• Numer telefonu\n• Nazwa produktu\n• Adres\n\nWyniki pojawiają się natychmiast!", selector: '.search-input, .search-box', action: null },
-    
-    // === KARTA ZAMÓWIENIA ===
-    { id: 'order-card', title: "📋 Karta zamówienia", content: "Każde zamówienie wyświetlane jest jako karta. Kliknij kartę aby zobaczyć pełne szczegóły. Pokażemy elementy karty.", selector: '.order-card', action: null },
-    { id: 'order-status', title: "🏷️ Status na karcie", content: "Kolorowy dropdown ze statusem. Kliknij aby SZYBKO zmienić status bez otwierania formularza!\n\nStatusy mają kolory:\n🟡 Nowe\n🔵 W realizacji\n🟢 Gotowe\n🟣 W transporcie\n✅ Dostarczone", selector: '.order-card .status-select, .order-card select', action: null },
-    { id: 'order-actions', title: "✏️ Przyciski akcji", content: "✏️ Edycja - otwiera formularz edycji\n🗑️ Usuń - przenosi do kosza\n📧 Email - wysyła email do producenta\n\nZ kosza można przywrócić zamówienie w Ustawienia → Kosz!", selector: '.order-card .order-actions, .order-buttons', action: null },
-    
-    // === PODSUMOWANIE ===
-    { id: 'push-info', title: "📱 Powiadomienia Push", content: "W menu Ustawienia znajdziesz opcję 'Powiadomienia Push'.\n\nPo włączeniu będziesz otrzymywać alerty na telefon/komputer nawet gdy przeglądarka jest zamknięta!\n\nPowiadomienia o:\n• Nowych zamówieniach\n• Zmianach statusów\n• Wiadomościach", selector: null, action: null },
-    { id: 'finish', title: "🎉 Gratulacje!", content: "Znasz już wszystkie funkcje systemu Herraton!\n\nMożesz uruchomić samouczek ponownie:\nUstawienia → 🎓 Uruchom samouczek\n\nPełna instrukcja PDF:\nUstawienia → 📖 Instrukcja PDF\n\nW razie pytań skontaktuj się z administratorem.", selector: null, action: null }
+    { title: "👋 Witaj w Herraton!", content: "Ten przewodnik pokaże Ci wszystkie funkcje systemu.\n\nKażdy element będzie podświetlony i opisany.", selector: null },
+    { title: "📦 Logo Herraton", content: "Kliknięcie w logo zawsze przenosi do głównego widoku zamówień.", selector: '.header-brand' },
+    { title: "🔔 Powiadomienia", content: "Liczba pokazuje nieprzeczytane powiadomienia.\n\n• Nowe zamówienia\n• Zmiany statusów\n• Wiadomości", selector: '.header-actions > button:first-child' },
+    { title: "📋 Reklamacje", content: "Panel reklamacji od klientów.\n\nLiczba = aktywne reklamacje.", selector: '.complaint-btn' },
+    { title: "🎯 Zainteresowani", content: "Panel potencjalnych klientów (leadów).\n\nZapisuj kontakty i śledź status.", selector: '.leads-btn' },
+    { title: "📦 Wysyłka", content: "Menu wysyłki:\n\n🧪 Próbki\n✉️ Poczta", selector: '.shipping-btn', action: 'openShipping' },
+    { title: "📦 Menu wysyłki", content: "Opcje wysyłki z licznikami elementów do wysłania.", selector: '.settings-menu', action: 'closeShipping' },
+    { title: "🗑️ Kosz", content: "Usunięte zamówienia.\n\nMożna je przywrócić.", selector: '.trash-btn' },
+    { title: "⚙️ Ustawienia", content: "Menu ustawień systemu.", selector: '.settings-btn', action: 'openSettings' },
+    { title: "⚙️ Menu ustawień", content: "📊 Statystyki\n💰 Rozliczenia\n📇 Kontakty\n👥 Użytkownicy\n🏭 Producenci\n📋 Cenniki\n🎓 Samouczek\n📖 Instrukcja", selector: '.settings-menu', action: 'closeSettings' },
+    { title: "💬 Messenger", content: "Wewnętrzny komunikator.\n\nCzerwona kropka = nowe wiadomości.", selector: '.messenger-fab' },
+    { title: "➕ Nowe zamówienie", content: "Utwórz nowe zamówienie.\n\nTeraz pokażemy formularz.", selector: '.btn-add-order', action: 'openOrder' },
+    { title: "📝 Formularz", content: "Główny formularz zamówienia.\n\nZawiera wszystkie dane.", selector: '.modal-content' },
+    { title: "💾 Zapisz", content: "Zapisz zamówienie po wypełnieniu.", selector: '.btn-save-order', action: 'closeOrder' },
+    { title: "🔍 Wyszukiwarka", content: "Szukaj po:\n\n• Numerze\n• Kliencie\n• Telefonie\n• Adresie", selector: '.search-input' },
+    { title: "🔍 Filtry", content: "Filtruj i sortuj zamówienia.", selector: '.filters-section' },
+    { title: "📊 Status", content: "Filtruj po statusie zamówienia.", selector: '.filter-status' },
+    { title: "🌍 Kraj", content: "Filtruj po kraju dostawy.", selector: '.filter-country' },
+    { title: "📅 Sortowanie", content: "Sortuj od najnowszych lub najstarszych.", selector: '.filter-sort' },
+    { title: "📋 Karta zamówienia", content: "Kliknij kartę aby zobaczyć szczegóły.", selector: '.order-card' },
+    { title: "🔄 Zmiana statusu", content: "Szybka zmiana statusu bez otwierania formularza.", selector: '.order-card .status-select' },
+    { title: "✏️ Akcje", content: "✏️ Edycja\n🗑️ Usuń\n📧 Email", selector: '.order-actions' },
+    { title: "📱 Push", content: "Włącz powiadomienia push w Ustawieniach.\n\nAlerty nawet gdy przeglądarka zamknięta!", selector: null },
+    { title: "🎉 Gratulacje!", content: "Znasz już system!\n\n🎓 Ponownie: Ustawienia → Samouczek\n📖 Instrukcja: Ustawienia → PDF", selector: null }
   ];
 
-  // Kroki dla kierowcy
   const driverSteps = [
-    { id: 'welcome', title: "👋 Witaj kierowco!", content: "Pokażemy Ci Twój panel do zarządzania dostawami.", selector: null, action: null },
-    { id: 'orders', title: "📋 Twoje zamówienia", content: "Lista zamówień przypisanych do Ciebie. Kliknij kartę aby zobaczyć szczegóły trasy i dane klienta.", selector: '.orders-list, .orders-grid', action: null },
-    { id: 'order-card', title: "📦 Karta zamówienia", content: "Każda karta pokazuje:\n• Adres dostawy\n• Telefon klienta\n• Co dostarczyć\n• Status", selector: '.order-card', action: null },
-    { id: 'status', title: "🔄 Zmiana statusu", content: "WAŻNE! Kliknij status i zmień:\n\n🟣 'W transporcie' - gdy wyruszasz\n✅ 'Dostarczone' - po dostarczeniu\n\nSystem automatycznie powiadomi biuro i klienta!", selector: '.order-card .status-select, .order-card select', action: null },
-    { id: 'phone', title: "📞 Telefon klienta", content: "Na karcie widzisz numer telefonu klienta. Kliknij aby zadzwonić bezpośrednio z telefonu.", selector: '.order-card .order-client', action: null },
-    { id: 'messenger', title: "💬 Messenger", content: "Problem na trasie? Napisz do biura przez Messenger! Szybki kontakt bez dzwonienia.", selector: '.messenger-toggle', action: null },
-    { id: 'notifications', title: "🔔 Powiadomienia", content: "Tu zobaczysz:\n• Nowe zamówienia dla Ciebie\n• Wiadomości z biura\n• Zmiany w trasie", selector: '.header-actions > button:first-child', action: null },
-    { id: 'finish', title: "🎉 Gotowe!", content: "Pamiętaj - aktualizuj statusy dostaw na bieżąco!\n\nPowodzenia na trasie! 🚚", selector: null, action: null }
+    { title: "👋 Witaj kierowco!", content: "Twój panel dostaw.", selector: null },
+    { title: "📋 Zamówienia", content: "Lista Twoich dostaw.", selector: '.orders-grid' },
+    { title: "📦 Karta", content: "Szczegóły zamówienia.", selector: '.order-card' },
+    { title: "🔄 Status", content: "🟣 W transporcie - wyruszasz\n✅ Dostarczone - po dostawie", selector: '.order-card .status-select' },
+    { title: "💬 Messenger", content: "Kontakt z biurem.", selector: '.messenger-fab' },
+    { title: "🎉 Gotowe!", content: "Aktualizuj statusy!\nPowodzenia! 🚚", selector: null }
   ];
 
-  // Kroki dla kontrahenta
   const contractorSteps = [
-    { id: 'welcome', title: "👋 Witaj!", content: "To jest Twój panel klienta w systemie Herraton.", selector: null, action: null },
-    { id: 'orders', title: "📦 Twoje zamówienia", content: "Lista wszystkich Twoich zamówień. Kliknij kartę aby zobaczyć szczegóły.", selector: '.orders-list, .orders-grid', action: null },
-    { id: 'order-card', title: "📋 Karta zamówienia", content: "Każda karta pokazuje:\n• Numer zamówienia\n• Status realizacji\n• Produkty i cenę", selector: '.order-card', action: null },
-    { id: 'status', title: "📊 Status zamówienia", content: "Kolorowy znacznik pokazuje postęp:\n\n🟡 Nowe - przyjęte\n🔵 W realizacji - trwa produkcja\n🟢 Gotowe - czeka na wysyłkę\n🟣 W transporcie - jedzie do Ciebie\n✅ Dostarczone", selector: '.order-card .status-badge, .order-card .status-select', action: null },
-    { id: 'complaints', title: "📋 Reklamacje", content: "Problem z zamówieniem?\n\nKliknij 'Reklamacje' → 'Nowa reklamacja'\n• Wybierz zamówienie\n• Opisz problem\n• Dodaj zdjęcia\n\nBędziemy śledzić sprawę!", selector: '.complaint-btn', action: null },
-    { id: 'messenger', title: "💬 Kontakt z nami", content: "Masz pytanie? Napisz do nas przez Messenger!\n\nOdpowiadamy najszybciej jak to możliwe.", selector: '.messenger-toggle', action: null },
-    { id: 'notifications', title: "🔔 Powiadomienia", content: "Tu zobaczysz powiadomienia o zmianach w Twoich zamówieniach:\n• Zmiana statusu\n• Wysyłka towaru\n• Odpowiedzi na reklamacje", selector: '.header-actions > button:first-child', action: null },
-    { id: 'finish', title: "🎉 Dziękujemy!", content: "Dziękujemy za zaufanie!\n\nJeśli masz pytania - pisz przez Messenger.\n\nŻyczymy udanych zakupów! 🛍️", selector: null, action: null }
+    { title: "👋 Witaj!", content: "Twój panel klienta.", selector: null },
+    { title: "📦 Zamówienia", content: "Lista Twoich zamówień.", selector: '.orders-grid' },
+    { title: "📊 Status", content: "🟡 Nowe\n🔵 W realizacji\n🟢 Gotowe\n🟣 W transporcie\n✅ Dostarczone", selector: '.order-card' },
+    { title: "📋 Reklamacje", content: "Zgłoś problem.", selector: '.complaint-btn' },
+    { title: "💬 Kontakt", content: "Napisz do nas.", selector: '.messenger-fab' },
+    { title: "🎉 Dziękujemy!", content: "Udanych zakupów!", selector: null }
   ];
 
-  // Wybór kroków
   let steps = adminSteps;
   if (isDriver) steps = driverSteps;
   if (isContractor) steps = contractorSteps;
 
-  const currentStep = steps[step] || steps[0];
-  const totalSteps = steps.length;
-  const isLastStep = step >= totalSteps - 1;
-  const isFirstStep = step === 0;
-  const progress = ((step + 1) / totalSteps) * 100;
+  const curr = steps[step] || steps[0];
+  const total = steps.length;
+  const isLast = step >= total - 1;
+  const isFirst = step === 0;
 
-  // Znajdź element i ustaw pozycję tooltipa
   useEffect(() => {
-    // Wykonaj akcję dla obecnego kroku (np. otwórz modal)
-    if (currentStep.action) {
-      currentStep.action();
-    }
+    // Akcje
+    if (curr.action === 'openShipping') openShipping?.();
+    if (curr.action === 'closeShipping') closeShipping?.();
+    if (curr.action === 'openSettings') openSettings?.();
+    if (curr.action === 'closeSettings') closeSettings?.();
+    if (curr.action === 'openOrder') setTimeout(() => openOrderModal?.(), 200);
+    if (curr.action === 'closeOrder') closeOrderModal?.();
 
-    // Poczekaj na DOM
     const timer = setTimeout(() => {
-      if (currentStep.selector) {
-        // Próbuj znaleźć element (selector może mieć kilka opcji)
-        const selectors = currentStep.selector.split(',').map(s => s.trim());
-        let element = null;
-        
-        for (const sel of selectors) {
-          try {
-            element = document.querySelector(sel);
-            if (element) break;
-          } catch (e) {
-            // Nieprawidłowy selektor - ignoruj
-          }
-        }
-        
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          setElementRect(rect);
+      if (curr.selector) {
+        const el = document.querySelector(curr.selector);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          setElementRect(r);
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           
-          // Scroll do elementu
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Pozycja tooltip
+          const tw = 300, th = 180, gap = 16;
+          const below = window.innerHeight - r.bottom;
+          const above = r.top;
+          const right = window.innerWidth - r.right;
           
-          // Oblicz pozycję tooltipa
-          const tooltipW = 360;
-          const tooltipH = 220;
-          const margin = 16;
+          let t, l, at, al, dir;
           
-          let top, left, arrow;
-          const spaceBelow = window.innerHeight - rect.bottom;
-          const spaceAbove = rect.top;
-          const spaceRight = window.innerWidth - rect.right;
-          
-          if (spaceBelow > tooltipH + margin) {
-            top = rect.bottom + margin;
-            left = Math.max(margin, Math.min(rect.left + rect.width/2 - tooltipW/2, window.innerWidth - tooltipW - margin));
-            arrow = 'top';
-          } else if (spaceAbove > tooltipH + margin) {
-            top = rect.top - tooltipH - margin;
-            left = Math.max(margin, Math.min(rect.left + rect.width/2 - tooltipW/2, window.innerWidth - tooltipW - margin));
-            arrow = 'bottom';
-          } else if (spaceRight > tooltipW + margin) {
-            top = Math.max(margin, Math.min(rect.top + rect.height/2 - tooltipH/2, window.innerHeight - tooltipH - margin));
-            left = rect.right + margin;
-            arrow = 'left';
+          if (below >= th + gap) {
+            t = r.bottom + gap; l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
+            at = r.bottom + 4; al = r.left + r.width/2 - 10; dir = 'up';
+          } else if (above >= th + gap) {
+            t = r.top - th - gap; l = Math.max(10, Math.min(r.left + r.width/2 - tw/2, window.innerWidth - tw - 10));
+            at = r.top - 28; al = r.left + r.width/2 - 10; dir = 'down';
+          } else if (right >= tw + gap) {
+            t = Math.max(10, r.top + r.height/2 - th/2); l = r.right + gap;
+            at = r.top + r.height/2 - 10; al = r.right + 4; dir = 'left';
           } else {
-            top = Math.max(margin, Math.min(rect.top + rect.height/2 - tooltipH/2, window.innerHeight - tooltipH - margin));
-            left = Math.max(margin, rect.left - tooltipW - margin);
-            arrow = 'right';
+            t = Math.max(10, r.top + r.height/2 - th/2); l = Math.max(10, r.left - tw - gap);
+            at = r.top + r.height/2 - 10; al = r.left - 28; dir = 'right';
           }
           
-          setTooltipStyle({ top, left, width: tooltipW });
-          setArrowPosition(arrow);
+          setTooltipPos({ top: t, left: l, width: tw });
+          setArrowPos({ top: at, left: al, direction: dir });
         } else {
-          // Element nie znaleziony - wyśrodkuj
           setElementRect(null);
-          setTooltipStyle({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 380 });
-          setArrowPosition('none');
+          setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 340 });
+          setArrowPos({ direction: 'none' });
         }
       } else {
-        // Brak selektora - wyśrodkuj
         setElementRect(null);
-        setTooltipStyle({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 380 });
-        setArrowPosition('none');
+        setTooltipPos({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 340 });
+        setArrowPos({ direction: 'none' });
       }
     }, 350);
     
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, curr, openShipping, closeShipping, openSettings, closeSettings, openOrderModal, closeOrderModal]);
 
-  // Cleanup przy odmontowaniu
   useEffect(() => {
-    return () => {
-      if (closeOrderModal) closeOrderModal();
-      if (closeSettings) closeSettings();
-      if (closeShipping) closeShipping();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => { closeOrderModal?.(); closeSettings?.(); closeShipping?.(); };
+  }, [closeOrderModal, closeSettings, closeShipping]);
+
+  const arrows = { up: '⬆️', down: '⬇️', left: '⬅️', right: '➡️' };
 
   return (
-    <div className="tutorial-pointer-overlay">
-      {/* Ciemne tło z wyciętym otworem */}
+    <div style={{position:'fixed',inset:0,zIndex:999999}}>
       {elementRect ? (
-        <svg className="tutorial-mask-svg" style={{position:'fixed',top:0,left:0,width:'100%',height:'100%',pointerEvents:'auto',zIndex:999998}}>
+        <svg style={{position:'fixed',inset:0,width:'100%',height:'100%'}}>
           <defs>
-            <mask id="spotlight-mask">
-              <rect x="0" y="0" width="100%" height="100%" fill="white"/>
-              <rect 
-                x={elementRect.left - 10} 
-                y={elementRect.top - 10} 
-                width={elementRect.width + 20} 
-                height={elementRect.height + 20} 
-                rx="10" 
-                fill="black"
-              />
+            <mask id="mask">
+              <rect width="100%" height="100%" fill="white"/>
+              <rect x={elementRect.left-8} y={elementRect.top-8} width={elementRect.width+16} height={elementRect.height+16} rx="10" fill="black"/>
             </mask>
           </defs>
-          <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#spotlight-mask)"/>
+          <rect width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#mask)"/>
         </svg>
       ) : (
-        <div className="tutorial-dark-backdrop"></div>
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)'}}/>
       )}
       
-      {/* Podświetlona ramka */}
       {elementRect && (
-        <div 
-          className="tutorial-spotlight-border"
-          style={{
-            position: 'fixed',
-            top: elementRect.top - 10,
-            left: elementRect.left - 10,
-            width: elementRect.width + 20,
-            height: elementRect.height + 20,
-            zIndex: 999999
-          }}
-        />
+        <div style={{
+          position:'fixed',
+          top: elementRect.top-8,
+          left: elementRect.left-8,
+          width: elementRect.width+16,
+          height: elementRect.height+16,
+          border:'3px solid #3B82F6',
+          borderRadius:'12px',
+          boxShadow:'0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)',
+          animation:'pulse 1.5s infinite',
+          pointerEvents:'none'
+        }}/>
       )}
       
-      {/* Strzałka wskazująca */}
-      {elementRect && arrowPosition !== 'none' && (
-        <div 
-          className="tutorial-pointer-arrow"
-          style={{
-            position: 'fixed',
-            zIndex: 1000001,
-            fontSize: '32px',
-            top: arrowPosition === 'top' ? elementRect.bottom + 6 : 
-                 arrowPosition === 'bottom' ? elementRect.top - 36 :
-                 elementRect.top + elementRect.height / 2 - 16,
-            left: arrowPosition === 'left' ? elementRect.right + 6 :
-                  arrowPosition === 'right' ? elementRect.left - 36 :
-                  elementRect.left + elementRect.width / 2 - 16
-          }}
-        >
-          {arrowPosition === 'top' && '⬇️'}
-          {arrowPosition === 'bottom' && '⬆️'}
-          {arrowPosition === 'left' && '➡️'}
-          {arrowPosition === 'right' && '⬅️'}
+      {elementRect && arrowPos.direction !== 'none' && (
+        <div style={{position:'fixed',top:arrowPos.top,left:arrowPos.left,fontSize:'24px',animation:'bounce 0.6s infinite'}}>
+          {arrows[arrowPos.direction]}
         </div>
       )}
       
-      {/* Tooltip */}
-      <div className="tutorial-pointer-tooltip" style={{...tooltipStyle, position: 'fixed', zIndex: 1000002}}>
-        <div className="tutorial-pointer-header">
-          <div className="tutorial-pointer-progress">
-            <span className="tutorial-pointer-step">{step + 1}</span>
-            <span className="tutorial-pointer-total">/{totalSteps}</span>
+      <div style={{
+        position:'fixed',
+        ...tooltipPos,
+        background:'white',
+        borderRadius:'16px',
+        boxShadow:'0 20px 50px rgba(0,0,0,0.4)',
+        overflow:'hidden'
+      }}>
+        <div style={{background:'linear-gradient(135deg,#1E3A5F,#2D5A87)',color:'white',padding:'12px 16px',display:'flex',alignItems:'center',gap:'10px'}}>
+          <span style={{fontSize:'20px',fontWeight:'700'}}>{step+1}</span>
+          <span style={{opacity:0.7}}>/ {total}</span>
+          <div style={{flex:1,height:'4px',background:'rgba(255,255,255,0.2)',borderRadius:'2px',margin:'0 10px'}}>
+            <div style={{height:'100%',width:`${((step+1)/total)*100}%`,background:'linear-gradient(90deg,#60A5FA,#34D399)',borderRadius:'2px',transition:'width 0.3s'}}/>
           </div>
-          <div className="tutorial-pointer-bar">
-            <div className="tutorial-pointer-bar-fill" style={{ width: `${progress}%` }}></div>
-          </div>
-          <button className="tutorial-pointer-close" onClick={onSkip}>✕</button>
+          <button onClick={onSkip} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer'}}>✕</button>
         </div>
         
-        <div className="tutorial-pointer-body">
-          <h3 className="tutorial-pointer-title">{currentStep.title}</h3>
-          <p className="tutorial-pointer-text">{currentStep.content}</p>
+        <div style={{padding:'16px'}}>
+          <h3 style={{margin:'0 0 10px',fontSize:'16px',fontWeight:'700',color:'#1E293B'}}>{curr.title}</h3>
+          <p style={{margin:0,fontSize:'13px',color:'#64748B',lineHeight:1.6,whiteSpace:'pre-line'}}>{curr.content}</p>
         </div>
         
-        <div className="tutorial-pointer-footer">
-          {!isFirstStep && (
-            <button className="tutorial-pointer-btn tutorial-pointer-prev" onClick={onPrev}>← Wstecz</button>
-          )}
-          {isFirstStep && (
-            <button className="tutorial-pointer-btn tutorial-pointer-skip" onClick={onSkip}>Pomiń</button>
-          )}
-          {isLastStep ? (
-            <button className="tutorial-pointer-btn tutorial-pointer-finish" onClick={onFinish}>Zakończ ✓</button>
+        <div style={{padding:'12px 16px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
+          {!isFirst && <button onClick={onPrev} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>← Wstecz</button>}
+          {isFirst && <button onClick={onSkip} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>Pomiń</button>}
+          {isLast ? (
+            <button onClick={onFinish} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>Zakończ ✓</button>
           ) : (
-            <button className="tutorial-pointer-btn tutorial-pointer-next" onClick={onNext}>Dalej →</button>
+            <button onClick={onNext} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>Dalej →</button>
           )}
         </div>
-        
-        {isFirstStep && (
-          <label className="tutorial-pointer-checkbox">
-            <input type="checkbox" onChange={(e) => e.target.checked && onSkip()} />
-            Nie pokazuj ponownie
-          </label>
-        )}
       </div>
+      
+      <style>{`
+        @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 30px rgba(59,130,246,0.6)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 0 50px rgba(59,130,246,0.8)} }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+      `}</style>
     </div>
   );
 };
