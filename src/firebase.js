@@ -79,6 +79,8 @@ const leadsCollection = collection(db, 'leads');
 const priceListsCollection = collection(db, 'priceLists');
 const messagesCollection = collection(db, 'messages');
 const settlementsCollection = collection(db, 'settlements');
+const samplesCollection = collection(db, 'samples');
+const mailItemsCollection = collection(db, 'mailItems');
 
 // ============================================
 // ZAMÓWIENIA
@@ -481,6 +483,108 @@ export const deleteSettlement = async (id) => {
     await deleteDoc(doc(db, 'settlements', id));
   } catch (error) {
     console.error('Error deleting settlement:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// PRÓBKI (SAMPLES) - WYSYŁKA
+// ============================================
+
+export const subscribeToSamples = (callback) => {
+  const q = query(samplesCollection, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const samples = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(samples);
+  }, (error) => {
+    console.error('Error subscribing to samples:', error);
+    callback([]);
+  });
+};
+
+export const addSample = async (sample) => {
+  try {
+    const data = {
+      ...sample,
+      createdAt: sample.createdAt || new Date().toISOString()
+    };
+    // Usuń id jeśli istnieje (Firestore sam generuje)
+    delete data.id;
+    const docRef = await addDoc(samplesCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding sample:', error);
+    throw error;
+  }
+};
+
+export const updateSample = async (id, data) => {
+  try {
+    const updateData = { ...data };
+    delete updateData.id; // Nie zapisuj id w dokumencie
+    await setDoc(doc(db, 'samples', id), updateData, { merge: true });
+  } catch (error) {
+    console.error('Error updating sample:', error);
+    throw error;
+  }
+};
+
+export const deleteSample = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'samples', id));
+  } catch (error) {
+    console.error('Error deleting sample:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// POCZTA (MAIL ITEMS) - WYSYŁKA
+// ============================================
+
+export const subscribeToMailItems = (callback) => {
+  const q = query(mailItemsCollection, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const mailItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(mailItems);
+  }, (error) => {
+    console.error('Error subscribing to mailItems:', error);
+    callback([]);
+  });
+};
+
+export const addMailItem = async (mailItem) => {
+  try {
+    const data = {
+      ...mailItem,
+      createdAt: mailItem.createdAt || new Date().toISOString()
+    };
+    // Usuń id jeśli istnieje (Firestore sam generuje)
+    delete data.id;
+    const docRef = await addDoc(mailItemsCollection, data);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding mailItem:', error);
+    throw error;
+  }
+};
+
+export const updateMailItem = async (id, data) => {
+  try {
+    const updateData = { ...data };
+    delete updateData.id; // Nie zapisuj id w dokumencie
+    await setDoc(doc(db, 'mailItems', id), updateData, { merge: true });
+  } catch (error) {
+    console.error('Error updating mailItem:', error);
+    throw error;
+  }
+};
+
+export const deleteMailItem = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'mailItems', id));
+  } catch (error) {
+    console.error('Error deleting mailItem:', error);
     throw error;
   }
 };
