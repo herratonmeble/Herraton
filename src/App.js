@@ -19695,6 +19695,26 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
     }
   }
 
+  // BLOKUJ SCROLL podczas samouczka
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    const preventScroll = (e) => {
+      e.preventDefault();
+    };
+    
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+    };
+  }, []);
+
   // Otwórz menu jeśli potrzebne
   useEffect(() => {
     if (openMenu && !menuOpened) {
