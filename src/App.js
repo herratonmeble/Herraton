@@ -18883,6 +18883,7 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
   const [startPos, setStartPos] = useState(null);
   const [currentPos, setCurrentPos] = useState(null);
   const [rect, setRect] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null); // które menu jest otwarte
 
   const handleMouseDown = (e) => {
     if (e.target.closest('.element-selector-ui')) return;
@@ -18915,12 +18916,13 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
 
   const handleConfirm = () => {
     if (rect) {
-      // Zapisz pozycję jako obiekt z współrzędnymi
+      // Zapisz pozycję + które menu otworzyć
       const position = {
         top: rect.y,
         left: rect.x,
         width: rect.width,
-        height: rect.height
+        height: rect.height,
+        openMenu: openMenu // null, 'settings', 'shipping', 'orderForm'
       };
       onSelect(JSON.stringify(position));
     }
@@ -18932,13 +18934,43 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
     setCurrentPos(null);
   };
 
+  const toggleMenu = (menuName) => {
+    if (openMenu === menuName) {
+      setOpenMenu(null);
+      // Zamknij menu przez kliknięcie przycisku
+      const btn = document.querySelector(`.${menuName}-btn, .btn-${menuName}`);
+      if (btn) btn.click();
+    } else {
+      // Najpierw zamknij poprzednie menu jeśli otwarte
+      if (openMenu) {
+        const prevBtn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+        if (prevBtn) prevBtn.click();
+      }
+      setOpenMenu(menuName);
+      // Otwórz nowe menu
+      setTimeout(() => {
+        const btn = document.querySelector(`.${menuName}-btn, .btn-${menuName}`);
+        if (btn) btn.click();
+      }, 100);
+    }
+    // Reset zaznaczenia przy zmianie menu
+    handleReset();
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') {
+        // Zamknij otwarte menu przed wyjściem
+        if (openMenu) {
+          const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+          if (btn) btn.click();
+        }
+        onCancel();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
+  }, [onCancel, openMenu]);
 
   // Oblicz prostokąt podczas rysowania
   const drawingRect = isDrawing && startPos && currentPos ? {
@@ -18952,11 +18984,19 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
 
   return (
     <div 
-      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair',background:'rgba(0,0,0,0.3)'}}
+      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
+      {/* Przyciemnione tło - ale przepuszcza kliknięcia na przyciski menu */}
+      <div style={{
+        position:'fixed',
+        inset:0,
+        background: displayRect ? 'transparent' : 'rgba(0,0,0,0.3)',
+        pointerEvents:'none'
+      }}/>
+
       {/* Narysowany prostokąt */}
       {displayRect && (
         <div style={{
@@ -18973,7 +19013,7 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
         }} />
       )}
       
-      {/* Informacja na górze */}
+      {/* Panel z przyciskami menu - NA GÓRZE */}
       <div className="element-selector-ui" style={{
         position:'fixed',
         top:'20px',
@@ -18981,42 +19021,109 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
         transform:'translateX(-50%)',
         background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
         color:'white',
-        padding:'16px 28px',
+        padding:'16px 24px',
         borderRadius:'12px',
         boxShadow:'0 10px 40px rgba(0,0,0,0.4)',
         display:'flex',
-        alignItems:'center',
-        gap:'20px',
-        fontSize:'15px',
-        fontWeight:'500'
+        flexDirection:'column',
+        gap:'12px',
+        maxWidth:'90vw'
       }}>
-        <span>🎯 {rect ? 'Obszar zaznaczony!' : 'Narysuj prostokąt myszką - przeciągnij od rogu do rogu'}</span>
-        {rect ? (
-          <>
+        {/* Górny wiersz - instrukcja */}
+        <div style={{display:'flex',alignItems:'center',gap:'16px',fontSize:'15px',fontWeight:'500'}}>
+          <span>🎯 {rect ? 'Obszar zaznaczony!' : 'Narysuj prostokąt myszką'}</span>
+          {rect ? (
+            <>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleReset(); }}
+                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 14px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
+              >
+                🔄 Ponownie
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
+                style={{background:'#10B981',border:'none',color:'white',padding:'8px 14px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
+              >
+                ✓ Zatwierdź
+              </button>
+            </>
+          ) : (
             <button 
-              onClick={(e) => { e.stopPropagation(); handleReset(); }}
-              style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+              onClick={(e) => { e.stopPropagation(); if(openMenu){const btn=document.querySelector(`.${openMenu}-btn`);if(btn)btn.click();} onCancel(); }}
+              style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 14px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
             >
-              🔄 Zaznacz ponownie
+              ✕ Anuluj
             </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
-              style={{background:'#10B981',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
-            >
-              ✓ Zatwierdź
-            </button>
-          </>
-        ) : (
-          <button 
-            onClick={(e) => { e.stopPropagation(); onCancel(); }}
-            style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+          )}
+        </div>
+
+        {/* Dolny wiersz - przyciski otwierania menu */}
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'12px'}}>
+          <span style={{fontSize:'12px',opacity:0.8,marginRight:'8px',display:'flex',alignItems:'center'}}>Otwórz menu:</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMenu('settings'); }}
+            style={{
+              background: openMenu === 'settings' ? '#10B981' : 'rgba(255,255,255,0.15)',
+              border:'none',
+              color:'white',
+              padding:'6px 12px',
+              borderRadius:'6px',
+              cursor:'pointer',
+              fontSize:'12px',
+              fontWeight:'500'
+            }}
           >
-            Anuluj (Esc)
+            ⚙️ Ustawienia
           </button>
-        )}
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMenu('shipping'); }}
+            style={{
+              background: openMenu === 'shipping' ? '#10B981' : 'rgba(255,255,255,0.15)',
+              border:'none',
+              color:'white',
+              padding:'6px 12px',
+              borderRadius:'6px',
+              cursor:'pointer',
+              fontSize:'12px',
+              fontWeight:'500'
+            }}
+          >
+            📦 Wysyłka
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMenu('add-order'); }}
+            style={{
+              background: openMenu === 'add-order' ? '#10B981' : 'rgba(255,255,255,0.15)',
+              border:'none',
+              color:'white',
+              padding:'6px 12px',
+              borderRadius:'6px',
+              cursor:'pointer',
+              fontSize:'12px',
+              fontWeight:'500'
+            }}
+          >
+            ➕ Formularz zamówienia
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMenu('notifications'); }}
+            style={{
+              background: openMenu === 'notifications' ? '#10B981' : 'rgba(255,255,255,0.15)',
+              border:'none',
+              color:'white',
+              padding:'6px 12px',
+              borderRadius:'6px',
+              cursor:'pointer',
+              fontSize:'12px',
+              fontWeight:'500'
+            }}
+          >
+            🔔 Powiadomienia
+          </button>
+        </div>
       </div>
 
-      {/* Wymiary prostokąta */}
+      {/* Wymiary prostokąta - NA DOLE */}
       {displayRect && displayRect.width > 50 && (
         <div className="element-selector-ui" style={{
           position:'fixed',
@@ -19031,6 +19138,7 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
         }}>
           📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
+          {openMenu && <span style={{marginLeft:'12px',color:'#94A3B8'}}>| Menu: {openMenu}</span>}
         </div>
       )}
     </div>
@@ -19323,6 +19431,8 @@ const TutorialConfigPanel = ({
 // ============================================
 
 const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip, onFinish }) => {
+  const [menuOpened, setMenuOpened] = useState(false);
+
   // Filtruj kroki dla danej roli
   const filteredSteps = steps.filter(s => s.role === 'all' || s.role === userRole);
   const step = filteredSteps[currentStep];
@@ -19330,39 +19440,85 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
   const isLast = currentStep >= total - 1;
   const isFirst = currentStep === 0;
 
-  if (!step) return null;
-
-  // Parsuj pozycję z JSON (selector przechowuje JSON z współrzędnymi)
+  // Parsuj pozycję z JSON
   let rect = null;
-  if (step.selector) {
+  let openMenu = null;
+  if (step?.selector) {
     try {
-      rect = JSON.parse(step.selector);
+      const parsed = JSON.parse(step.selector);
+      rect = {
+        top: parsed.top,
+        left: parsed.left,
+        width: parsed.width,
+        height: parsed.height
+      };
+      openMenu = parsed.openMenu;
     } catch {
       rect = null;
     }
   }
 
-  // Oblicz pozycję tooltipa - zawsze POD ramką
+  // Otwórz menu jeśli potrzebne
+  useEffect(() => {
+    if (openMenu && !menuOpened) {
+      const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+      if (btn) {
+        btn.click();
+        setMenuOpened(true);
+      }
+    }
+    
+    return () => {
+      // Zamknij menu przy zmianie kroku
+      if (menuOpened && openMenu) {
+        const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+        if (btn) btn.click();
+        setMenuOpened(false);
+      }
+    };
+  }, [currentStep, openMenu, menuOpened]);
+
+  // Reset menu state przy zmianie kroku
+  useEffect(() => {
+    setMenuOpened(false);
+  }, [currentStep]);
+
+  if (!step) return null;
+
+  // Oblicz pozycję tooltipa - zawsze POD ramką, z odstępem na strzałkę
   const tooltipWidth = 360;
+  const arrowHeight = 50; // Miejsce na strzałkę
   let tooltipStyle = {};
+  let arrowStyle = {};
+  let showArrow = false;
   
   if (rect) {
-    const tooltipTop = rect.top + rect.height + 20; // 20px pod ramką
+    const tooltipTop = rect.top + rect.height + arrowHeight; // Strzałka + odstęp
     const tooltipLeft = Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10));
     
     // Jeśli nie mieści się na dole, daj na górze
-    if (tooltipTop + 250 > window.innerHeight) {
+    if (tooltipTop + 280 > window.innerHeight) {
       tooltipStyle = {
-        bottom: window.innerHeight - rect.top + 20,
+        top: Math.max(10, rect.top - 280 - arrowHeight),
         left: tooltipLeft,
         width: tooltipWidth
       };
+      arrowStyle = {
+        top: rect.top - 40,
+        left: rect.left + rect.width/2 - 16
+      };
+      showArrow = true;
     } else {
       tooltipStyle = {
         top: tooltipTop,
         left: tooltipLeft,
         width: tooltipWidth
       };
+      arrowStyle = {
+        top: rect.top + rect.height + 8,
+        left: rect.left + rect.width/2 - 16
+      };
+      showArrow = true;
     }
   } else {
     tooltipStyle = {
@@ -19372,6 +19528,41 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
       width: tooltipWidth
     };
   }
+
+  const handleNext = () => {
+    // Zamknij menu przed przejściem dalej
+    if (menuOpened && openMenu) {
+      const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+      if (btn) btn.click();
+      setMenuOpened(false);
+    }
+    onNext();
+  };
+
+  const handlePrev = () => {
+    if (menuOpened && openMenu) {
+      const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+      if (btn) btn.click();
+      setMenuOpened(false);
+    }
+    onPrev();
+  };
+
+  const handleSkip = () => {
+    if (menuOpened && openMenu) {
+      const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+      if (btn) btn.click();
+    }
+    onSkip();
+  };
+
+  const handleFinish = () => {
+    if (menuOpened && openMenu) {
+      const btn = document.querySelector(`.${openMenu}-btn, .btn-${openMenu}`);
+      if (btn) btn.click();
+    }
+    onFinish();
+  };
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:999999}}>
@@ -19402,31 +19593,34 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
           borderRadius:'10px',
           boxShadow:'0 0 0 4px rgba(59,130,246,0.3), 0 0 40px rgba(59,130,246,0.6)',
           pointerEvents:'none',
-          animation:'tutpulse 1.5s infinite'
+          animation:'tutpulse 1.5s infinite',
+          zIndex: 1000001
         }}/>
       )}
 
-      {/* Strzałka wskazująca w dół na ramkę */}
-      {rect && (
+      {/* Strzałka - WYŻSZY Z-INDEX niż tooltip */}
+      {showArrow && (
         <div style={{
           position:'fixed',
-          top: rect.top + rect.height + 6,
-          left: rect.left + rect.width/2 - 14,
-          fontSize:'28px',
-          animation:'tutbounce 0.6s infinite'
+          ...arrowStyle,
+          fontSize:'32px',
+          zIndex: 1000003, // Wyższy niż tooltip
+          animation:'tutbounce 0.6s infinite',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
         }}>
           ⬆️
         </div>
       )}
 
-      {/* Tooltip POD ramką */}
+      {/* Tooltip POD strzałką */}
       <div style={{
         position:'fixed',
         ...tooltipStyle,
         background:'white',
         borderRadius:'16px',
         boxShadow:'0 20px 50px rgba(0,0,0,0.4)',
-        overflow:'hidden'
+        overflow:'hidden',
+        zIndex: 1000002
       }}>
         {/* Header */}
         <div style={{
@@ -19449,7 +19643,7 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
             }}/>
           </div>
           <button 
-            onClick={onSkip} 
+            onClick={handleSkip} 
             style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}
           >
             ✕
@@ -19465,21 +19659,21 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
         {/* Footer */}
         <div style={{padding:'14px 20px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
           {!isFirst && (
-            <button onClick={onPrev} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>
+            <button onClick={handlePrev} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>
               ← Wstecz
             </button>
           )}
           {isFirst && (
-            <button onClick={onSkip} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>
+            <button onClick={handleSkip} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>
               Pomiń
             </button>
           )}
           {isLast ? (
-            <button onClick={onFinish} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #10B981, #059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>
+            <button onClick={handleFinish} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #10B981, #059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>
               Zakończ ✓
             </button>
           ) : (
-            <button onClick={onNext} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #3B82F6, #2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>
+            <button onClick={handleNext} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #3B82F6, #2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>
               Dalej →
             </button>
           )}
