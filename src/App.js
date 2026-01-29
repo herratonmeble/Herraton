@@ -18736,8 +18736,6 @@ Zespół obsługi zamówień
 // ============================================
 
 const TutorialOverlay = ({ step, userRole, onNext, onPrev, onSkip, onFinish }) => {
-  const isAdmin = userRole === 'admin';
-  const isWorker = userRole === 'worker';
   const isDriver = userRole === 'driver';
   const isContractor = userRole === 'contractor';
 
