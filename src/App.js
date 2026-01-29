@@ -19227,13 +19227,13 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
     setCurrentPos(null);
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (triggerData?.selector) {
       const el = document.querySelector(triggerData.selector);
       if (el) el.click();
     }
     onCancel();
-  };
+  }, [triggerData, onCancel]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -19241,7 +19241,7 @@ const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [triggerData]);
+  }, [handleCancel]);
 
   const drawingRect = isDrawing && startPos && currentPos ? {
     x: Math.min(startPos.x, currentPos.x),
@@ -19753,6 +19753,8 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
         case 'right':
           arrowStyle = { top: rect.top + rect.height/2 - 16, left: rect.left + rect.width + 8 };
           break;
+        default:
+          arrowStyle = { top: rect.top + rect.height + 8, left: rect.left + rect.width/2 - 16 };
       }
     }
   } else {
