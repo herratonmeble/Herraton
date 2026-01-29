@@ -4385,26 +4385,65 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                     let message = `✅ ${result.message}`;
                     
                     // Jeśli zaznaczono wysyłkę email i mamy email klienta
-                    if (confirmCreate.sendEmail && form.klient?.email) {
+                    if (confirmCreate.sendEmail && form.klient?.email && result.invoiceId) {
                       btn.innerHTML = '📧 Wysyłam email...';
+                      
+                      const docType = confirmCreate.type === 'proforma' ? 'Proforma' : 'Faktura';
+                      const invoiceUrl = `${window.location.origin}/api/invoice/${result.invoiceId}`;
                       
                       try {
                         const emailResult = await sendEmailViaMailerSend(
                           form.klient.email,
                           form.klient.imie || 'Klient',
-                          `${confirmCreate.type === 'proforma' ? 'Proforma' : 'Faktura'} - ${result.invoiceNumber || 'Herraton'}`,
-                          `Szanowny Kliencie,\n\nW załączniku przesyłamy ${confirmCreate.type === 'proforma' ? 'proformę' : 'fakturę'} nr ${result.invoiceNumber || ''}.\n\nZamówienie: ${form.nrWlasny || ''}\nKwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}\n\nDziękujemy za zakupy!\n\nPozdrawiamy,\nZespół Herraton`,
-                          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                            <h2 style="color: #1E40AF;">📄 ${confirmCreate.type === 'proforma' ? 'Proforma' : 'Faktura'}</h2>
-                            <p>Szanowny Kliencie,</p>
-                            <p>Przesyłamy ${confirmCreate.type === 'proforma' ? 'proformę' : 'fakturę'} nr <strong>${result.invoiceNumber || ''}</strong>.</p>
-                            <div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                              <p><strong>Zamówienie:</strong> ${form.nrWlasny || ''}</p>
-                              <p><strong>Kwota:</strong> ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}</p>
+                          `${docType} nr ${result.invoiceNumber || ''} - Herraton`,
+                          `Szanowny Kliencie,
+
+Przesyłamy ${docType.toLowerCase()} nr ${result.invoiceNumber || ''}.
+
+Zamówienie: ${form.nrWlasny || ''}
+Kwota: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}
+
+Kliknij poniższy link, aby zobaczyć dokument:
+${invoiceUrl}
+
+Dziękujemy za zakupy!
+
+Pozdrawiamy,
+Zespół Herraton`,
+                          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                              <div style="font-size: 48px;">📄</div>
+                              <h1 style="color: #1E293B; margin: 10px 0;">${docType}</h1>
+                              <p style="color: #64748B; font-size: 18px;">Nr: ${result.invoiceNumber || ''}</p>
                             </div>
-                            <p>Dokument jest dostępny w systemie wFirma.</p>
-                            <p>Dziękujemy za zakupy!</p>
-                            <p style="color: #64748B; margin-top: 30px;">Pozdrawiamy,<br>Zespół Herraton</p>
+                            
+                            <p style="color: #334155; font-size: 16px;">Szanowny Kliencie,</p>
+                            <p style="color: #334155; font-size: 16px;">Przesyłamy ${docType.toLowerCase()} za Twoje zamówienie.</p>
+                            
+                            <div style="background: linear-gradient(135deg, #EEF2FF, #E0E7FF); padding: 20px; border-radius: 12px; margin: 25px 0; text-align: center;">
+                              <p style="color: #6366F1; font-size: 14px; margin-bottom: 5px;">Kwota do zapłaty</p>
+                              <p style="color: #4F46E5; font-size: 32px; font-weight: 700; margin: 0;">${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'EUR'}</p>
+                            </div>
+                            
+                            <div style="background: #F8FAFC; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                              <p style="margin: 6px 0; color: #475569;"><strong>Zamówienie:</strong> ${form.nrWlasny || ''}</p>
+                              <p style="margin: 6px 0; color: #475569;"><strong>Data:</strong> ${new Date().toLocaleDateString('pl-PL')}</p>
+                            </div>
+                            
+                            <div style="text-align: center; margin: 30px 0;">
+                              <a href="${invoiceUrl}" style="display: inline-block; background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px;">
+                                📄 Zobacz ${docType.toLowerCase()}
+                              </a>
+                            </div>
+                            
+                            <p style="color: #334155; font-size: 16px;">Dziękujemy za zakupy!</p>
+                            
+                            <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 30px 0;">
+                            
+                            <p style="color: #94A3B8; font-size: 13px; text-align: center;">
+                              Pozdrawiamy,<br>
+                              <strong style="color: #64748B;">Zespół Herraton</strong>
+                            </p>
                           </div>`
                         );
                         
