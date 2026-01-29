@@ -15406,3 +15406,311 @@ input.margin-negative {
     font-size: 14px;
   }
 }
+
+/* ============================================ */
+/* SAMOUCZEK WSKAZUJĄCY - SPOTLIGHT            */
+/* ============================================ */
+
+.tutorial-pointer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999999;
+  pointer-events: none;
+}
+
+.tutorial-mask-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.tutorial-dark-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
+}
+
+/* Pulsująca ramka wokół podświetlonego elementu */
+.tutorial-spotlight-border {
+  position: fixed;
+  border: 3px solid #3B82F6;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1000000;
+  box-shadow: 
+    0 0 0 4px rgba(59, 130, 246, 0.3),
+    0 0 20px rgba(59, 130, 246, 0.6),
+    inset 0 0 15px rgba(59, 130, 246, 0.2);
+  animation: spotlightPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spotlightPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 4px rgba(59, 130, 246, 0.3),
+      0 0 20px rgba(59, 130, 246, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 
+      0 0 0 8px rgba(59, 130, 246, 0.2),
+      0 0 40px rgba(59, 130, 246, 0.8);
+    transform: scale(1.02);
+  }
+}
+
+/* Strzałka wskazująca */
+.tutorial-pointer-arrow {
+  position: fixed;
+  font-size: 28px;
+  z-index: 1000001;
+  animation: pointerBounce 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+@keyframes pointerBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.tutorial-pointer-top { animation-name: pointerBounceDown; }
+.tutorial-pointer-bottom { animation-name: pointerBounceUp; }
+.tutorial-pointer-left { animation-name: pointerBounceRight; }
+.tutorial-pointer-right { animation-name: pointerBounceLeft; }
+
+@keyframes pointerBounceDown {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+@keyframes pointerBounceUp {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pointerBounceRight {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(8px); }
+}
+
+@keyframes pointerBounceLeft {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-8px); }
+}
+
+/* Tooltip */
+.tutorial-pointer-tooltip {
+  position: fixed;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
+  z-index: 1000002;
+  overflow: hidden;
+  animation: tooltipAppear 0.3s ease;
+}
+
+@keyframes tooltipAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Nagłówek tooltipa */
+.tutorial-pointer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #1E3A5F, #2D5A87);
+  color: white;
+}
+
+.tutorial-pointer-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 50px;
+}
+
+.tutorial-pointer-step {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.tutorial-pointer-total {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.tutorial-pointer-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tutorial-pointer-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #60A5FA, #34D399);
+  transition: width 0.3s ease;
+}
+
+.tutorial-pointer-close {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tutorial-pointer-close:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Treść tooltipa */
+.tutorial-pointer-body {
+  padding: 16px;
+}
+
+.tutorial-pointer-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1E293B;
+  margin: 0 0 8px 0;
+}
+
+.tutorial-pointer-text {
+  font-size: 14px;
+  color: #64748B;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Stopka tooltipa */
+.tutorial-pointer-footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+}
+
+.tutorial-pointer-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.tutorial-pointer-prev {
+  background: #E2E8F0;
+  color: #64748B;
+}
+
+.tutorial-pointer-prev:hover {
+  background: #CBD5E1;
+}
+
+.tutorial-pointer-skip {
+  background: transparent;
+  color: #94A3B8;
+  border: 1px solid #E2E8F0;
+}
+
+.tutorial-pointer-skip:hover {
+  background: #F1F5F9;
+}
+
+.tutorial-pointer-next {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: white;
+}
+
+.tutorial-pointer-next:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.tutorial-pointer-finish {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+}
+
+.tutorial-pointer-finish:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Checkbox */
+.tutorial-pointer-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  font-size: 12px;
+  color: #94A3B8;
+  cursor: pointer;
+  background: #FAFAFA;
+  border-top: 1px solid #E2E8F0;
+}
+
+.tutorial-pointer-checkbox:hover {
+  background: #F1F5F9;
+}
+
+.tutorial-pointer-checkbox input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .tutorial-pointer-tooltip {
+    width: calc(100% - 24px) !important;
+    left: 12px !important;
+    right: 12px !important;
+    max-width: none !important;
+  }
+  
+  .tutorial-pointer-title {
+    font-size: 15px;
+  }
+  
+  .tutorial-pointer-text {
+    font-size: 13px;
+  }
+  
+  .tutorial-pointer-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
