@@ -22,7 +22,9 @@ export default async function handler(req, res) {
     const baseUrl = 'https://api2.wfirma.pl';
     const extParams = `?inputFormat=json&outputFormat=json&company_id=${companyId}`;
     
-    // Pobierz dane faktury
+    console.log('Pobieranie faktury ID:', id);
+    
+    // Pobierz dane faktury - wFirma używa tego samego endpointu dla faktur i proform
     const response = await fetch(`${baseUrl}/invoices/get/${id}${extParams}`, {
       method: 'GET',
       headers: {
@@ -33,15 +35,50 @@ export default async function handler(req, res) {
       }
     });
 
+    const responseText = await response.text();
+    console.log('Odpowiedź wFirma (status:', response.status, '):', responseText.substring(0, 500));
+
     if (!response.ok) {
-      return res.status(404).send('Nie znaleziono dokumentu');
+      console.error('Błąd HTTP:', response.status, responseText);
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Błąd</title>
+        <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#F1F5F9;}
+        .error{background:white;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+        h1{color:#EF4444;}</style></head>
+        <body><div class="error"><h1>❌ Dokument nie znaleziony</h1><p>Nie udało się pobrać dokumentu z systemu wFirma.</p><p style="color:#94A3B8;font-size:12px;">ID: ${id} | Status: ${response.status}</p></div></body></html>
+      `);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Błąd parsowania JSON:', e);
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Błąd</title>
+        <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#F1F5F9;}
+        .error{background:white;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+        h1{color:#EF4444;}</style></head>
+        <body><div class="error"><h1>❌ Błąd systemu</h1><p>Nie udało się odczytać danych dokumentu.</p></div></body></html>
+      `);
+    }
+
+    console.log('Dane faktury:', JSON.stringify(data, null, 2));
+
     const invoice = data.invoices?.[0]?.invoice;
 
     if (!invoice) {
-      return res.status(404).send('Nie znaleziono dokumentu');
+      console.error('Brak faktury w odpowiedzi:', data);
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Błąd</title>
+        <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#F1F5F9;}
+        .error{background:white;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+        h1{color:#EF4444;}</style></head>
+        <body><div class="error"><h1>❌ Dokument nie znaleziony</h1><p>Dokument nie istnieje lub został usunięty.</p></div></body></html>
+      `);
     }
 
     // Pobierz pozycje faktury
