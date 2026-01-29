@@ -19167,7 +19167,6 @@ const TutorialOverlay = ({
           const spaceBelow = window.innerHeight - rect.bottom;
           const spaceAbove = rect.top;
           const spaceRight = window.innerWidth - rect.right;
-          const spaceLeft = rect.left;
           
           // Preferuj pozycję pod elementem
           if (spaceBelow > tooltipHeight + margin + arrowHeight) {
@@ -19232,11 +19231,13 @@ const TutorialOverlay = ({
   }, [step, currentStep]);
 
   // Zamknij menu przy wyjściu
+  // Zamknij menu przy odmontowaniu
   useEffect(() => {
     return () => {
-      closeSettings && closeSettings();
-      closeShipping && closeShipping();
+      if (closeSettings) closeSettings();
+      if (closeShipping) closeShipping();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
