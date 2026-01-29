@@ -96,7 +96,21 @@ export default async function handler(req, res) {
       `);
     }
 
-    const invoice = data.invoices?.[0]?.invoice;
+    // wFirma zwraca obiekt z kluczami "0", "1", etc. zamiast tablicy
+    let invoice = null;
+    if (data.invoices) {
+      // Może być tablica lub obiekt
+      if (Array.isArray(data.invoices)) {
+        invoice = data.invoices[0]?.invoice;
+      } else if (data.invoices["0"]) {
+        invoice = data.invoices["0"].invoice;
+      } else {
+        // Może być bezpośrednio obiekt invoice
+        invoice = data.invoices.invoice || Object.values(data.invoices)[0]?.invoice;
+      }
+    }
+    
+    console.log('Znaleziona faktura:', invoice ? 'TAK' : 'NIE');
 
     if (!invoice) {
       console.error('Brak faktury w odpowiedzi:', JSON.stringify(data, null, 2));
@@ -110,31 +124,23 @@ export default async function handler(req, res) {
       `);
     }
 
-    // Pobierz pozycje faktury
-    const contentsResponse = await fetch(`${baseUrl}/invoicecontents/find${extParams}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'accessKey': accessKey,
-        'secretKey': secretKey,
-        'appKey': appKey
-      },
-      body: JSON.stringify({
-        conditions: [
-          { field: 'invoice', operator: 'eq', value: id }
-        ]
-      })
-    });
-
+    // Pozycje faktury są już w danych (invoicecontents to obiekt z kluczami "0", "1", etc.)
     let invoiceContents = [];
-    if (contentsResponse.ok) {
-      const contentsData = await contentsResponse.json();
-      invoiceContents = contentsData.invoicecontents?.map(ic => ic.invoicecontent) || [];
+    if (invoice.invoicecontents) {
+      if (Array.isArray(invoice.invoicecontents)) {
+        invoiceContents = invoice.invoicecontents.map(ic => ic.invoicecontent);
+      } else {
+        invoiceContents = Object.values(invoice.invoicecontents).map(ic => ic.invoicecontent);
+      }
     }
+    
+    console.log('Pozycje faktury:', invoiceContents.length);
 
     const isProforma = invoice.type === 'proforma';
     const docType = isProforma ? 'Proforma' : 'Faktura VAT';
+    
+    // Dane kontrahenta
+    const contractor = invoice.contractor_detail || invoice.contractor || {};
 
     // Generuj stronę HTML
     const html = `
@@ -368,11 +374,11 @@ export default async function handler(req, res) {
         <div class="info-grid">
           <div class="info-box">
             <label>Nazwa</label>
-            <value>${invoice.contractor_name || invoice.contractor?.name || '—'}</value>
+            <value>${contractor.name || contractor.altname || '—'}</value>
           </div>
           <div class="info-box">
             <label>Adres</label>
-            <value>${[invoice.contractor_street, invoice.contractor_zip, invoice.contractor_city].filter(Boolean).join(', ') || '—'}</value>
+            <value>${[contractor.street, contractor.zip, contractor.city].filter(Boolean).join(', ') || '—'}</value>
           </div>
         </div>
       </div>
@@ -393,10 +399,10 @@ export default async function handler(req, res) {
             ${invoiceContents.length > 0 ? invoiceContents.map(item => `
               <tr>
                 <td>${item.name || '—'}</td>
-                <td>${item.count || 1} ${item.unit || 'szt.'}</td>
+                <td>${parseFloat(item.count || 1).toFixed(0)} ${item.unit || 'szt.'}</td>
                 <td>${parseFloat(item.price || 0).toFixed(2)} ${invoice.currency || 'PLN'}</td>
-                <td>${item.vat || '23'}%</td>
-                <td>${parseFloat(item.total || item.price || 0).toFixed(2)} ${invoice.currency || 'PLN'}</td>
+                <td>23%</td>
+                <td>${parseFloat(item.brutto || item.price || 0).toFixed(2)} ${invoice.currency || 'PLN'}</td>
               </tr>
             `).join('') : `
               <tr>
