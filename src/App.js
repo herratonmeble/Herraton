@@ -19458,12 +19458,6 @@ const TutorialConfigPanel = ({
                   {/* Obszar do podświetlenia */}
                   <div style={{background:'#F8FAFC',padding:'12px',borderRadius:'8px'}}>
                     <div style={{fontSize:'12px',fontWeight:'600',marginBottom:'8px',color:'#374151'}}>Obszar do podświetlenia:</div>
-                    
-                    {/* Krok 1: Co otworzyć */}
-                    <div style={{marginBottom:'10px'}}>
-                  {/* Obszar do podświetlenia */}
-                  <div style={{background:'#F8FAFC',padding:'12px',borderRadius:'8px'}}>
-                    <div style={{fontSize:'12px',fontWeight:'600',marginBottom:'8px',color:'#374151'}}>Obszar do podświetlenia:</div>
                     {formData.selector ? (
                       <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#DBEAFE',padding:'8px 12px',borderRadius:'6px'}}>
                         <span style={{fontSize:'12px'}}>✅ Obszar zaznaczony</span>
