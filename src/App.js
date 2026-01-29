@@ -10,6 +10,8 @@ import {
   subscribeToMessages, addMessage, updateMessage,
   subscribeToPriceLists, addPriceList, deletePriceList,
   subscribeToSettlements, addSettlement, updateSettlement, deleteSettlement,
+  subscribeToSamples, addSample, updateSample, deleteSample,
+  subscribeToMailItems, addMailItem, updateMailItem, deleteMailItem,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -16793,15 +16795,9 @@ const App = () => {
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
   
-  // Dane dla Wysyłki (próbki i poczta)
-  const [samples, setSamples] = useState(() => {
-    const saved = localStorage.getItem('herratonSamples');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [mailItems, setMailItems] = useState(() => {
-    const saved = localStorage.getItem('herratonMailItems');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Dane dla Wysyłki (próbki i poczta) - z Firestore
+  const [samples, setSamples] = useState([]);
+  const [mailItems, setMailItems] = useState([]);
   
   // Messenger state
   const [messages, setMessages] = useState([]);
@@ -16825,14 +16821,21 @@ const App = () => {
   const isContractor = user?.role === 'contractor';
   const isAdmin = user?.role === 'admin';
 
-  // Zapisz samples i mailItems do localStorage
+  // Subskrypcja Firestore dla samples (próbki)
   useEffect(() => {
-    localStorage.setItem('herratonSamples', JSON.stringify(samples));
-  }, [samples]);
+    const unsubscribe = subscribeToSamples((data) => {
+      setSamples(data);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
   
+  // Subskrypcja Firestore dla mailItems (poczta)
   useEffect(() => {
-    localStorage.setItem('herratonMailItems', JSON.stringify(mailItems));
-  }, [mailItems]);
+    const unsubscribe = subscribeToMailItems((data) => {
+      setMailItems(data);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   // Zamknij menu po kliknięciu poza nim
   useEffect(() => {
@@ -18505,18 +18508,16 @@ Zespół obsługi zamówień
       {showSamplesPanel && (
         <SamplesPanel
           samples={samples}
-          onSave={(sample) => {
-            setSamples(prev => {
-              const existing = prev.findIndex(s => s.id === sample.id);
-              if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = sample;
-                return updated;
-              }
-              return [...prev, sample];
-            });
+          onSave={async (sample) => {
+            // Sprawdź czy to edycja czy nowy
+            const existingSample = samples.find(s => s.id === sample.id);
+            if (existingSample) {
+              await updateSample(sample.id, sample);
+            } else {
+              await addSample(sample);
+            }
           }}
-          onDelete={(id) => setSamples(prev => prev.filter(s => s.id !== id))}
+          onDelete={async (id) => await deleteSample(id)}
           onClose={() => setShowSamplesPanel(false)}
           currentUser={user}
         />
@@ -18526,18 +18527,16 @@ Zespół obsługi zamówień
       {showMailPanel && (
         <MailPanel
           mailItems={mailItems}
-          onSave={(mail) => {
-            setMailItems(prev => {
-              const existing = prev.findIndex(m => m.id === mail.id);
-              if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = mail;
-                return updated;
-              }
-              return [...prev, mail];
-            });
+          onSave={async (mail) => {
+            // Sprawdź czy to edycja czy nowy
+            const existingMail = mailItems.find(m => m.id === mail.id);
+            if (existingMail) {
+              await updateMailItem(mail.id, mail);
+            } else {
+              await addMailItem(mail);
+            }
           }}
-          onDelete={(id) => setMailItems(prev => prev.filter(m => m.id !== id))}
+          onDelete={async (id) => await deleteMailItem(id)}
           onClose={() => setShowMailPanel(false)}
           currentUser={user}
         />
