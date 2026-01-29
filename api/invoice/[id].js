@@ -20,23 +20,39 @@ export default async function handler(req, res) {
 
   try {
     const baseUrl = 'https://api2.wfirma.pl';
-    const extParams = `?inputFormat=json&outputFormat=json&company_id=${companyId}`;
     
     console.log('Pobieranie faktury ID:', id);
     
-    // Pobierz dane faktury - wFirma używa tego samego endpointu dla faktur i proform
-    const response = await fetch(`${baseUrl}/invoices/get/${id}${extParams}`, {
-      method: 'GET',
+    // Pobierz dane faktury - wFirma wymaga parametrów w URL i odpowiednich headerów
+    const url = `${baseUrl}/invoices/get/${id}?company_id=${companyId}&inputFormat=json&outputFormat=json`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
         'accessKey': accessKey,
         'secretKey': secretKey,
         'appKey': appKey
-      }
+      },
+      body: '{}'
     });
 
     const responseText = await response.text();
     console.log('Odpowiedź wFirma (status:', response.status, '):', responseText.substring(0, 500));
+
+    // Sprawdź czy odpowiedź to XML (błąd)
+    if (responseText.startsWith('<?xml')) {
+      console.error('wFirma zwróciła XML zamiast JSON:', responseText);
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Błąd</title>
+        <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#F1F5F9;}
+        .error{background:white;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+        h1{color:#EF4444;}</style></head>
+        <body><div class="error"><h1>❌ Błąd komunikacji</h1><p>Problem z połączeniem do systemu faktur.</p></div></body></html>
+      `);
+    }
 
     if (!response.ok) {
       console.error('Błąd HTTP:', response.status, responseText);
@@ -54,7 +70,7 @@ export default async function handler(req, res) {
     try {
       data = JSON.parse(responseText);
     } catch (e) {
-      console.error('Błąd parsowania JSON:', e);
+      console.error('Błąd parsowania JSON:', e, 'Response:', responseText.substring(0, 200));
       return res.status(500).send(`
         <!DOCTYPE html>
         <html><head><meta charset="UTF-8"><title>Błąd</title>
@@ -65,12 +81,25 @@ export default async function handler(req, res) {
       `);
     }
 
-    console.log('Dane faktury:', JSON.stringify(data, null, 2));
+    console.log('Status wFirma:', data.status);
+
+    // Sprawdź czy jest błąd
+    if (data.status?.code !== 'OK') {
+      console.error('Błąd wFirma:', data.status);
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Błąd</title>
+        <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#F1F5F9;}
+        .error{background:white;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+        h1{color:#EF4444;}</style></head>
+        <body><div class="error"><h1>❌ Dokument nie znaleziony</h1><p>${data.status?.message || 'Nieznany błąd'}</p><p style="color:#94A3B8;font-size:12px;">ID: ${id}</p></div></body></html>
+      `);
+    }
 
     const invoice = data.invoices?.[0]?.invoice;
 
     if (!invoice) {
-      console.error('Brak faktury w odpowiedzi:', data);
+      console.error('Brak faktury w odpowiedzi:', JSON.stringify(data, null, 2));
       return res.status(404).send(`
         <!DOCTYPE html>
         <html><head><meta charset="UTF-8"><title>Błąd</title>
