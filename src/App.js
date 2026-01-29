@@ -17983,13 +17983,16 @@ Zespół obsługi zamówień
                       🔄 Sync Google Sheets
                     </button>
                     <div className="settings-menu-divider"></div>
+                    <button onClick={() => { setShowTutorialConfig(true); setShowSettingsMenu(false); }}>
+                      🎓 Konfiguracja samouczka
+                    </button>
                     <button onClick={() => { 
                       localStorage.removeItem(`herratonTutorialSeen_${user?.id}`);
                       setShowTutorial(true);
                       setTutorialStep(0);
                       setShowSettingsMenu(false);
                     }}>
-                      🎓 Uruchom samouczek
+                      ▶️ Uruchom samouczek
                     </button>
                     <button onClick={() => { 
                       window.open('/instrukcja.pdf', '_blank');
