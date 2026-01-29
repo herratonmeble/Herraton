@@ -16863,8 +16863,11 @@ const App = () => {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [showTutorialConfig, setShowTutorialConfig] = useState(false);
   const [tutorialSteps, setTutorialSteps] = useState([]);
+  const [tutorialCategories, setTutorialCategories] = useState([]); // Kategorie samouczka
+  const [selectedTutorialCategory, setSelectedTutorialCategory] = useState(null); // Wybrana kategoria do wyświetlenia
   const [isSelectingElement, setIsSelectingElement] = useState(false);
   const [editingTutorialStep, setEditingTutorialStep] = useState(null);
+  const [pendingTrigger, setPendingTrigger] = useState(null); // Element do otwarcia przed zaznaczaniem
 
   const prevNotifCount = useRef(0);
   const prevMessageCount = useRef(0);
@@ -17006,22 +17009,67 @@ const App = () => {
     }
   }, [user, loading, tutorialSteps]);
 
-  // Ładuj kroki samouczka z Firebase
+  // Ładuj kroki i kategorie samouczka z Firebase
   useEffect(() => {
-    const loadTutorialSteps = async () => {
+    const loadTutorialData = async () => {
       try {
         const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
         const { db } = await import('./firebase');
-        const q = query(collection(db, 'tutorialSteps'), orderBy('order', 'asc'));
-        const snapshot = await getDocs(q);
-        setTutorialSteps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // Ładuj kroki
+        const stepsQuery = query(collection(db, 'tutorialSteps'), orderBy('order', 'asc'));
+        const stepsSnapshot = await getDocs(stepsQuery);
+        setTutorialSteps(stepsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // Ładuj kategorie
+        const catsQuery = query(collection(db, 'tutorialCategories'), orderBy('order', 'asc'));
+        const catsSnapshot = await getDocs(catsQuery);
+        setTutorialCategories(catsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } catch (err) {
-        console.log('Brak kroków samouczka');
+        console.log('Brak danych samouczka');
         setTutorialSteps([]);
+        setTutorialCategories([]);
       }
     };
-    loadTutorialSteps();
+    loadTutorialData();
   }, []);
+
+  // Funkcje zarządzania kategoriami samouczka
+  const saveTutorialCategory = async (catData) => {
+    try {
+      const { collection, addDoc, doc, updateDoc, getDocs, query, orderBy, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      if (catData.id) {
+        await updateDoc(doc(db, 'tutorialCategories', catData.id), { ...catData, updatedAt: serverTimestamp() });
+      } else {
+        await addDoc(collection(db, 'tutorialCategories'), { ...catData, order: tutorialCategories.length, createdAt: serverTimestamp() });
+      }
+      
+      const q = query(collection(db, 'tutorialCategories'), orderBy('order', 'asc'));
+      const snapshot = await getDocs(q);
+      setTutorialCategories(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd zapisu kategorii:', err);
+      return false;
+    }
+  };
+
+  const deleteTutorialCategory = async (catId) => {
+    try {
+      const { doc, deleteDoc, collection, getDocs, query, orderBy } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      await deleteDoc(doc(db, 'tutorialCategories', catId));
+      const q = query(collection(db, 'tutorialCategories'), orderBy('order', 'asc'));
+      const snapshot = await getDocs(q);
+      setTutorialCategories(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      return true;
+    } catch (err) {
+      console.error('Błąd usuwania kategorii:', err);
+      return false;
+    }
+  };
 
   // Funkcje zarządzania krokami samouczka
   const saveTutorialStep = async (stepData) => {
@@ -18813,36 +18861,59 @@ Zespół obsługi zamówień
         </div>
       )}
 
-      {/* OVERLAY WYBIERANIA ELEMENTU - na zewnątrz panelu */}
+      {/* OVERLAY WYBIERANIA ELEMENTU DO OTWARCIA */}
+      {pendingTrigger === 'selecting' && (
+        <TriggerSelectorOverlay
+          onSelect={(triggerData) => {
+            setPendingTrigger(triggerData);
+          }}
+          onCancel={() => {
+            setPendingTrigger(null);
+            setShowTutorialConfig(true);
+          }}
+        />
+      )}
+
+      {/* OVERLAY RYSOWANIA PROSTOKĄTA */}
       {isSelectingElement && (
         <ElementSelectorOverlay
+          triggerData={pendingTrigger}
           onSelect={(selector) => {
             setIsSelectingElement(false);
+            setPendingTrigger(null);
             setShowTutorialConfig(true);
-            // Zapisz selektor do edytowanego kroku
             if (editingTutorialStep) {
               setEditingTutorialStep({ ...editingTutorialStep, selector });
             } else {
-              setEditingTutorialStep({ selector, title: '', content: '', role: 'all' });
+              setEditingTutorialStep({ selector, title: '', content: '', role: 'all', category: '' });
             }
           }}
           onCancel={() => {
             setIsSelectingElement(false);
+            setPendingTrigger(null);
             setShowTutorialConfig(true);
           }}
         />
       )}
 
       {/* PANEL KONFIGURACJI SAMOUCZKA */}
-      {showTutorialConfig && !isSelectingElement && (
+      {showTutorialConfig && !isSelectingElement && pendingTrigger !== 'selecting' && (
         <TutorialConfigPanel
           steps={tutorialSteps}
+          categories={tutorialCategories}
           onSave={saveTutorialStep}
           onDelete={deleteTutorialStep}
           onReorder={reorderTutorialSteps}
+          onSaveCategory={saveTutorialCategory}
+          onDeleteCategory={deleteTutorialCategory}
           onClose={() => setShowTutorialConfig(false)}
-          onStartSelectingElement={() => {
+          onStartSelectingTrigger={() => {
             setShowTutorialConfig(false);
+            setPendingTrigger('selecting');
+          }}
+          onStartSelectingArea={(triggerData) => {
+            setShowTutorialConfig(false);
+            setPendingTrigger(triggerData);
             setTimeout(() => setIsSelectingElement(true), 100);
           }}
           editingStep={editingTutorialStep}
@@ -18850,22 +18921,45 @@ Zespół obsługi zamówień
         />
       )}
 
+      {/* WYBÓR KATEGORII SAMOUCZKA */}
+      {showTutorial && !selectedTutorialCategory && tutorialCategories.length > 0 && (
+        <TutorialCategorySelector
+          categories={tutorialCategories}
+          steps={tutorialSteps}
+          onSelect={(catId) => {
+            setSelectedTutorialCategory(catId);
+            setTutorialStep(0);
+          }}
+          onSkip={() => {
+            localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
+            setShowTutorial(false);
+          }}
+        />
+      )}
+
       {/* SAMOUCZEK / TUTORIAL */}
-      {showTutorial && tutorialSteps.length > 0 && (
+      {showTutorial && (selectedTutorialCategory || tutorialCategories.length === 0) && tutorialSteps.length > 0 && (
         <TutorialOverlay
           steps={tutorialSteps}
+          category={selectedTutorialCategory}
           currentStep={tutorialStep}
           userRole={user?.role}
-          onNext={() => setTutorialStep(prev => Math.min(prev + 1, tutorialSteps.length - 1))}
+          onNext={() => setTutorialStep(prev => prev + 1)}
           onPrev={() => setTutorialStep(prev => Math.max(0, prev - 1))}
           onSkip={() => {
             localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
             setShowTutorial(false);
             setTutorialStep(0);
+            setSelectedTutorialCategory(null);
           }}
           onFinish={() => {
             localStorage.setItem(`herratonTutorialSeen_${user?.id}`, 'true');
             setShowTutorial(false);
+            setTutorialStep(0);
+            setSelectedTutorialCategory(null);
+          }}
+          onBackToCategories={() => {
+            setSelectedTutorialCategory(null);
             setTutorialStep(0);
           }}
         />
@@ -18875,195 +18969,130 @@ Zespół obsługi zamówień
 };
 
 // ============================================
-// OVERLAY RYSOWANIA PROSTOKĄTA
+// WYBÓR KATEGORII SAMOUCZKA
 // ============================================
 
-const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
-  const [mode, setMode] = useState('idle'); // 'idle', 'selectingTrigger', 'drawing'
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState(null);
-  const [currentPos, setCurrentPos] = useState(null);
-  const [rect, setRect] = useState(null);
-  const [triggerSelector, setTriggerSelector] = useState(null); // Selektor elementu do otwarcia
-  const [triggerLabel, setTriggerLabel] = useState(null); // Nazwa/tekst elementu
-  const [arrowPosition, setArrowPosition] = useState('bottom');
-  const [tooltipPosition, setTooltipPosition] = useState('bottom');
+const TutorialCategorySelector = ({ categories, steps, onSelect, onSkip }) => {
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:999999,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{background:'white',borderRadius:'20px',padding:'30px',maxWidth:'600px',width:'90%',maxHeight:'80vh',overflow:'auto'}}>
+        <div style={{textAlign:'center',marginBottom:'24px'}}>
+          <div style={{fontSize:'48px',marginBottom:'12px'}}>🎓</div>
+          <h2 style={{margin:'0 0 8px',fontSize:'24px',color:'#1E293B'}}>Samouczek systemu Herraton</h2>
+          <p style={{margin:0,color:'#64748B'}}>Wybierz kategorię, którą chcesz poznać</p>
+        </div>
+        
+        <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'24px'}}>
+          {categories.map(cat => {
+            const stepCount = steps.filter(s => s.category === cat.id).length;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => onSelect(cat.id)}
+                style={{
+                  padding:'16px 20px',
+                  borderRadius:'12px',
+                  border:'2px solid #E2E8F0',
+                  background:'white',
+                  cursor:'pointer',
+                  textAlign:'left',
+                  transition:'all 0.2s',
+                  display:'flex',
+                  alignItems:'center',
+                  gap:'16px'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = '#3B82F6'}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = '#E2E8F0'}
+              >
+                <span style={{fontSize:'28px'}}>{cat.icon || '📚'}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:'600',fontSize:'16px',color:'#1E293B'}}>{cat.name}</div>
+                  {cat.description && <div style={{fontSize:'13px',color:'#64748B',marginTop:'2px'}}>{cat.description}</div>}
+                </div>
+                <span style={{background:'#E2E8F0',padding:'4px 10px',borderRadius:'12px',fontSize:'12px',color:'#64748B'}}>
+                  {stepCount} {stepCount === 1 ? 'krok' : 'kroków'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{display:'flex',gap:'12px'}}>
+          <button
+            onClick={onSkip}
+            style={{flex:1,padding:'14px',borderRadius:'10px',border:'1px solid #E2E8F0',background:'white',color:'#64748B',fontWeight:'600',cursor:'pointer'}}
+          >
+            Pomiń samouczek
+          </button>
+          <button
+            onClick={() => onSelect(null)}
+            style={{flex:1,padding:'14px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#3B82F6,#2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}
+          >
+            Pokaż wszystko
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// OVERLAY WYBORU ELEMENTU DO OTWARCIA
+// ============================================
+
+const TriggerSelectorOverlay = ({ onSelect, onCancel }) => {
   const [highlightedEl, setHighlightedEl] = useState(null);
 
-  // Generuj selektor dla elementu
   const generateSelector = (el) => {
     if (el.id) return `#${el.id}`;
     const classes = Array.from(el.classList).filter(c => 
       !c.includes('hover') && !c.includes('active') && !c.includes('focus') && c.length > 0
     );
-    if (classes.length > 0) {
-      return `.${classes[0]}`;
-    }
-    // Sprawdź rodzica
-    const parent = el.closest('[class]');
-    if (parent && parent !== el) {
-      const parentClasses = Array.from(parent.classList).filter(c => c.length > 0);
-      if (parentClasses.length > 0) {
-        return `.${parentClasses[0]}`;
-      }
-    }
+    if (classes.length > 0) return `.${classes[0]}`;
     return el.tagName.toLowerCase();
   };
 
-  // Tryb wybierania elementu do otwarcia
   useEffect(() => {
-    if (mode !== 'selectingTrigger') {
-      setHighlightedEl(null);
-      return;
-    }
-
     const handleMouseMove = (e) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.element-selector-ui')) {
+      if (el && !el.closest('.trigger-selector-ui')) {
         setHighlightedEl(el);
       }
     };
 
     const handleClick = (e) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el && !el.closest('.element-selector-ui')) {
+      if (el && !el.closest('.trigger-selector-ui')) {
         e.preventDefault();
         e.stopPropagation();
         
         const selector = generateSelector(el);
-        const label = el.textContent?.slice(0, 30) || el.className?.split(' ')[0] || 'Element';
+        const label = el.textContent?.slice(0, 40)?.trim() || el.className?.split(' ')[0] || 'Element';
         
-        setTriggerSelector(selector);
-        setTriggerLabel(label.trim());
-        setMode('idle');
-        setHighlightedEl(null);
-        
-        // Kliknij element żeby go otworzyć
-        setTimeout(() => {
-          el.click();
-        }, 100);
+        onSelect({ selector, label });
       }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel();
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('click', handleClick, true);
+    document.addEventListener('keydown', handleKeyDown);
     
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [mode]);
-
-  const handleMouseDown = (e) => {
-    if (mode === 'selectingTrigger') return;
-    if (e.target.closest('.element-selector-ui')) return;
-    setIsDrawing(true);
-    setMode('drawing');
-    setStartPos({ x: e.clientX, y: e.clientY });
-    setCurrentPos({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDrawing) return;
-    setCurrentPos({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseUp = (e) => {
-    if (!isDrawing || !startPos) return;
-    setIsDrawing(false);
-    setMode('idle');
-    
-    const x = Math.min(startPos.x, e.clientX);
-    const y = Math.min(startPos.y, e.clientY);
-    const width = Math.abs(e.clientX - startPos.x);
-    const height = Math.abs(e.clientY - startPos.y);
-    
-    if (width > 20 && height > 20) {
-      setRect({ x, y, width, height });
-    } else {
-      setStartPos(null);
-      setCurrentPos(null);
-    }
-  };
-
-  const handleConfirm = () => {
-    if (rect) {
-      const position = {
-        top: rect.y,
-        left: rect.x,
-        width: rect.width,
-        height: rect.height,
-        openMenu: triggerSelector,
-        arrowPosition: arrowPosition,
-        tooltipPosition: tooltipPosition
-      };
-      onSelect(JSON.stringify(position));
-    }
-  };
-
-  const handleReset = () => {
-    setRect(null);
-    setStartPos(null);
-    setCurrentPos(null);
-  };
-
-  const clearTrigger = () => {
-    // Zamknij otwarty element
-    if (triggerSelector) {
-      const el = document.querySelector(triggerSelector);
-      if (el) el.click();
-    }
-    setTriggerSelector(null);
-    setTriggerLabel(null);
-    handleReset();
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (mode === 'selectingTrigger') {
-          setMode('idle');
-          setHighlightedEl(null);
-        } else {
-          if (triggerSelector) {
-            const el = document.querySelector(triggerSelector);
-            if (el) el.click();
-          }
-          onCancel();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, triggerSelector, mode]);
-
-  const drawingRect = isDrawing && startPos && currentPos ? {
-    x: Math.min(startPos.x, currentPos.x),
-    y: Math.min(startPos.y, currentPos.y),
-    width: Math.abs(currentPos.x - startPos.x),
-    height: Math.abs(currentPos.y - startPos.y)
-  } : null;
-
-  const displayRect = rect || drawingRect;
-  const showPanel = mode !== 'drawing'; // Panel znika podczas rysowania
+  }, [onSelect, onCancel]);
 
   return (
-    <div 
-      style={{position:'fixed',inset:0,zIndex:999999,cursor: mode === 'selectingTrigger' ? 'pointer' : 'crosshair'}}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-    >
-      {/* Przyciemnione tło */}
-      <div style={{
-        position:'fixed',
-        inset:0,
-        background: displayRect ? 'transparent' : (mode === 'selectingTrigger' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.3)'),
-        pointerEvents:'none'
-      }}/>
-
-      {/* Podświetlenie elementu w trybie wybierania triggera */}
-      {mode === 'selectingTrigger' && highlightedEl && (
+    <div style={{position:'fixed',inset:0,zIndex:999999,cursor:'pointer'}}>
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
+      
+      {highlightedEl && (
         <div style={{
           position:'fixed',
           top: highlightedEl.getBoundingClientRect().top - 3,
@@ -19077,8 +19106,162 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           zIndex: 1000000
         }} />
       )}
+      
+      <div className="trigger-selector-ui" style={{
+        position:'fixed',
+        top:'20px',
+        left:'50%',
+        transform:'translateX(-50%)',
+        background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
+        color:'white',
+        padding:'16px 24px',
+        borderRadius:'12px',
+        boxShadow:'0 10px 40px rgba(0,0,0,0.4)',
+        display:'flex',
+        alignItems:'center',
+        gap:'16px',
+        fontSize:'15px'
+      }}>
+        <span>👆 Kliknij element który ma się otworzyć (np. przycisk, menu)</span>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onCancel(); }}
+          style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'8px 16px',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}
+        >
+          ✕ Anuluj
+        </button>
+      </div>
 
-      {/* Narysowany prostokąt */}
+      {highlightedEl && (
+        <div className="trigger-selector-ui" style={{
+          position:'fixed',
+          bottom:'20px',
+          left:'50%',
+          transform:'translateX(-50%)',
+          background:'#1E293B',
+          color:'#F59E0B',
+          padding:'10px 20px',
+          borderRadius:'8px',
+          fontSize:'13px',
+          fontFamily:'monospace'
+        }}>
+          {generateSelector(highlightedEl)}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// ============================================
+// OVERLAY RYSOWANIA PROSTOKĄTA (uproszczony)
+// ============================================
+
+const ElementSelectorOverlay = ({ triggerData, onSelect, onCancel }) => {
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPos, setStartPos] = useState(null);
+  const [currentPos, setCurrentPos] = useState(null);
+  const [rect, setRect] = useState(null);
+  const [arrowPosition, setArrowPosition] = useState('bottom');
+  const [tooltipPosition, setTooltipPosition] = useState('bottom');
+  const [showArrow, setShowArrow] = useState(true);
+
+  // Otwórz element jeśli jest trigger
+  useEffect(() => {
+    if (triggerData && triggerData.selector) {
+      setTimeout(() => {
+        const el = document.querySelector(triggerData.selector);
+        if (el) el.click();
+      }, 200);
+    }
+  }, [triggerData]);
+
+  const handleMouseDown = (e) => {
+    if (e.target.closest('.element-selector-ui')) return;
+    setIsDrawing(true);
+    setStartPos({ x: e.clientX, y: e.clientY });
+    setCurrentPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawing) return;
+    setCurrentPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = (e) => {
+    if (!isDrawing || !startPos) return;
+    setIsDrawing(false);
+    
+    const x = Math.min(startPos.x, e.clientX);
+    const y = Math.min(startPos.y, e.clientY);
+    const width = Math.abs(e.clientX - startPos.x);
+    const height = Math.abs(e.clientY - startPos.y);
+    
+    if (width > 20 && height > 20) {
+      setRect({ x, y, width, height });
+    }
+  };
+
+  const handleConfirm = () => {
+    if (rect) {
+      const position = {
+        top: rect.y,
+        left: rect.x,
+        width: rect.width,
+        height: rect.height,
+        openMenu: triggerData?.selector || null,
+        arrowPosition: showArrow ? arrowPosition : 'none',
+        tooltipPosition: tooltipPosition
+      };
+      // Zamknij otwarty element
+      if (triggerData?.selector) {
+        const el = document.querySelector(triggerData.selector);
+        if (el) el.click();
+      }
+      onSelect(JSON.stringify(position));
+    }
+  };
+
+  const handleReset = () => {
+    setRect(null);
+    setStartPos(null);
+    setCurrentPos(null);
+  };
+
+  const handleCancel = () => {
+    if (triggerData?.selector) {
+      const el = document.querySelector(triggerData.selector);
+      if (el) el.click();
+    }
+    onCancel();
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleCancel();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [triggerData]);
+
+  const drawingRect = isDrawing && startPos && currentPos ? {
+    x: Math.min(startPos.x, currentPos.x),
+    y: Math.min(startPos.y, currentPos.y),
+    width: Math.abs(currentPos.x - startPos.x),
+    height: Math.abs(currentPos.y - startPos.y)
+  } : null;
+
+  const displayRect = rect || drawingRect;
+  const showPanel = !isDrawing;
+
+  return (
+    <div 
+      style={{position:'fixed',inset:0,zIndex:999999,cursor:'crosshair'}}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      <div style={{position:'fixed',inset:0,background: displayRect ? 'transparent' : 'rgba(0,0,0,0.3)',pointerEvents:'none'}}/>
+
       {displayRect && (
         <div style={{
           position:'fixed',
@@ -19094,7 +19277,6 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
         }} />
       )}
       
-      {/* Panel - znika podczas rysowania */}
       {showPanel && (
         <div className="element-selector-ui" style={{
           position:'fixed',
@@ -19111,173 +19293,79 @@ const ElementSelectorOverlay = ({ onSelect, onCancel }) => {
           gap:'10px',
           maxWidth:'95vw'
         }}>
-          {/* Tryb wybierania triggera */}
-          {mode === 'selectingTrigger' ? (
-            <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px'}}>
-              <span>🎯 Kliknij na element który ma się otworzyć (np. przycisk edycji)</span>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setMode('idle'); setHighlightedEl(null); }}
-                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-              >
-                ✕ Anuluj
-              </button>
+          {/* Info o triggerze */}
+          {triggerData && (
+            <div style={{fontSize:'12px',opacity:0.8,borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'8px'}}>
+              📂 Otwarto: {triggerData.label}
             </div>
-          ) : (
-            <>
-              {/* Wiersz 1 - Instrukcja i przyciski akcji */}
-              <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',fontWeight:'500',flexWrap:'wrap'}}>
-                <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
-                {rect ? (
-                  <>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleReset(); }}
-                      style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-                    >
-                      🔄 Ponownie
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
-                      style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-                    >
-                      ✓ Zatwierdź
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); clearTrigger(); onCancel(); }}
-                    style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}
-                  >
-                    ✕ Anuluj
-                  </button>
-                )}
-              </div>
+          )}
 
-              {/* Wiersz 2 - Co ma się otworzyć */}
-              <div style={{display:'flex',gap:'8px',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px',flexWrap:'wrap'}}>
-                <span style={{fontSize:'12px',opacity:0.8}}>Najpierw otwórz:</span>
-                {triggerSelector ? (
-                  <div style={{display:'flex',alignItems:'center',gap:'8px',background:'rgba(16,185,129,0.3)',padding:'4px 10px',borderRadius:'6px'}}>
-                    <span style={{fontSize:'12px'}}>✅ {triggerLabel}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); clearTrigger(); }}
-                      style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'14px',padding:'0'}}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMode('selectingTrigger'); }}
-                    style={{
-                      background:'#F59E0B',
-                      border:'none',
-                      color:'white',
-                      padding:'6px 12px',
-                      borderRadius:'6px',
-                      cursor:'pointer',
-                      fontSize:'12px',
-                      fontWeight:'600'
-                    }}
-                  >
-                    👆 Zaznacz co otworzyć
-                  </button>
-                )}
-                <span style={{fontSize:'11px',opacity:0.6,marginLeft:'8px'}}>
-                  (opcjonalne - jeśli element jest w menu/modalu)
-                </span>
-              </div>
+          {/* Instrukcja */}
+          <div style={{display:'flex',alignItems:'center',gap:'12px',fontSize:'14px',fontWeight:'500',flexWrap:'wrap'}}>
+            <span>🎯 {rect ? 'Zaznaczono!' : 'Narysuj prostokąt myszką'}</span>
+            {rect ? (
+              <>
+                <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>🔄 Ponownie</button>
+                <button onClick={(e) => { e.stopPropagation(); handleConfirm(); }} style={{background:'#10B981',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Zatwierdź</button>
+              </>
+            ) : (
+              <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',padding:'6px 12px',borderRadius:'6px',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✕ Anuluj</button>
+            )}
+          </div>
 
-              {/* Wiersz 3 - Pozycja strzałki i tooltipa (tylko gdy zaznaczono) */}
-              {rect && (
-                <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
-                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                    <span style={{fontSize:'11px',opacity:0.8}}>Strzałka:</span>
-                    {['top', 'bottom', 'left', 'right'].map(pos => (
-                      <button
-                        key={pos}
-                        onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }}
-                        style={{
-                          background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',
-                          border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
-                        }}
-                      >
-                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                    <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
-                    {['top', 'bottom', 'left', 'right'].map(pos => (
-                      <button
-                        key={pos}
-                        onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }}
-                        style={{
-                          background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',
-                          border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'
-                        }}
-                      >
-                        {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Pozycje - tylko gdy zaznaczono */}
+          {rect && (
+            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.2)',paddingTop:'10px'}}>
+              {/* Strzałka */}
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',cursor:'pointer'}}>
+                  <input type="checkbox" checked={showArrow} onChange={(e) => setShowArrow(e.target.checked)} style={{cursor:'pointer'}} />
+                  Strzałka:
+                </label>
+                {showArrow && ['top', 'bottom', 'left', 'right'].map(pos => (
+                  <button key={pos} onClick={(e) => { e.stopPropagation(); setArrowPosition(pos); }} style={{background: arrowPosition === pos ? '#F59E0B' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                    {pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                  </button>
+                ))}
+              </div>
+              {/* Opis */}
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                <span style={{fontSize:'11px',opacity:0.8}}>Opis:</span>
+                {['top', 'bottom', 'left', 'right', 'center'].map(pos => (
+                  <button key={pos} onClick={(e) => { e.stopPropagation(); setTooltipPosition(pos); }} style={{background: tooltipPosition === pos ? '#3B82F6' : 'rgba(255,255,255,0.15)',border:'none',color:'white',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'11px'}}>
+                    {pos === 'center' ? '⬤' : pos === 'top' ? '⬆️' : pos === 'bottom' ? '⬇️' : pos === 'left' ? '⬅️' : '➡️'}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* Wymiary - NA DOLE */}
-      {displayRect && displayRect.width > 50 && showPanel && mode !== 'selectingTrigger' && (
-        <div className="element-selector-ui" style={{
-          position:'fixed',
-          bottom:'20px',
-          left:'50%',
-          transform:'translateX(-50%)',
-          background:'#1E293B',
-          color:'#60A5FA',
-          padding:'8px 16px',
-          borderRadius:'8px',
-          fontSize:'13px',
-          boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
-        }}>
+      {displayRect && displayRect.width > 50 && showPanel && (
+        <div className="element-selector-ui" style={{position:'fixed',bottom:'20px',left:'50%',transform:'translateX(-50%)',background:'#1E293B',color:'#60A5FA',padding:'8px 16px',borderRadius:'8px',fontSize:'13px'}}>
           📐 {Math.round(displayRect.width)} × {Math.round(displayRect.height)} px
-          {triggerSelector && <span style={{marginLeft:'10px',color:'#34D399'}}>| 📂 {triggerLabel}</span>}
-        </div>
-      )}
-
-      {/* Info w trybie wybierania triggera */}
-      {mode === 'selectingTrigger' && highlightedEl && (
-        <div className="element-selector-ui" style={{
-          position:'fixed',
-          bottom:'20px',
-          left:'50%',
-          transform:'translateX(-50%)',
-          background:'#1E293B',
-          color:'#F59E0B',
-          padding:'8px 16px',
-          borderRadius:'8px',
-          fontSize:'12px',
-          fontFamily:'monospace',
-          boxShadow:'0 4px 20px rgba(0,0,0,0.3)'
-        }}>
-          {generateSelector(highlightedEl)}
         </div>
       )}
     </div>
   );
 };
 
+
 // ============================================
 // PANEL KONFIGURACJI SAMOUCZKA
 // ============================================
 
 const TutorialConfigPanel = ({ 
-  steps, onSave, onDelete, onReorder, onClose,
-  onStartSelectingElement,
+  steps, categories, onSave, onDelete, onReorder, onSaveCategory, onDeleteCategory, onClose,
+  onStartSelectingTrigger, onStartSelectingArea,
   editingStep, setEditingStep
 }) => {
-  const [formData, setFormData] = useState({ title: '', content: '', selector: '', role: 'all' });
+  const [activeTab, setActiveTab] = useState('steps'); // 'steps', 'categories'
+  const [formData, setFormData] = useState({ title: '', content: '', selector: '', role: 'all', category: '' });
+  const [triggerData, setTriggerData] = useState(null); // {selector, label}
+  const [newCategory, setNewCategory] = useState({ name: '', icon: '📚', description: '' });
+  const [editingCategory, setEditingCategory] = useState(null);
 
   useEffect(() => {
     if (editingStep) {
@@ -19285,8 +19373,18 @@ const TutorialConfigPanel = ({
         title: editingStep.title || '',
         content: editingStep.content || '',
         selector: editingStep.selector || '',
-        role: editingStep.role || 'all'
+        role: editingStep.role || 'all',
+        category: editingStep.category || ''
       });
+      // Parsuj triggerData z selector
+      if (editingStep.selector) {
+        try {
+          const parsed = JSON.parse(editingStep.selector);
+          if (parsed.openMenu) {
+            setTriggerData({ selector: parsed.openMenu, label: 'Zapisany element' });
+          }
+        } catch {}
+      }
     }
   }, [editingStep]);
 
@@ -19295,269 +19393,249 @@ const TutorialConfigPanel = ({
     const stepData = { ...formData, ...(editingStep?.id ? { id: editingStep.id } : {}) };
     const success = await onSave(stepData);
     if (success) { 
-      setFormData({ title: '', content: '', selector: '', role: 'all' }); 
-      setEditingStep(null); 
+      setFormData({ title: '', content: '', selector: '', role: 'all', category: '' }); 
+      setEditingStep(null);
+      setTriggerData(null);
     }
   };
 
-  const handleStartSelecting = () => {
-    // Zachowaj obecne dane formularza w editingStep
+  const handleSaveCategory = async () => {
+    if (!newCategory.name.trim()) { alert('Wprowadź nazwę kategorii'); return; }
+    const catData = editingCategory 
+      ? { ...newCategory, id: editingCategory.id }
+      : newCategory;
+    const success = await onSaveCategory(catData);
+    if (success) {
+      setNewCategory({ name: '', icon: '📚', description: '' });
+      setEditingCategory(null);
+    }
+  };
+
+  const startSelectTrigger = () => {
+    // Zapisz obecne dane przed wyjściem
     setEditingStep({ ...editingStep, ...formData });
-    onStartSelectingElement();
+    onStartSelectingTrigger();
+  };
+
+  const startSelectArea = () => {
+    setEditingStep({ ...editingStep, ...formData });
+    onStartSelectingArea(triggerData);
   };
 
   return (
     <>
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:99998}} onClick={onClose}></div>
-      <div className="tutorial-config-panel" style={{
-        position:'fixed',
-        top:'50%',
-        left:'50%',
-        transform:'translate(-50%,-50%)',
-        background:'white',
-        borderRadius:'16px',
-        boxShadow:'0 25px 50px rgba(0,0,0,0.3)',
-        zIndex:99999,
-        width:'90%',
-        maxWidth:'900px',
-        maxHeight:'90vh',
-        display:'flex',
-        flexDirection:'column',
-        overflow:'hidden'
+      <div style={{
+        position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+        background:'white',borderRadius:'16px',boxShadow:'0 25px 50px rgba(0,0,0,0.3)',
+        zIndex:99999,width:'95%',maxWidth:'1000px',maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden'
       }}>
-        {/* Header */}
-        <div style={{padding:'20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <h2 style={{margin:0,fontSize:'20px',fontWeight:'700',color:'#1E293B'}}>🎓 Konfiguracja samouczka</h2>
+        {/* Header z tabami */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',gap:'8px'}}>
+            <button onClick={() => setActiveTab('steps')} style={{padding:'8px 16px',borderRadius:'8px',border:'none',background: activeTab === 'steps' ? '#3B82F6' : '#F1F5F9',color: activeTab === 'steps' ? 'white' : '#64748B',fontWeight:'600',cursor:'pointer'}}>
+              📝 Kroki ({steps.length})
+            </button>
+            <button onClick={() => setActiveTab('categories')} style={{padding:'8px 16px',borderRadius:'8px',border:'none',background: activeTab === 'categories' ? '#3B82F6' : '#F1F5F9',color: activeTab === 'categories' ? 'white' : '#64748B',fontWeight:'600',cursor:'pointer'}}>
+              📁 Kategorie ({categories.length})
+            </button>
+          </div>
           <button onClick={onClose} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#94A3B8'}}>×</button>
         </div>
 
         {/* Body */}
         <div style={{padding:'20px',display:'flex',gap:'24px',overflow:'hidden',flex:1}}>
-          {/* Lista kroków */}
-          <div style={{flex:1,minWidth:'280px',maxHeight:'60vh',overflowY:'auto'}}>
-            <h3 style={{margin:'0 0 16px',fontSize:'14px',color:'#64748B',fontWeight:'600'}}>
-              📋 Kroki samouczka ({steps.length})
-            </h3>
-            
-            {steps.length === 0 ? (
-              <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'12px'}}>
-                <div style={{fontSize:'48px',marginBottom:'12px'}}>📝</div>
-                <div style={{fontWeight:'500'}}>Brak kroków</div>
-                <div style={{fontSize:'13px',marginTop:'8px'}}>Dodaj pierwszy krok używając formularza →</div>
+          {activeTab === 'steps' ? (
+            <>
+              {/* Lista kroków */}
+              <div style={{flex:1,minWidth:'280px',maxHeight:'60vh',overflowY:'auto'}}>
+                <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>Lista kroków</h3>
+                {steps.length === 0 ? (
+                  <div style={{padding:'40px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'12px'}}>
+                    <div style={{fontSize:'40px',marginBottom:'8px'}}>📝</div>
+                    <div>Brak kroków - dodaj pierwszy</div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                    {steps.map((s, i) => {
+                      const cat = categories.find(c => c.id === s.category);
+                      return (
+                        <div key={s.id} style={{padding:'12px',background: editingStep?.id === s.id ? '#DBEAFE' : 'white',border:'1px solid #E2E8F0',borderRadius:'8px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                            <span style={{background:'#3B82F6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'700'}}>{i + 1}</span>
+                            <strong style={{flex:1,fontSize:'13px'}}>{s.title}</strong>
+                          </div>
+                          {cat && <div style={{fontSize:'11px',color:'#8B5CF6',marginBottom:'6px'}}>📁 {cat.name}</div>}
+                          <div style={{display:'flex',gap:'6px'}}>
+                            <button onClick={() => setEditingStep(s)} style={{padding:'4px 10px',fontSize:'11px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>✏️</button>
+                            <button onClick={() => window.confirm('Usunąć?') && onDelete(s.id)} style={{padding:'4px 10px',fontSize:'11px',borderRadius:'4px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer'}}>🗑️</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-                {steps.map((s, i) => (
-                  <div 
-                    key={s.id} 
-                    style={{
-                      padding:'14px',
-                      background: editingStep?.id === s.id ? '#DBEAFE' : 'white',
-                      border: editingStep?.id === s.id ? '2px solid #3B82F6' : '1px solid #E2E8F0',
-                      borderRadius:'10px',
-                      transition:'all 0.2s'
-                    }}
-                  >
-                    <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'6px'}}>
-                      <span style={{
-                        background:'linear-gradient(135deg, #3B82F6, #2563EB)',
-                        color:'white',
-                        width:'28px',
-                        height:'28px',
-                        borderRadius:'50%',
-                        display:'flex',
-                        alignItems:'center',
-                        justifyContent:'center',
-                        fontSize:'13px',
-                        fontWeight:'700'
-                      }}>{i + 1}</span>
-                      <strong style={{flex:1,fontSize:'14px',color:'#1E293B'}}>{s.title}</strong>
-                      <span style={{
-                        fontSize:'10px',
-                        padding:'3px 8px',
-                        background: s.role === 'all' ? '#E2E8F0' : '#DBEAFE',
-                        color: s.role === 'all' ? '#64748B' : '#1D4ED8',
-                        borderRadius:'4px',
-                        fontWeight:'600'
-                      }}>
-                        {s.role === 'all' ? 'Wszyscy' : s.role}
-                      </span>
+
+              {/* Formularz kroku */}
+              <div style={{flex:1,minWidth:'320px'}}>
+                <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{editingStep?.id ? '✏️ Edytuj krok' : '➕ Nowy krok'}</h3>
+                <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                  <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="Tytuł (np. 🔔 Powiadomienia)" style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}} />
+                  <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Opis kroku..." rows={3} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical'}} />
+                  
+                  {/* Kategoria */}
+                  <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0'}}>
+                    <option value="">-- Bez kategorii --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+
+                  {/* Rola */}
+                  <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0'}}>
+                    <option value="all">👥 Wszyscy</option>
+                    <option value="admin">👑 Administrator</option>
+                    <option value="worker">👷 Pracownik</option>
+                    <option value="driver">🚚 Kierowca</option>
+                    <option value="contractor">🏢 Kontrahent</option>
+                  </select>
+
+                  {/* Obszar do podświetlenia */}
+                  <div style={{background:'#F8FAFC',padding:'12px',borderRadius:'8px'}}>
+                    <div style={{fontSize:'12px',fontWeight:'600',marginBottom:'8px',color:'#374151'}}>Obszar do podświetlenia:</div>
+                    
+                    {/* Krok 1: Co otworzyć */}
+                    <div style={{marginBottom:'10px'}}>
+                      <div style={{fontSize:'11px',color:'#64748B',marginBottom:'4px'}}>1. Co najpierw otworzyć? (opcjonalne)</div>
+                      {triggerData ? (
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#D1FAE5',padding:'6px 10px',borderRadius:'6px'}}>
+                          <span style={{fontSize:'12px'}}>✅ {triggerData.label}</span>
+                          <button onClick={() => setTriggerData(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px'}}>✕</button>
+                        </div>
+                      ) : (
+                        <button onClick={startSelectTrigger} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'2px dashed #F59E0B',background:'#FFFBEB',color:'#B45309',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>
+                          👆 Kliknij aby zaznaczyć element do otwarcia
+                        </button>
+                      )}
                     </div>
-                    
-                    {s.selector && (
-                      <div style={{
-                        fontSize:'11px',
-                        color:'#64748B',
-                        fontFamily:'monospace',
-                        background:'#F1F5F9',
-                        padding:'6px 10px',
-                        borderRadius:'6px',
-                        marginBottom:'10px'
-                      }}>
-                        🎯 {s.selector}
-                      </div>
-                    )}
-                    
-                    <div style={{display:'flex',gap:'8px'}}>
-                      <button 
-                        onClick={() => setEditingStep(s)} 
-                        style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
-                      >
-                        ✏️ Edytuj
-                      </button>
-                      <button 
-                        onClick={() => window.confirm('Usunąć ten krok?') && onDelete(s.id)} 
-                        style={{padding:'6px 12px',fontSize:'12px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontWeight:'500'}}
-                      >
-                        🗑️
-                      </button>
+
+                    {/* Krok 2: Zaznacz obszar */}
+                    <div>
+                      <div style={{fontSize:'11px',color:'#64748B',marginBottom:'4px'}}>2. Zaznacz obszar do podświetlenia:</div>
+                      {formData.selector ? (
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',background:'#DBEAFE',padding:'6px 10px',borderRadius:'6px'}}>
+                          <span style={{fontSize:'12px'}}>✅ Obszar zaznaczony</span>
+                          <button onClick={() => setFormData({...formData, selector: ''})} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px'}}>✕</button>
+                        </div>
+                      ) : (
+                        <button onClick={startSelectArea} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'2px dashed #3B82F6',background:'#EFF6FF',color:'#1D4ED8',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>
+                          🎯 Kliknij aby narysować prostokąt
+                        </button>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Formularz */}
-          <div style={{flex:1,minWidth:'280px'}}>
-            <h3 style={{margin:'0 0 16px',fontSize:'14px',color:'#64748B',fontWeight:'600'}}>
-              {editingStep?.id ? '✏️ Edytuj krok' : '➕ Dodaj nowy krok'}
-            </h3>
-            
-            <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
-              <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
-                  Tytuł *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="np. 🔔 Powiadomienia"
-                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
-                />
-              </div>
-
-              <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
-                  Opis
-                </label>
-                <textarea
-                  value={formData.content}
-                  onChange={(e) => setFormData({...formData, content: e.target.value})}
-                  placeholder="Opis co robi ta funkcja..."
-                  rows={4}
-                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical'}}
-                />
-              </div>
-
-              <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
-                  Obszar do podświetlenia
-                </label>
-                <div style={{display:'flex',gap:'8px'}}>
-                  <input
-                    type="text"
-                    value={formData.selector}
-                    onChange={(e) => setFormData({...formData, selector: e.target.value})}
-                    placeholder="Kliknij 'Wybierz' aby zaznaczyć obszar"
-                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontFamily:'monospace',fontSize:'13px',background:'#F8FAFC'}}
-                    readOnly
-                  />
-                  />
-                  <button
-                    type="button"
-                    onClick={handleStartSelecting}
-                    style={{
-                      padding:'12px 16px',
-                      borderRadius:'8px',
-                      border:'none',
-                      background:'linear-gradient(135deg, #8B5CF6, #7C3AED)',
-                      color:'white',
-                      cursor:'pointer',
-                      fontWeight:'600',
-                      whiteSpace:'nowrap'
-                    }}
-                  >
-                    🎯 Wybierz
-                  </button>
-                </div>
-                <div style={{fontSize:'12px',color:'#94A3B8',marginTop:'6px'}}>
-                  Kliknij "Wybierz" i narysuj prostokąt myszką (przeciągnij)
+                  {/* Przyciski */}
+                  <div style={{display:'flex',gap:'10px'}}>
+                    {editingStep?.id && (
+                      <button onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all',category:''}); setTriggerData(null); }} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>
+                    )}
+                    <button onClick={handleSave} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#10B981,#059669)',color:'white',cursor:'pointer',fontWeight:'600'}}>
+                      {editingStep?.id ? '💾 Zapisz' : '➕ Dodaj'}
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'6px',color:'#374151'}}>
-                  Dla kogo wyświetlać
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({...formData, role: e.target.value})}
-                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
-                >
-                  <option value="all">👥 Wszyscy użytkownicy</option>
-                  <option value="admin">👑 Tylko administrator</option>
-                  <option value="worker">👷 Tylko pracownik</option>
-                  <option value="driver">🚚 Tylko kierowca</option>
-                  <option value="contractor">🏢 Tylko kontrahent</option>
-                </select>
-              </div>
-
-              <div style={{display:'flex',gap:'10px',marginTop:'8px'}}>
-                {editingStep?.id && (
-                  <button
-                    onClick={() => { setEditingStep(null); setFormData({title:'',content:'',selector:'',role:'all'}); }}
-                    style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
-                  >
-                    Anuluj
-                  </button>
+            </>
+          ) : (
+            <>
+              {/* Lista kategorii */}
+              <div style={{flex:1,minWidth:'280px',maxHeight:'60vh',overflowY:'auto'}}>
+                <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>Lista kategorii</h3>
+                {categories.length === 0 ? (
+                  <div style={{padding:'40px',textAlign:'center',color:'#94A3B8',background:'#F8FAFC',borderRadius:'12px'}}>
+                    <div style={{fontSize:'40px',marginBottom:'8px'}}>📁</div>
+                    <div>Brak kategorii - dodaj pierwszą</div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                    {categories.map(c => {
+                      const stepCount = steps.filter(s => s.category === c.id).length;
+                      return (
+                        <div key={c.id} style={{padding:'12px',background: editingCategory?.id === c.id ? '#F3E8FF' : 'white',border:'1px solid #E2E8F0',borderRadius:'8px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'4px'}}>
+                            <span style={{fontSize:'24px'}}>{c.icon}</span>
+                            <strong style={{flex:1}}>{c.name}</strong>
+                            <span style={{fontSize:'11px',color:'#64748B'}}>{stepCount} kroków</span>
+                          </div>
+                          {c.description && <div style={{fontSize:'12px',color:'#64748B',marginBottom:'8px'}}>{c.description}</div>}
+                          <div style={{display:'flex',gap:'6px'}}>
+                            <button onClick={() => { setEditingCategory(c); setNewCategory({ name: c.name, icon: c.icon, description: c.description || '' }); }} style={{padding:'4px 10px',fontSize:'11px',borderRadius:'4px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>✏️</button>
+                            <button onClick={() => window.confirm('Usunąć kategorię?') && onDeleteCategory(c.id)} style={{padding:'4px 10px',fontSize:'11px',borderRadius:'4px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer'}}>🗑️</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                <button
-                  onClick={handleSave}
-                  style={{
-                    flex:1,
-                    padding:'12px',
-                    borderRadius:'8px',
-                    border:'none',
-                    background:'linear-gradient(135deg, #10B981, #059669)',
-                    color:'white',
-                    cursor:'pointer',
-                    fontWeight:'600'
-                  }}
-                >
-                  {editingStep?.id ? '💾 Zapisz zmiany' : '➕ Dodaj krok'}
-                </button>
               </div>
-            </div>
-          </div>
+
+              {/* Formularz kategorii */}
+              <div style={{flex:1,minWidth:'280px'}}>
+                <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#64748B'}}>{editingCategory ? '✏️ Edytuj kategorię' : '➕ Nowa kategoria'}</h3>
+                <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                  <div style={{display:'flex',gap:'10px'}}>
+                    <input type="text" value={newCategory.icon} onChange={(e) => setNewCategory({...newCategory, icon: e.target.value})} placeholder="📚" style={{width:'60px',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'20px',textAlign:'center'}} />
+                    <input type="text" value={newCategory.name} onChange={(e) => setNewCategory({...newCategory, name: e.target.value})} placeholder="Nazwa kategorii" style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0'}} />
+                  </div>
+                  <textarea value={newCategory.description} onChange={(e) => setNewCategory({...newCategory, description: e.target.value})} placeholder="Opis kategorii (opcjonalnie)" rows={2} style={{padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',resize:'vertical'}} />
+                  <div style={{display:'flex',gap:'10px'}}>
+                    {editingCategory && (
+                      <button onClick={() => { setEditingCategory(null); setNewCategory({ name: '', icon: '📚', description: '' }); }} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Anuluj</button>
+                    )}
+                    <button onClick={handleSaveCategory} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#8B5CF6,#7C3AED)',color:'white',cursor:'pointer',fontWeight:'600'}}>
+                      {editingCategory ? '💾 Zapisz' : '➕ Dodaj'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Podpowiedź ikon */}
+                <div style={{marginTop:'16px',padding:'12px',background:'#F8FAFC',borderRadius:'8px'}}>
+                  <div style={{fontSize:'12px',fontWeight:'600',marginBottom:'8px'}}>Popularne ikony:</div>
+                  <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                    {['📦','⚙️','👥','📊','💰','📋','🚚','💬','🔔','📁','🎯','✅'].map(icon => (
+                      <button key={icon} onClick={() => setNewCategory({...newCategory, icon})} style={{fontSize:'20px',padding:'6px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer'}}>{icon}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
-        <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#F8FAFC'}}>
-          <div style={{fontSize:'13px',color:'#64748B'}}>
-            💡 Narysuj prostokąt myszką aby oznaczyć obszar do podświetlenia
-          </div>
-          <button 
-            onClick={onClose} 
-            style={{padding:'10px 24px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
-          >
-            Zamknij
-          </button>
+        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'#F8FAFC',textAlign:'right'}}>
+          <button onClick={onClose} style={{padding:'10px 24px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}>Zamknij</button>
         </div>
       </div>
     </>
   );
 };
+
+
 // ============================================
 // KOMPONENT SAMOUCZKA
 // ============================================
 
-const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip, onFinish }) => {
+const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPrev, onSkip, onFinish, onBackToCategories }) => {
   const [menuOpened, setMenuOpened] = useState(false);
 
-  // Filtruj kroki dla danej roli
-  const filteredSteps = steps.filter(s => s.role === 'all' || s.role === userRole);
+  // Filtruj kroki dla danej roli i kategorii
+  const filteredSteps = steps.filter(s => {
+    const roleMatch = s.role === 'all' || s.role === userRole;
+    const catMatch = !category || s.category === category;
+    return roleMatch && catMatch;
+  });
+  
   const step = filteredSteps[currentStep];
   const total = filteredSteps.length;
   const isLast = currentStep >= total - 1;
@@ -19589,14 +19667,7 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
   // Otwórz menu jeśli potrzebne
   useEffect(() => {
     if (openMenu && !menuOpened) {
-      const selectors = {
-        'settings': '.settings-btn',
-        'shipping': '.shipping-btn',
-        'add-order': '.btn-add-order',
-        'notifications': '.header-actions > button:first-child'
-      };
-      const selector = selectors[openMenu] || openMenu;
-      const btn = document.querySelector(selector);
+      const btn = document.querySelector(openMenu);
       if (btn) {
         btn.click();
         setMenuOpened(true);
@@ -19605,14 +19676,7 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
     
     return () => {
       if (menuOpened && openMenu) {
-        const selectors = {
-          'settings': '.settings-btn',
-          'shipping': '.shipping-btn',
-          'add-order': '.btn-add-order',
-          'notifications': '.header-actions > button:first-child'
-        };
-        const selector = selectors[openMenu] || openMenu;
-        const btn = document.querySelector(selector);
+        const btn = document.querySelector(openMenu);
         if (btn) btn.click();
         setMenuOpened(false);
       }
@@ -19623,121 +19687,83 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
     setMenuOpened(false);
   }, [currentStep]);
 
-  if (!step) return null;
+  if (!step) {
+    // Brak kroków - zakończ
+    if (total === 0) {
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:999999,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'white',padding:'30px',borderRadius:'16px',textAlign:'center'}}>
+            <div style={{fontSize:'48px',marginBottom:'12px'}}>✅</div>
+            <h3 style={{margin:'0 0 12px'}}>Brak kroków do wyświetlenia</h3>
+            <button onClick={onFinish} style={{padding:'12px 24px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',fontWeight:'600',cursor:'pointer'}}>Zamknij</button>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   // Strzałki dla różnych kierunków
   const arrows = {
-    top: '⬇️',    // strzałka wskazuje w dół (na element)
-    bottom: '⬆️', // strzałka wskazuje w górę (na element)
-    left: '➡️',   // strzałka wskazuje w prawo (na element)
-    right: '⬅️'   // strzałka wskazuje w lewo (na element)
+    top: '⬇️',
+    bottom: '⬆️',
+    left: '➡️',
+    right: '⬅️'
   };
 
   // Oblicz pozycje
-  const tooltipWidth = 360;
+  const tooltipWidth = 380;
   const tooltipHeight = 280;
   const gap = 20;
-  const arrowSize = 36;
+  const arrowSize = 40;
   
   let tooltipStyle = {};
   let arrowStyle = {};
-  let showArrow = false;
+  let showArrowEl = arrowPos !== 'none';
   
-  if (rect) {
-    // Pozycja tooltipa
+  if (rect && tooltipPos !== 'center') {
     switch (tooltipPos) {
       case 'top':
-        tooltipStyle = {
-          top: Math.max(10, rect.top - tooltipHeight - gap - arrowSize),
-          left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)),
-          width: tooltipWidth
-        };
+        tooltipStyle = { top: Math.max(10, rect.top - tooltipHeight - gap - (showArrowEl ? arrowSize : 0)), left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)), width: tooltipWidth };
         break;
       case 'bottom':
-        tooltipStyle = {
-          top: rect.top + rect.height + gap + arrowSize,
-          left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)),
-          width: tooltipWidth
-        };
+        tooltipStyle = { top: rect.top + rect.height + gap + (showArrowEl ? arrowSize : 0), left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)), width: tooltipWidth };
         break;
       case 'left':
-        tooltipStyle = {
-          top: Math.max(10, Math.min(rect.top + rect.height/2 - tooltipHeight/2, window.innerHeight - tooltipHeight - 10)),
-          left: Math.max(10, rect.left - tooltipWidth - gap - arrowSize),
-          width: tooltipWidth
-        };
+        tooltipStyle = { top: Math.max(10, Math.min(rect.top + rect.height/2 - tooltipHeight/2, window.innerHeight - tooltipHeight - 10)), left: Math.max(10, rect.left - tooltipWidth - gap - (showArrowEl ? arrowSize : 0)), width: tooltipWidth };
         break;
       case 'right':
-        tooltipStyle = {
-          top: Math.max(10, Math.min(rect.top + rect.height/2 - tooltipHeight/2, window.innerHeight - tooltipHeight - 10)),
-          left: rect.left + rect.width + gap + arrowSize,
-          width: tooltipWidth
-        };
+        tooltipStyle = { top: Math.max(10, Math.min(rect.top + rect.height/2 - tooltipHeight/2, window.innerHeight - tooltipHeight - 10)), left: rect.left + rect.width + gap + (showArrowEl ? arrowSize : 0), width: tooltipWidth };
         break;
       default:
-        tooltipStyle = {
-          top: rect.top + rect.height + gap + arrowSize,
-          left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)),
-          width: tooltipWidth
-        };
+        tooltipStyle = { top: rect.top + rect.height + gap + arrowSize, left: Math.max(10, Math.min(rect.left + rect.width/2 - tooltipWidth/2, window.innerWidth - tooltipWidth - 10)), width: tooltipWidth };
     }
-
-    // Pozycja strzałki
-    switch (arrowPos) {
-      case 'top':
-        arrowStyle = {
-          top: rect.top - arrowSize - 8,
-          left: rect.left + rect.width/2 - 16
-        };
-        showArrow = true;
-        break;
-      case 'bottom':
-        arrowStyle = {
-          top: rect.top + rect.height + 8,
-          left: rect.left + rect.width/2 - 16
-        };
-        showArrow = true;
-        break;
-      case 'left':
-        arrowStyle = {
-          top: rect.top + rect.height/2 - 16,
-          left: rect.left - arrowSize - 8
-        };
-        showArrow = true;
-        break;
-      case 'right':
-        arrowStyle = {
-          top: rect.top + rect.height/2 - 16,
-          left: rect.left + rect.width + 8
-        };
-        showArrow = true;
-        break;
-      default:
-        arrowStyle = {
-          top: rect.top + rect.height + 8,
-          left: rect.left + rect.width/2 - 16
-        };
-        showArrow = true;
+    
+    if (showArrowEl) {
+      switch (arrowPos) {
+        case 'top':
+          arrowStyle = { top: rect.top - arrowSize - 8, left: rect.left + rect.width/2 - 16 };
+          break;
+        case 'bottom':
+          arrowStyle = { top: rect.top + rect.height + 8, left: rect.left + rect.width/2 - 16 };
+          break;
+        case 'left':
+          arrowStyle = { top: rect.top + rect.height/2 - 16, left: rect.left - arrowSize - 8 };
+          break;
+        case 'right':
+          arrowStyle = { top: rect.top + rect.height/2 - 16, left: rect.left + rect.width + 8 };
+          break;
+      }
     }
   } else {
-    tooltipStyle = {
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      width: tooltipWidth
-    };
+    // Środek ekranu
+    tooltipStyle = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: tooltipWidth };
+    showArrowEl = false;
   }
 
   const closeMenuAndNavigate = (callback) => {
     if (menuOpened && openMenu) {
-      const selectors = {
-        'settings': '.settings-btn',
-        'shipping': '.shipping-btn',
-        'add-order': '.btn-add-order',
-        'notifications': '.header-actions > button:first-child'
-      };
-      const selector = selectors[openMenu] || openMenu;
-      const btn = document.querySelector(selector);
+      const btn = document.querySelector(openMenu);
       if (btn) btn.click();
       setMenuOpened(false);
     }
@@ -19778,12 +19804,12 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
         }}/>
       )}
 
-      {/* Strzałka - NAJWYŻSZY Z-INDEX */}
-      {showArrow && (
+      {/* Strzałka */}
+      {showArrowEl && rect && (
         <div style={{
           position:'fixed',
           ...arrowStyle,
-          fontSize:'32px',
+          fontSize:'36px',
           zIndex: 1000004,
           animation:'tutbounce 0.6s infinite',
           filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))'
@@ -19803,31 +19829,13 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
         zIndex: 1000002
       }}>
         {/* Header */}
-        <div style={{
-          background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',
-          color:'white',
-          padding:'14px 18px',
-          display:'flex',
-          alignItems:'center',
-          gap:'10px'
-        }}>
+        <div style={{background:'linear-gradient(135deg, #1E3A5F, #2D5A87)',color:'white',padding:'14px 18px',display:'flex',alignItems:'center',gap:'10px'}}>
           <span style={{fontSize:'22px',fontWeight:'700'}}>{currentStep + 1}</span>
           <span style={{opacity:0.7}}>/ {total}</span>
           <div style={{flex:1,height:'4px',background:'rgba(255,255,255,0.2)',borderRadius:'2px',margin:'0 12px'}}>
-            <div style={{
-              height:'100%',
-              width:`${((currentStep+1)/total)*100}%`,
-              background:'linear-gradient(90deg, #60A5FA, #34D399)',
-              borderRadius:'2px',
-              transition:'width 0.3s'
-            }}/>
+            <div style={{height:'100%',width:`${((currentStep+1)/total)*100}%`,background:'linear-gradient(90deg, #60A5FA, #34D399)',borderRadius:'2px',transition:'width 0.3s'}}/>
           </div>
-          <button 
-            onClick={() => closeMenuAndNavigate(onSkip)} 
-            style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}
-          >
-            ✕
-          </button>
+          <button onClick={() => closeMenuAndNavigate(onSkip)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px'}}>✕</button>
         </div>
 
         {/* Body */}
@@ -19837,25 +19845,23 @@ const TutorialOverlay = ({ steps, currentStep, userRole, onNext, onPrev, onSkip,
         </div>
 
         {/* Footer */}
-        <div style={{padding:'14px 20px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px'}}>
-          {!isFirst && (
-            <button onClick={() => closeMenuAndNavigate(onPrev)} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>
-              ← Wstecz
+        <div style={{padding:'14px 20px',background:'#F8FAFC',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px',flexWrap:'wrap'}}>
+          {onBackToCategories && (
+            <button onClick={() => closeMenuAndNavigate(onBackToCategories)} style={{padding:'10px 14px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',color:'#64748B',fontWeight:'600',cursor:'pointer',fontSize:'13px'}}>
+              📁 Kategorie
             </button>
+          )}
+          <div style={{flex:1}}></div>
+          {!isFirst && (
+            <button onClick={() => closeMenuAndNavigate(onPrev)} style={{padding:'12px 16px',borderRadius:'8px',border:'none',background:'#E2E8F0',color:'#64748B',fontWeight:'600',cursor:'pointer'}}>← Wstecz</button>
           )}
           {isFirst && (
-            <button onClick={() => closeMenuAndNavigate(onSkip)} style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>
-              Pomiń
-            </button>
+            <button onClick={() => closeMenuAndNavigate(onSkip)} style={{padding:'12px 16px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'transparent',color:'#94A3B8',fontWeight:'600',cursor:'pointer'}}>Pomiń</button>
           )}
           {isLast ? (
-            <button onClick={() => closeMenuAndNavigate(onFinish)} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #10B981, #059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>
-              Zakończ ✓
-            </button>
+            <button onClick={() => closeMenuAndNavigate(onFinish)} style={{padding:'12px 20px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #10B981, #059669)',color:'white',fontWeight:'600',cursor:'pointer'}}>Zakończ ✓</button>
           ) : (
-            <button onClick={() => closeMenuAndNavigate(onNext)} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #3B82F6, #2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>
-              Dalej →
-            </button>
+            <button onClick={() => closeMenuAndNavigate(onNext)} style={{padding:'12px 20px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg, #3B82F6, #2563EB)',color:'white',fontWeight:'600',cursor:'pointer'}}>Dalej →</button>
           )}
         </div>
       </div>
