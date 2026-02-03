@@ -14575,10 +14575,10 @@ const ClientOrderForm = ({ token }) => {
           });
         }
         
-        // Zaktualizuj status WSZYSTKICH produktów na 'nowe'
+        // Zaktualizuj status WSZYSTKICH produktów na 'dane_uzupelnione'
         const updatedProdukty = (currentOrder.produkty || []).map(p => ({
           ...p,
-          status: 'nowe'
+          status: 'dane_uzupelnione'
         }));
         
         // Aktualizuj zamówienie - dane klienta + status + produkty
@@ -14603,7 +14603,7 @@ const ClientOrderForm = ({ token }) => {
           // Produkty i status
           produkty: updatedProdukty,
           awaitingClientData: false,
-          status: 'nowe',
+          status: 'dane_uzupelnione',
           clientDataFilledAt: serverTimestamp()
         });
       }
