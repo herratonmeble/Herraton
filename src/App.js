@@ -3897,26 +3897,32 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                       <button
                         type="button"
                         onClick={async () => {
-                          // Zapisz najpierw zamówienie ze statusem oczekuje_na_dane
-                          const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
-                          const orderToSave = {
-                            ...form,
-                            produkty: form.produkty.map(p => ({
-                              ...p,
-                              nazwa: p.towar,
-                              cena: form.platnosci?.cenaCalkowita || p.cenaKlienta || 0,
-                              waluta: form.platnosci?.waluta || 'PLN',
-                              zaliczka: form.platnosci?.zaplacono || 0,
-                              status: 'oczekuje_na_dane'
-                            })),
-                            status: 'oczekuje_na_dane',
-                            clientToken: token,
-                            awaitingClientData: true
-                          };
-                          
-                          const savedOrder = await onSave(orderToSave);
-                          if (savedOrder) {
+                          try {
+                            // Generuj token
+                            const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
                             const link = `${window.location.origin}/klient/${token}`;
+                            
+                            // Przygotuj zamówienie ze statusem oczekuje_na_dane
+                            const orderToSave = {
+                              ...form,
+                              produkty: form.produkty.map(p => ({
+                                ...p,
+                                nazwa: p.towar,
+                                cena: form.platnosci?.cenaCalkowita || p.cenaKlienta || 0,
+                                waluta: form.platnosci?.waluta || 'PLN',
+                                zaliczka: form.platnosci?.zaplacono || 0,
+                                status: 'oczekuje_na_dane'
+                              })),
+                              status: 'oczekuje_na_dane',
+                              clientToken: token,
+                              awaitingClientData: true
+                            };
+                            
+                            // Zapisz zamówienie
+                            await onSave(orderToSave, currentUser);
+                            
+                            // Kopiuj link do schowka
+                            await navigator.clipboard.writeText(link);
                             
                             // Jeśli jest email - otwórz mailto
                             if (form.klient?.email) {
@@ -3933,10 +3939,11 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                               window.open(`mailto:${form.klient.email}?subject=${subject}&body=${body}`);
                             }
                             
-                            // Kopiuj link
-                            navigator.clipboard.writeText(link);
                             alert(`✅ Zamówienie zapisane!\n\nLink skopiowany do schowka:\n${link}\n\n${form.klient?.email ? 'Otwarto też klienta pocztowego.' : 'Wyślij link klientowi.'}`);
                             onClose();
+                          } catch (err) {
+                            console.error('Błąd:', err);
+                            alert('Wystąpił błąd podczas zapisywania. Spróbuj ponownie.');
                           }
                         }}
                         style={{padding:'10px 16px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap'}}
