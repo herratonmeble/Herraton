@@ -14360,6 +14360,679 @@ const SettlementsPanel = ({
 // ============================================
 
 // ============================================
+// PUBLICZNY CZAT DLA KLIENTA
+// ============================================
+
+const PublicChat = () => {
+  const [step, setStep] = useState('form'); // 'form' lub 'chat'
+  const [chatId, setChatId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [assignedTo, setAssignedTo] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Formularz startowy
+  const [formData, setFormData] = useState({
+    name: '',
+    country: 'PL',
+    email: '',
+    phone: '',
+    category: '',
+    customWidth: '',
+    customDepth: '',
+    cornerSide: 'left'
+  });
+
+  const categories = [
+    { id: 'sofy', name: '🛋️ Sofy', icon: '🛋️' },
+    { id: 'narozniki', name: '🔲 Narożniki', icon: '🔲' },
+    { id: 'fotele', name: '💺 Fotele', icon: '💺' },
+    { id: 'meble_twarde', name: '🪑 Meble twarde', icon: '🪑' },
+    { id: 'naroznik_na_wymiar', name: '📐 Narożnik na wymiar', icon: '📐' }
+  ];
+
+  const countries = [
+    { code: 'PL', name: '🇵🇱 Polska' },
+    { code: 'DE', name: '🇩🇪 Niemcy' },
+    { code: 'NL', name: '🇳🇱 Holandia' },
+    { code: 'GB', name: '🇬🇧 Wielka Brytania' },
+    { code: 'FR', name: '🇫🇷 Francja' },
+    { code: 'BE', name: '🇧🇪 Belgia' },
+    { code: 'AT', name: '🇦🇹 Austria' },
+    { code: 'CZ', name: '🇨🇿 Czechy' },
+    { code: 'SK', name: '🇸🇰 Słowacja' },
+    { code: 'IT', name: '🇮🇹 Włochy' },
+    { code: 'ES', name: '🇪🇸 Hiszpania' },
+    { code: 'CH', name: '🇨🇭 Szwajcaria' },
+    { code: 'SE', name: '🇸🇪 Szwecja' },
+    { code: 'NO', name: '🇳🇴 Norwegia' },
+    { code: 'DK', name: '🇩🇰 Dania' },
+    { code: 'OTHER', name: '🌍 Inny' }
+  ];
+
+  // Rozpocznij czat
+  const startChat = async () => {
+    if (!formData.name || !formData.category) {
+      alert('Wypełnij imię i wybierz kategorię');
+      return;
+    }
+
+    try {
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+
+      const chatData = {
+        clientName: formData.name,
+        clientCountry: formData.country,
+        clientEmail: formData.email,
+        clientPhone: formData.phone,
+        category: formData.category,
+        categoryName: categories.find(c => c.id === formData.category)?.name || formData.category,
+        customDimensions: formData.category === 'naroznik_na_wymiar' ? {
+          width: formData.customWidth,
+          depth: formData.customDepth,
+          side: formData.cornerSide
+        } : null,
+        status: 'waiting', // waiting, active, closed
+        assignedTo: null,
+        assignedToName: null,
+        messages: [],
+        createdAt: serverTimestamp(),
+        lastMessageAt: serverTimestamp(),
+        unreadByStaff: true,
+        unreadByClient: false
+      };
+
+      const docRef = await addDoc(collection(db, 'chats'), chatData);
+      setChatId(docRef.id);
+      
+      // Zapisz w localStorage żeby można było wrócić do czatu
+      localStorage.setItem('herraton_chat_id', docRef.id);
+      localStorage.setItem('herraton_chat_name', formData.name);
+      
+      setStep('chat');
+      
+      // Dodaj wiadomość powitalną
+      const welcomeMsg = {
+        id: 'welcome',
+        type: 'system',
+        text: `Witaj ${formData.name}! Dziękujemy za kontakt. Jeden z naszych konsultantów wkrótce dołączy do rozmowy.`,
+        timestamp: new Date()
+      };
+      setMessages([welcomeMsg]);
+      
+    } catch (err) {
+      console.error('Błąd tworzenia czatu:', err);
+      alert('Wystąpił błąd. Spróbuj ponownie.');
+    }
+  };
+
+  // Nasłuchuj wiadomości
+  useEffect(() => {
+    if (!chatId) return;
+
+    let unsubscribe = null;
+
+    const loadMessages = async () => {
+      try {
+        const { doc, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+
+        unsubscribe = onSnapshot(doc(db, 'chats', chatId), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setMessages(data.messages || []);
+            setAssignedTo(data.assignedToName || null);
+            
+            // Oznacz jako przeczytane przez klienta
+            if (data.unreadByClient) {
+              import('firebase/firestore').then(({ updateDoc }) => {
+                import('./firebase').then(({ db }) => {
+                  updateDoc(doc(db, 'chats', chatId), { unreadByClient: false });
+                });
+              });
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Błąd ładowania wiadomości:', err);
+      }
+    };
+
+    loadMessages();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [chatId]);
+
+  // Sprawdź czy jest zapisany czat
+  useEffect(() => {
+    const savedChatId = localStorage.getItem('herraton_chat_id');
+    const savedName = localStorage.getItem('herraton_chat_name');
+    
+    if (savedChatId) {
+      setChatId(savedChatId);
+      setFormData(prev => ({ ...prev, name: savedName || '' }));
+      setStep('chat');
+    }
+  }, []);
+
+  // Wyślij wiadomość
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !chatId) return;
+
+    setSending(true);
+    try {
+      const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+
+      const message = {
+        id: Date.now().toString(),
+        type: 'client',
+        text: newMessage.trim(),
+        timestamp: new Date().toISOString(),
+        senderName: formData.name || localStorage.getItem('herraton_chat_name')
+      };
+
+      await updateDoc(doc(db, 'chats', chatId), {
+        messages: arrayUnion(message),
+        lastMessageAt: serverTimestamp(),
+        unreadByStaff: true
+      });
+
+      setNewMessage('');
+    } catch (err) {
+      console.error('Błąd wysyłania:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Wyślij zdjęcie
+  const sendPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId) return;
+
+    setUploadingPhoto(true);
+    try {
+      // Konwertuj na base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result;
+        
+        const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+
+        const message = {
+          id: Date.now().toString(),
+          type: 'client',
+          text: '',
+          photo: base64,
+          timestamp: new Date().toISOString(),
+          senderName: formData.name || localStorage.getItem('herraton_chat_name')
+        };
+
+        await updateDoc(doc(db, 'chats', chatId), {
+          messages: arrayUnion(message),
+          lastMessageAt: serverTimestamp(),
+          unreadByStaff: true
+        });
+
+        setUploadingPhoto(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Błąd wysyłania zdjęcia:', err);
+      setUploadingPhoto(false);
+    }
+  };
+
+  // Zakończ czat
+  const endChat = () => {
+    if (window.confirm('Czy na pewno chcesz zakończyć czat?')) {
+      localStorage.removeItem('herraton_chat_id');
+      localStorage.removeItem('herraton_chat_name');
+      setChatId(null);
+      setMessages([]);
+      setStep('form');
+      setFormData({
+        name: '',
+        country: 'PL',
+        email: '',
+        phone: '',
+        category: '',
+        customWidth: '',
+        customDepth: '',
+        cornerSide: 'left'
+      });
+    }
+  };
+
+  // Komponent wizualizacji narożnika
+  const CornerVisualization = ({ width, depth, side }) => {
+    const w = parseInt(width) || 250;
+    const d = parseInt(depth) || 150;
+    const maxSize = 200;
+    const scale = Math.min(maxSize / Math.max(w, d), 1);
+    const scaledW = w * scale;
+    const scaledD = d * scale;
+
+    return (
+      <div style={{background:'#F8FAFC',borderRadius:'12px',padding:'16px',marginTop:'12px'}}>
+        <div style={{fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'12px',textAlign:'center'}}>
+          📐 Wizualizacja narożnika
+        </div>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'150px'}}>
+          <svg width={maxSize + 60} height={maxSize + 60} viewBox={`0 0 ${maxSize + 60} ${maxSize + 60}`}>
+            {side === 'left' ? (
+              <>
+                {/* Narożnik lewy */}
+                <path 
+                  d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledD * 0.4} L ${30 + scaledD} ${30 + scaledD * 0.4} L ${30 + scaledD} ${30 + scaledD} L 30 ${30 + scaledD} Z`}
+                  fill="#8B5CF6"
+                  stroke="#6D28D9"
+                  strokeWidth="2"
+                />
+                {/* Wymiar szerokość */}
+                <line x1="30" y1="20" x2={30 + scaledW} y2="20" stroke="#374151" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow2)"/>
+                <text x={30 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{width} cm</text>
+                {/* Wymiar głębokość */}
+                <line x1="20" y1="30" x2="20" y2={30 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x="10" y={30 + scaledD/2} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform={`rotate(-90, 10, ${30 + scaledD/2})`}>{depth} cm</text>
+              </>
+            ) : (
+              <>
+                {/* Narożnik prawy */}
+                <path 
+                  d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledD} L ${30 + scaledW - scaledD} ${30 + scaledD} L ${30 + scaledW - scaledD} ${30 + scaledD * 0.4} L 30 ${30 + scaledD * 0.4} Z`}
+                  fill="#8B5CF6"
+                  stroke="#6D28D9"
+                  strokeWidth="2"
+                />
+                {/* Wymiar szerokość */}
+                <line x1="30" y1="20" x2={30 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+                <text x={30 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{width} cm</text>
+                {/* Wymiar głębokość */}
+                <line x1={40 + scaledW} y1="30" x2={40 + scaledW} y2={30 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x={50 + scaledW} y={30 + scaledD/2} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform={`rotate(90, ${50 + scaledW}, ${30 + scaledD/2})`}>{depth} cm</text>
+              </>
+            )}
+            <defs>
+              <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6" fill="#374151"/>
+              </marker>
+              <marker id="arrow2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                <path d="M6,0 L0,3 L6,6" fill="#374151"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        <div style={{textAlign:'center',fontSize:'11px',color:'#94A3B8',marginTop:'8px'}}>
+          Strona narożnika: {side === 'left' ? '⬅️ Lewa' : '➡️ Prawa'}
+        </div>
+      </div>
+    );
+  };
+
+  // FORMULARZ STARTOWY
+  if (step === 'form') {
+    return (
+      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1E293B 0%,#334155 100%)',padding:'20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{width:'100%',maxWidth:'450px'}}>
+          {/* Header */}
+          <div style={{textAlign:'center',marginBottom:'24px'}}>
+            <div style={{fontSize:'48px',marginBottom:'12px'}}>🛋️</div>
+            <h1 style={{color:'white',margin:'0 0 8px',fontSize:'28px',fontWeight:'700'}}>Herraton Meble</h1>
+            <p style={{color:'rgba(255,255,255,0.7)',margin:0,fontSize:'14px'}}>Rozpocznij rozmowę z naszym konsultantem</p>
+          </div>
+
+          {/* Powiadomienie o aplikacji */}
+          <div style={{background:'rgba(139,92,246,0.2)',border:'1px solid rgba(139,92,246,0.4)',borderRadius:'12px',padding:'14px',marginBottom:'20px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <span style={{fontSize:'24px'}}>📱</span>
+            <div>
+              <div style={{color:'white',fontWeight:'600',fontSize:'13px'}}>Pobierz naszą aplikację!</div>
+              <div style={{color:'rgba(255,255,255,0.7)',fontSize:'12px'}}>Otrzymuj powiadomienia o odpowiedziach</div>
+            </div>
+          </div>
+
+          {/* Formularz */}
+          <div style={{background:'white',borderRadius:'20px',padding:'24px',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+              {/* Imię */}
+              <div>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
+                  Imię *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="Twoje imię"
+                  style={{width:'100%',padding:'12px 14px',borderRadius:'10px',border:'1px solid #E2E8F0',fontSize:'15px',boxSizing:'border-box'}}
+                />
+              </div>
+
+              {/* Kraj */}
+              <div>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
+                  Kraj
+                </label>
+                <select
+                  value={formData.country}
+                  onChange={(e) => setFormData({...formData, country: e.target.value})}
+                  style={{width:'100%',padding:'12px 14px',borderRadius:'10px',border:'1px solid #E2E8F0',fontSize:'15px',boxSizing:'border-box'}}
+                >
+                  {countries.map(c => (
+                    <option key={c.code} value={c.code}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Email i Telefon */}
+              <div style={{display:'flex',gap:'12px'}}>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="email@example.com"
+                    style={{width:'100%',padding:'12px 14px',borderRadius:'10px',border:'1px solid #E2E8F0',fontSize:'15px',boxSizing:'border-box'}}
+                  />
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
+                    Telefon
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="+48..."
+                    style={{width:'100%',padding:'12px 14px',borderRadius:'10px',border:'1px solid #E2E8F0',fontSize:'15px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+
+              {/* Kategoria */}
+              <div>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'10px'}}>
+                  Czym jesteś zainteresowany? *
+                </label>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setFormData({...formData, category: cat.id})}
+                      style={{
+                        padding:'14px 12px',
+                        borderRadius:'10px',
+                        border: formData.category === cat.id ? '2px solid #8B5CF6' : '1px solid #E2E8F0',
+                        background: formData.category === cat.id ? '#F5F3FF' : 'white',
+                        cursor:'pointer',
+                        textAlign:'center',
+                        transition:'all 0.2s'
+                      }}
+                    >
+                      <div style={{fontSize:'24px',marginBottom:'4px'}}>{cat.icon}</div>
+                      <div style={{fontSize:'12px',fontWeight:'600',color: formData.category === cat.id ? '#8B5CF6' : '#374151'}}>
+                        {cat.name.replace(cat.icon + ' ', '')}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Wymiary dla narożnika na wymiar */}
+              {formData.category === 'naroznik_na_wymiar' && (
+                <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',border:'1px solid #C4B5FD'}}>
+                  <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
+                    📐 Podaj wymiary narożnika
+                  </div>
+                  <div style={{display:'flex',gap:'12px',marginBottom:'12px'}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm)</label>
+                      <input
+                        type="number"
+                        value={formData.customWidth}
+                        onChange={(e) => setFormData({...formData, customWidth: e.target.value})}
+                        placeholder="np. 250"
+                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                      />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm)</label>
+                      <input
+                        type="number"
+                        value={formData.customDepth}
+                        onChange={(e) => setFormData({...formData, customDepth: e.target.value})}
+                        placeholder="np. 150"
+                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona narożnika</label>
+                    <div style={{display:'flex',gap:'10px'}}>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, cornerSide: 'left'})}
+                        style={{
+                          flex:1,
+                          padding:'10px',
+                          borderRadius:'8px',
+                          border: formData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                          background: formData.cornerSide === 'left' ? '#8B5CF6' : 'white',
+                          color: formData.cornerSide === 'left' ? 'white' : '#374151',
+                          cursor:'pointer',
+                          fontWeight:'600',
+                          fontSize:'13px'
+                        }}
+                      >
+                        ⬅️ Lewy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, cornerSide: 'right'})}
+                        style={{
+                          flex:1,
+                          padding:'10px',
+                          borderRadius:'8px',
+                          border: formData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                          background: formData.cornerSide === 'right' ? '#8B5CF6' : 'white',
+                          color: formData.cornerSide === 'right' ? 'white' : '#374151',
+                          cursor:'pointer',
+                          fontWeight:'600',
+                          fontSize:'13px'
+                        }}
+                      >
+                        ➡️ Prawy
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Wizualizacja */}
+                  {formData.customWidth && formData.customDepth && (
+                    <CornerVisualization 
+                      width={formData.customWidth} 
+                      depth={formData.customDepth} 
+                      side={formData.cornerSide}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Przycisk */}
+              <button
+                onClick={startChat}
+                style={{
+                  width:'100%',
+                  padding:'16px',
+                  borderRadius:'12px',
+                  border:'none',
+                  background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',
+                  color:'white',
+                  fontSize:'16px',
+                  fontWeight:'700',
+                  cursor:'pointer',
+                  marginTop:'8px'
+                }}
+              >
+                💬 Rozpocznij czat
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // OKNO CZATU
+  return (
+    <div style={{minHeight:'100vh',background:'#F1F5F9',display:'flex',flexDirection:'column'}}>
+      {/* Header czatu */}
+      <div style={{background:'linear-gradient(135deg,#1E293B,#334155)',padding:'16px 20px',color:'white'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:'18px',fontWeight:'700'}}>🛋️ Herraton Meble</div>
+            <div style={{fontSize:'13px',opacity:0.8,marginTop:'4px'}}>
+              {assignedTo ? (
+                <span>💬 Rozmawiasz z: <strong>{assignedTo}</strong></span>
+              ) : (
+                <span>⏳ Oczekiwanie na konsultanta...</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={endChat}
+            style={{background:'rgba(255,255,255,0.1)',border:'none',padding:'8px 12px',borderRadius:'8px',color:'white',cursor:'pointer',fontSize:'12px'}}
+          >
+            ✕ Zakończ
+          </button>
+        </div>
+        <div style={{fontSize:'12px',opacity:0.7,marginTop:'8px'}}>
+          👤 {formData.name || localStorage.getItem('herraton_chat_name')}
+        </div>
+      </div>
+
+      {/* Wiadomości */}
+      <div style={{flex:1,overflow:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+        {messages.map((msg, idx) => (
+          <div key={msg.id || idx} style={{
+            display:'flex',
+            justifyContent: msg.type === 'client' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
+          }}>
+            {msg.type === 'system' ? (
+              <div style={{background:'#E2E8F0',padding:'10px 16px',borderRadius:'20px',fontSize:'13px',color:'#64748B',maxWidth:'80%',textAlign:'center'}}>
+                {msg.text}
+              </div>
+            ) : msg.type === 'visualization' ? (
+              <div style={{background:'white',padding:'16px',borderRadius:'16px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px'}}>
+                <div style={{fontSize:'12px',color:'#64748B',marginBottom:'8px'}}>📐 Wizualizacja od konsultanta:</div>
+                <CornerVisualization width={msg.width} depth={msg.depth} side={msg.side} />
+              </div>
+            ) : (
+              <div style={{
+                background: msg.type === 'client' ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : 'white',
+                color: msg.type === 'client' ? 'white' : '#1E293B',
+                padding:'12px 16px',
+                borderRadius: msg.type === 'client' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                maxWidth:'75%',
+                boxShadow:'0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                {msg.type === 'staff' && (
+                  <div style={{fontSize:'11px',color:'#8B5CF6',fontWeight:'600',marginBottom:'4px'}}>
+                    {msg.senderName}
+                  </div>
+                )}
+                {msg.photo && (
+                  <img src={msg.photo} alt="Zdjęcie" style={{maxWidth:'100%',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0}} />
+                )}
+                {msg.text && <div style={{fontSize:'14px',lineHeight:'1.4'}}>{msg.text}</div>}
+                <div style={{fontSize:'10px',opacity:0.7,marginTop:'6px',textAlign:'right'}}>
+                  {new Date(msg.timestamp).toLocaleTimeString('pl-PL', {hour:'2-digit',minute:'2-digit'})}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div style={{background:'white',padding:'16px',borderTop:'1px solid #E2E8F0'}}>
+        <div style={{display:'flex',gap:'10px',alignItems:'flex-end'}}>
+          {/* Przycisk zdjęcia */}
+          <label style={{
+            width:'44px',
+            height:'44px',
+            borderRadius:'12px',
+            background:'#F1F5F9',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            cursor:'pointer',
+            flexShrink:0
+          }}>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={sendPhoto}
+              style={{display:'none'}}
+              disabled={uploadingPhoto}
+            />
+            {uploadingPhoto ? '⏳' : '📷'}
+          </label>
+          
+          {/* Input wiadomości */}
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="Napisz wiadomość..."
+            style={{
+              flex:1,
+              padding:'12px 16px',
+              borderRadius:'12px',
+              border:'1px solid #E2E8F0',
+              fontSize:'15px',
+              outline:'none'
+            }}
+          />
+          
+          {/* Przycisk wyślij */}
+          <button
+            onClick={sendMessage}
+            disabled={sending || !newMessage.trim()}
+            style={{
+              width:'44px',
+              height:'44px',
+              borderRadius:'12px',
+              border:'none',
+              background: newMessage.trim() ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : '#E2E8F0',
+              color:'white',
+              cursor: newMessage.trim() ? 'pointer' : 'default',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              fontSize:'18px',
+              flexShrink:0
+            }}
+          >
+            {sending ? '⏳' : '➤'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // PUBLICZNY FORMULARZ REKLAMACJI DLA KLIENTA
 // ============================================
 
@@ -16841,6 +17514,11 @@ const App = () => {
   const [popupNotification, setPopupNotification] = useState(null);
   const [leads, setLeads] = useState([]);
   
+  // CZAT KLIENTÓW
+  const [showClientChats, setShowClientChats] = useState(false);
+  const [clientChats, setClientChats] = useState([]);
+  const [selectedClientChat, setSelectedClientChat] = useState(null);
+  
   // Dane dla Wysyłki (próbki i poczta) - z Firestore
   const [samples, setSamples] = useState([]);
   const [mailItems, setMailItems] = useState([]);
@@ -17091,6 +17769,41 @@ const App = () => {
     };
     loadMeetings();
   }, []);
+
+  // Ładuj czaty klientów z Firebase (real-time)
+  useEffect(() => {
+    if (!user) return;
+    
+    let unsubscribe = null;
+    
+    const loadChats = async () => {
+      try {
+        const { collection, query, orderBy, onSnapshot, where } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        
+        // Dla zwykłych pracowników - pokaż tylko ich czaty lub nieprzypisane
+        // Dla adminów - pokaż wszystkie
+        const q = query(collection(db, 'chats'), orderBy('lastMessageAt', 'desc'));
+        
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const chats = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Filtruj: pokaż nieprzypisane lub przypisane do tego użytkownika
+          const filteredChats = chats.filter(chat => 
+            !chat.assignedTo || chat.assignedTo === user.id || user.role === 'admin'
+          );
+          setClientChats(filteredChats);
+        });
+      } catch (err) {
+        console.error('Błąd ładowania czatów:', err);
+      }
+    };
+    
+    loadChats();
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
 
   // Funkcje zarządzania spotkaniami
   const saveMeeting = async (meetingData) => {
@@ -17951,6 +18664,11 @@ Zespół obsługi zamówień
   // Sprawdź czy URL wskazuje na formularz reklamacji (publiczny, bez logowania)
   const currentPath = window.location.pathname;
   
+  // Routing: Publiczny czat dla klienta
+  if (currentPath === '/czat') {
+    return <PublicChat />;
+  }
+  
   // Routing: Panel zamówienia dla klienta
   const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
   if (orderMatch) {
@@ -18008,6 +18726,15 @@ Zespół obsługi zamówień
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => setShowNotifications(true)}>
               🔔 {unresolvedNotifs}
+            </button>
+
+            {/* Przycisk czatów klientów */}
+            <button 
+              className="btn-secondary" 
+              onClick={() => setShowClientChats(true)}
+              style={{background: clientChats.filter(c => c.unreadByStaff && (!c.assignedTo || c.assignedTo === user?.id)).length > 0 ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : undefined, color: clientChats.filter(c => c.unreadByStaff).length > 0 ? 'white' : undefined}}
+            >
+              💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
             </button>
 
             <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
@@ -18796,6 +19523,17 @@ Zespół obsługi zamówień
         );
       })()}
 
+      {/* PANEL CZATÓW KLIENTÓW */}
+      {showClientChats && (
+        <ClientChatsPanel
+          chats={clientChats}
+          selectedChat={selectedClientChat}
+          onSelectChat={setSelectedClientChat}
+          onClose={() => { setShowClientChats(false); setSelectedClientChat(null); }}
+          currentUser={user}
+        />
+      )}
+
       {showComplaintsPanel && (
         <ComplaintsPanel
           complaints={visibleComplaints}
@@ -19086,6 +19824,400 @@ Zespół obsługi zamówień
           }}
         />
       )}
+    </div>
+  );
+};
+
+// ============================================
+// PANEL CZATÓW KLIENTÓW DLA PRACOWNIKÓW
+// ============================================
+
+const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentUser }) => {
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [showVisualization, setShowVisualization] = useState(false);
+  const [vizWidth, setVizWidth] = useState('');
+  const [vizDepth, setVizDepth] = useState('');
+  const [vizSide, setVizSide] = useState('left');
+
+  // Przejmij czat
+  const takeChat = async (chatId) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      await updateDoc(doc(db, 'chats', chatId), {
+        assignedTo: currentUser.id,
+        assignedToName: currentUser.name || currentUser.email,
+        status: 'active'
+      });
+      
+      onSelectChat(chatId);
+    } catch (err) {
+      console.error('Błąd przejmowania czatu:', err);
+    }
+  };
+
+  // Wyślij wiadomość
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+
+    setSending(true);
+    try {
+      const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+
+      const message = {
+        id: Date.now().toString(),
+        type: 'staff',
+        text: newMessage.trim(),
+        timestamp: new Date().toISOString(),
+        senderName: currentUser.name || currentUser.email,
+        senderId: currentUser.id
+      };
+
+      await updateDoc(doc(db, 'chats', selectedChat), {
+        messages: arrayUnion(message),
+        lastMessageAt: serverTimestamp(),
+        unreadByClient: true,
+        unreadByStaff: false
+      });
+
+      setNewMessage('');
+    } catch (err) {
+      console.error('Błąd wysyłania:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Wyślij wizualizację
+  const sendVisualization = async () => {
+    if (!vizWidth || !vizDepth || !selectedChat) return;
+
+    try {
+      const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+
+      const message = {
+        id: Date.now().toString(),
+        type: 'visualization',
+        width: vizWidth,
+        depth: vizDepth,
+        side: vizSide,
+        timestamp: new Date().toISOString(),
+        senderName: currentUser.name || currentUser.email
+      };
+
+      await updateDoc(doc(db, 'chats', selectedChat), {
+        messages: arrayUnion(message),
+        lastMessageAt: serverTimestamp(),
+        unreadByClient: true
+      });
+
+      setShowVisualization(false);
+      setVizWidth('');
+      setVizDepth('');
+    } catch (err) {
+      console.error('Błąd wysyłania wizualizacji:', err);
+    }
+  };
+
+  // Zamknij czat
+  const closeChat = async (chatId) => {
+    if (!window.confirm('Zamknąć ten czat?')) return;
+    
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      await updateDoc(doc(db, 'chats', chatId), {
+        status: 'closed'
+      });
+    } catch (err) {
+      console.error('Błąd zamykania czatu:', err);
+    }
+  };
+
+  const currentChat = chats.find(c => c.id === selectedChat);
+  const waitingChats = chats.filter(c => c.status === 'waiting');
+  const activeChats = chats.filter(c => c.status === 'active' && c.assignedTo === currentUser.id);
+  const unreadCount = chats.filter(c => c.unreadByStaff && (c.assignedTo === currentUser.id || !c.assignedTo)).length;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'1200px',height:'85vh',display:'flex',flexDirection:'column',padding:0}}>
+        {/* Header */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#1E293B,#334155)',color:'white',borderRadius:'12px 12px 0 0'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <h2 style={{margin:0,fontSize:'18px',display:'flex',alignItems:'center',gap:'10px'}}>
+              💬 Czaty z klientami
+              {unreadCount > 0 && (
+                <span style={{background:'#EF4444',padding:'2px 8px',borderRadius:'10px',fontSize:'12px'}}>{unreadCount} nowych</span>
+              )}
+            </h2>
+            <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
+          </div>
+        </div>
+
+        <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+          {/* Lista czatów */}
+          <div style={{width:'300px',borderRight:'1px solid #E2E8F0',overflow:'auto',background:'#F8FAFC'}}>
+            {/* Oczekujące */}
+            {waitingChats.length > 0 && (
+              <div>
+                <div style={{padding:'12px 16px',background:'#FEF3C7',fontWeight:'600',fontSize:'12px',color:'#92400E'}}>
+                  ⏳ Oczekujące ({waitingChats.length})
+                </div>
+                {waitingChats.map(chat => (
+                  <div
+                    key={chat.id}
+                    onClick={() => takeChat(chat.id)}
+                    style={{
+                      padding:'12px 16px',
+                      borderBottom:'1px solid #E2E8F0',
+                      cursor:'pointer',
+                      background: chat.id === selectedChat ? '#EDE9FE' : 'white'
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontWeight:'600',fontSize:'14px'}}>{chat.clientName}</div>
+                      <span style={{fontSize:'10px',background:'#F59E0B',color:'white',padding:'2px 6px',borderRadius:'4px'}}>NOWY</span>
+                    </div>
+                    <div style={{fontSize:'12px',color:'#64748B',marginTop:'4px'}}>{chat.categoryName}</div>
+                    <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'2px'}}>
+                      {chat.clientCountry} • {chat.lastMessageAt?.toDate ? chat.lastMessageAt.toDate().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}) : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Aktywne */}
+            {activeChats.length > 0 && (
+              <div>
+                <div style={{padding:'12px 16px',background:'#D1FAE5',fontWeight:'600',fontSize:'12px',color:'#065F46'}}>
+                  💬 Twoje czaty ({activeChats.length})
+                </div>
+                {activeChats.map(chat => (
+                  <div
+                    key={chat.id}
+                    onClick={() => onSelectChat(chat.id)}
+                    style={{
+                      padding:'12px 16px',
+                      borderBottom:'1px solid #E2E8F0',
+                      cursor:'pointer',
+                      background: chat.id === selectedChat ? '#EDE9FE' : 'white'
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontWeight:'600',fontSize:'14px'}}>{chat.clientName}</div>
+                      {chat.unreadByStaff && (
+                        <span style={{width:'8px',height:'8px',background:'#8B5CF6',borderRadius:'50%'}}></span>
+                      )}
+                    </div>
+                    <div style={{fontSize:'12px',color:'#64748B',marginTop:'4px'}}>{chat.categoryName}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {waitingChats.length === 0 && activeChats.length === 0 && (
+              <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8'}}>
+                <div style={{fontSize:'48px',marginBottom:'12px'}}>💬</div>
+                <div>Brak aktywnych czatów</div>
+              </div>
+            )}
+          </div>
+
+          {/* Okno czatu */}
+          <div style={{flex:1,display:'flex',flexDirection:'column',background:'#F1F5F9'}}>
+            {currentChat ? (
+              <>
+                {/* Header czatu */}
+                <div style={{padding:'12px 16px',background:'white',borderBottom:'1px solid #E2E8F0'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontWeight:'600',fontSize:'15px'}}>{currentChat.clientName}</div>
+                      <div style={{fontSize:'12px',color:'#64748B'}}>
+                        {currentChat.categoryName} • {currentChat.clientEmail || currentChat.clientPhone || 'Brak kontaktu'}
+                      </div>
+                      {currentChat.customDimensions && (
+                        <div style={{fontSize:'11px',color:'#8B5CF6',marginTop:'4px'}}>
+                          📐 Wymiary: {currentChat.customDimensions.width}x{currentChat.customDimensions.depth} cm ({currentChat.customDimensions.side === 'left' ? 'lewy' : 'prawy'})
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => closeChat(currentChat.id)}
+                      style={{padding:'6px 12px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',fontSize:'12px',cursor:'pointer'}}
+                    >
+                      Zamknij czat
+                    </button>
+                  </div>
+                </div>
+
+                {/* Wiadomości */}
+                <div style={{flex:1,overflow:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+                  {(currentChat.messages || []).map((msg, idx) => (
+                    <div key={msg.id || idx} style={{
+                      display:'flex',
+                      justifyContent: msg.type === 'staff' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
+                    }}>
+                      {msg.type === 'system' ? (
+                        <div style={{background:'#E2E8F0',padding:'8px 14px',borderRadius:'16px',fontSize:'12px',color:'#64748B'}}>
+                          {msg.text}
+                        </div>
+                      ) : msg.type === 'visualization' ? (
+                        <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'280px'}}>
+                          <div style={{fontSize:'11px',color:'#8B5CF6',fontWeight:'600',marginBottom:'8px'}}>📐 Wizualizacja</div>
+                          <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
+                            <svg width="200" height="150" viewBox="0 0 200 150">
+                              {msg.side === 'left' ? (
+                                <path d="M 20 20 L 180 20 L 180 60 L 80 60 L 80 130 L 20 130 Z" fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+                              ) : (
+                                <path d="M 20 20 L 180 20 L 180 130 L 120 130 L 120 60 L 20 60 Z" fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+                              )}
+                              <text x="100" y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{msg.width} cm</text>
+                              <text x="10" y="75" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform="rotate(-90, 10, 75)">{msg.depth} cm</text>
+                            </svg>
+                          </div>
+                          <div style={{fontSize:'10px',color:'#64748B',marginTop:'6px',textAlign:'center'}}>
+                            {msg.width}x{msg.depth} cm • {msg.side === 'left' ? 'Lewy' : 'Prawy'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{
+                          background: msg.type === 'staff' ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : 'white',
+                          color: msg.type === 'staff' ? 'white' : '#1E293B',
+                          padding:'10px 14px',
+                          borderRadius: msg.type === 'staff' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                          maxWidth:'70%',
+                          boxShadow:'0 2px 6px rgba(0,0,0,0.1)'
+                        }}>
+                          {msg.type === 'client' && (
+                            <div style={{fontSize:'10px',color:'#8B5CF6',fontWeight:'600',marginBottom:'4px'}}>{msg.senderName}</div>
+                          )}
+                          {msg.photo && (
+                            <img src={msg.photo} alt="" style={{maxWidth:'100%',maxHeight:'200px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0}} />
+                          )}
+                          {msg.text && <div style={{fontSize:'13px',lineHeight:'1.4'}}>{msg.text}</div>}
+                          <div style={{fontSize:'10px',opacity:0.7,marginTop:'4px',textAlign:'right'}}>
+                            {new Date(msg.timestamp).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Modal wizualizacji */}
+                {showVisualization && (
+                  <div style={{padding:'16px',background:'#F5F3FF',borderTop:'1px solid #C4B5FD'}}>
+                    <div style={{display:'flex',gap:'12px',alignItems:'flex-end'}}>
+                      <div style={{flex:1}}>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm)</label>
+                        <input
+                          type="number"
+                          value={vizWidth}
+                          onChange={(e) => setVizWidth(e.target.value)}
+                          placeholder="250"
+                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div style={{flex:1}}>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm)</label>
+                        <input
+                          type="number"
+                          value={vizDepth}
+                          onChange={(e) => setVizDepth(e.target.value)}
+                          placeholder="150"
+                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div style={{flex:1}}>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona</label>
+                        <select
+                          value={vizSide}
+                          onChange={(e) => setVizSide(e.target.value)}
+                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px'}}
+                        >
+                          <option value="left">⬅️ Lewy</option>
+                          <option value="right">➡️ Prawy</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={sendVisualization}
+                        style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer'}}
+                      >
+                        Wyślij
+                      </button>
+                      <button
+                        onClick={() => setShowVisualization(false)}
+                        style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input */}
+                <div style={{padding:'12px 16px',background:'white',borderTop:'1px solid #E2E8F0'}}>
+                  <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+                    <button
+                      onClick={() => setShowVisualization(!showVisualization)}
+                      title="Wyślij wizualizację narożnika"
+                      style={{
+                        width:'40px',
+                        height:'40px',
+                        borderRadius:'8px',
+                        border:'1px solid #E2E8F0',
+                        background: showVisualization ? '#F5F3FF' : 'white',
+                        cursor:'pointer',
+                        fontSize:'16px'
+                      }}
+                    >
+                      📐
+                    </button>
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      placeholder="Napisz wiadomość..."
+                      style={{flex:1,padding:'10px 14px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={sending || !newMessage.trim()}
+                      style={{
+                        padding:'10px 20px',
+                        borderRadius:'8px',
+                        border:'none',
+                        background: newMessage.trim() ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : '#E2E8F0',
+                        color:'white',
+                        fontWeight:'600',
+                        cursor: newMessage.trim() ? 'pointer' : 'default'
+                      }}
+                    >
+                      Wyślij
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#94A3B8'}}>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontSize:'64px',marginBottom:'16px'}}>💬</div>
+                  <div style={{fontSize:'16px'}}>Wybierz czat z listy</div>
+                  <div style={{fontSize:'13px',marginTop:'8px'}}>lub przejmij oczekujący</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
