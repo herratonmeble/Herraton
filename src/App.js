@@ -14608,14 +14608,15 @@ const ClientOrderForm = ({ token }) => {
         });
       }
       
-      // Jeśli klient podał email - wyślij potwierdzenie z linkiem do śledzenia
+      // Jeśli klient podał email - wyślij potwierdzenie przez bramkę mailingową
       if (formData.clientEmail) {
         const trackingLink = `${window.location.origin}/zamowienie/${token}`;
         const orderNumbersText = orderNumbers.join(', ');
         const productsText = productsList.filter(Boolean).join(', ');
         
-        const subject = encodeURIComponent(`Potwierdzenie zamówienia ${orderNumbersText}`);
-        const body = encodeURIComponent(
+        const subject = `Potwierdzenie zamówienia ${orderNumbersText} - Herraton`;
+        
+        const textContent = 
           `Szanowny/a ${formData.clientName},\n\n` +
           `Dziękujemy za potwierdzenie zamówienia!\n\n` +
           `📋 Numer zamówienia: ${orderNumbersText}\n` +
@@ -14627,11 +14628,74 @@ const ClientOrderForm = ({ token }) => {
           (formData.clientPhone ? `📞 Tel: ${formData.clientPhone}\n` : '') +
           `\n🔗 Link do śledzenia zamówienia:\n${trackingLink}\n\n` +
           `Pod tym linkiem możesz sprawdzić aktualny status swojego zamówienia.\n\n` +
-          `Pozdrawiamy,\nZespół Herraton`
-        );
+          `Pozdrawiamy,\nZespół Herraton`;
         
-        // Otwórz klienta pocztowego
-        window.open(`mailto:${formData.clientEmail}?subject=${subject}&body=${body}`);
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #8B5CF6, #6D28D9); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">✅ Zamówienie potwierdzone!</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0;">Nr ${orderNumbersText}</p>
+            </div>
+            
+            <div style="background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px;">
+              <p style="color: #374151; font-size: 16px;">Szanowny/a <strong>${formData.clientName}</strong>,</p>
+              <p style="color: #374151;">Dziękujemy za potwierdzenie zamówienia! Twoje dane zostały zapisane.</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                <h3 style="margin: 0 0 15px; color: #1e293b; font-size: 16px;">📦 Szczegóły zamówienia:</h3>
+                <p style="margin: 5px 0; color: #64748b;"><strong>Produkty:</strong> ${productsText}</p>
+                <p style="margin: 5px 0; color: #64748b;"><strong>Wartość:</strong> ${orderData.productPrice} ${orderData.currency}</p>
+                ${orderData.deposit > 0 ? `<p style="margin: 5px 0; color: #10b981;"><strong>Wpłacona zaliczka:</strong> ${orderData.deposit} ${orderData.currency}</p>` : ''}
+                ${orderData.deposit > 0 ? `<p style="margin: 5px 0; color: #8b5cf6;"><strong>Do zapłaty:</strong> ${(orderData.productPrice - orderData.deposit).toFixed(2)} ${orderData.currency}</p>` : ''}
+              </div>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                <h3 style="margin: 0 0 15px; color: #1e293b; font-size: 16px;">📍 Adres dostawy:</h3>
+                <p style="margin: 5px 0; color: #64748b;">${formData.clientName}</p>
+                <p style="margin: 5px 0; color: #64748b;">${formData.clientAddress}</p>
+                <p style="margin: 5px 0; color: #64748b;">${formData.clientPostcode} ${formData.clientCity}</p>
+                ${formData.clientPhone ? `<p style="margin: 5px 0; color: #64748b;">📞 ${formData.clientPhone}</p>` : ''}
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${trackingLink}" style="display: inline-block; background: linear-gradient(135deg, #8B5CF6, #6D28D9); color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                  🔗 Śledź swoje zamówienie
+                </a>
+              </div>
+              
+              <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+                Pod powyższym linkiem możesz sprawdzić aktualny status swojego zamówienia.
+              </p>
+            </div>
+            
+            <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
+              Herraton • System obsługi zamówień
+            </div>
+          </div>
+        `;
+        
+        // Wyślij email przez bramkę mailingową
+        try {
+          const response = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: formData.clientEmail.trim(),
+              toName: formData.clientName,
+              subject,
+              textContent,
+              htmlContent
+            })
+          });
+          
+          if (response.ok) {
+            console.log('Email z potwierdzeniem wysłany!');
+          } else {
+            console.error('Błąd wysyłki emaila:', await response.text());
+          }
+        } catch (emailErr) {
+          console.error('Błąd wysyłki emaila:', emailErr);
+        }
       }
       
       setSubmitted(true);
@@ -14716,7 +14780,32 @@ const ClientOrderForm = ({ token }) => {
     { code: 'AT', name: '🇦🇹 Austria' },
     { code: 'CZ', name: '🇨🇿 Czechy' },
     { code: 'SK', name: '🇸🇰 Słowacja' },
-    { code: 'OTHER', name: '🌍 Inny' }
+    { code: 'IT', name: '🇮🇹 Włochy' },
+    { code: 'ES', name: '🇪🇸 Hiszpania' },
+    { code: 'PT', name: '🇵🇹 Portugalia' },
+    { code: 'IE', name: '🇮🇪 Irlandia' },
+    { code: 'DK', name: '🇩🇰 Dania' },
+    { code: 'SE', name: '🇸🇪 Szwecja' },
+    { code: 'NO', name: '🇳🇴 Norwegia' },
+    { code: 'FI', name: '🇫🇮 Finlandia' },
+    { code: 'CH', name: '🇨🇭 Szwajcaria' },
+    { code: 'LU', name: '🇱🇺 Luksemburg' },
+    { code: 'HU', name: '🇭🇺 Węgry' },
+    { code: 'RO', name: '🇷🇴 Rumunia' },
+    { code: 'BG', name: '🇧🇬 Bułgaria' },
+    { code: 'HR', name: '🇭🇷 Chorwacja' },
+    { code: 'SI', name: '🇸🇮 Słowenia' },
+    { code: 'LT', name: '🇱🇹 Litwa' },
+    { code: 'LV', name: '🇱🇻 Łotwa' },
+    { code: 'EE', name: '🇪🇪 Estonia' },
+    { code: 'GR', name: '🇬🇷 Grecja' },
+    { code: 'CY', name: '🇨🇾 Cypr' },
+    { code: 'MT', name: '🇲🇹 Malta' },
+    { code: 'UA', name: '🇺🇦 Ukraina' },
+    { code: 'US', name: '🇺🇸 USA' },
+    { code: 'CA', name: '🇨🇦 Kanada' },
+    { code: 'AU', name: '🇦🇺 Australia' },
+    { code: 'OTHER', name: '🌍 Inny kraj' }
   ];
 
   return (
