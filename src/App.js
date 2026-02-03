@@ -613,6 +613,8 @@ const DELIVERY_PAYMENT_METHODS = [
 const getDeliveryPaymentMethod = (id) => DELIVERY_PAYMENT_METHODS.find(m => m.id === id) || DELIVERY_PAYMENT_METHODS[0];
 
 const STATUSES = [
+  { id: 'oczekuje_na_dane', name: 'Oczekuje na dane klienta', color: '#8B5CF6', bgColor: '#EDE9FE', icon: '⏳' },
+  { id: 'dane_uzupelnione', name: 'Dane uzupełnione', color: '#06B6D4', bgColor: '#CFFAFE', icon: '📋' },
   { id: 'nowe', name: 'Nowe zamówienie', color: '#059669', bgColor: '#D1FAE5', icon: '🆕' },
   { id: 'potwierdzone', name: 'Potwierdzone', color: '#2563EB', bgColor: '#DBEAFE', icon: '✅' },
   { id: 'w_produkcji', name: 'W produkcji', color: '#D97706', bgColor: '#FEF3C7', icon: '🏭' },
@@ -14381,14 +14383,15 @@ const ClientOrderForm = ({ token }) => {
     deliveryNotes: ''
   });
 
-  // Pobierz dane zamówienia
+  // Pobierz dane zamówienia z kolekcji orders
   useEffect(() => {
     const fetchOrder = async () => {
       try {
         const { collection, query, where, getDocs } = await import('firebase/firestore');
         const { db } = await import('./firebase');
         
-        const q = query(collection(db, 'pendingOrders'), where('token', '==', token));
+        // Szukamy w kolekcji orders po clientToken
+        const q = query(collection(db, 'orders'), where('clientToken', '==', token));
         const snapshot = await getDocs(q);
         
         if (snapshot.empty) {
@@ -14400,23 +14403,34 @@ const ClientOrderForm = ({ token }) => {
         const doc = snapshot.docs[0];
         const data = { id: doc.id, ...doc.data() };
         
-        if (data.status === 'completed') {
+        // Jeśli dane już uzupełnione
+        if (!data.awaitingClientData) {
           setSubmitted(true);
           setFormData({
-            clientName: data.clientName || '',
-            clientPhone: data.clientPhone || '',
-            clientEmail: data.clientEmail || '',
-            clientAddress: data.clientAddress || '',
-            clientCity: data.clientCity || '',
-            clientPostcode: data.clientPostcode || '',
-            clientCountry: data.clientCountry || 'PL',
-            deliveryNotes: data.deliveryNotes || ''
+            clientName: data.imie || '',
+            clientPhone: data.telefon || '',
+            clientEmail: data.email || '',
+            clientAddress: data.adres || '',
+            clientCity: data.miasto || '',
+            clientPostcode: data.kodPocztowy || '',
+            clientCountry: data.kraj || 'PL',
+            deliveryNotes: data.uwagiDostawy || ''
           });
         }
         
-        setOrderData(data);
-        if (data.clientEmail) {
-          setFormData(prev => ({ ...prev, clientEmail: data.clientEmail }));
+        // Przetwórz dane do wyświetlenia
+        const product = data.produkty?.[0] || {};
+        setOrderData({
+          id: data.id,
+          orderNumber: data.nrWlasny,
+          productName: product.nazwa || '',
+          productPrice: product.cena || 0,
+          currency: product.waluta || 'PLN',
+          deposit: product.zaliczka || 0
+        });
+        
+        if (data.email) {
+          setFormData(prev => ({ ...prev, clientEmail: data.email }));
         }
         setLoading(false);
       } catch (err) {
@@ -14443,10 +14457,20 @@ const ClientOrderForm = ({ token }) => {
       const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
-      await updateDoc(doc(db, 'pendingOrders', orderData.id), {
-        ...formData,
-        status: 'completed',
-        completedAt: serverTimestamp()
+      // Aktualizuj zamówienie w kolekcji orders
+      await updateDoc(doc(db, 'orders', orderData.id), {
+        imie: formData.clientName,
+        telefon: formData.clientPhone,
+        email: formData.clientEmail,
+        adres: formData.clientAddress,
+        miasto: formData.clientCity,
+        kodPocztowy: formData.clientPostcode,
+        kraj: formData.clientCountry,
+        uwagiDostawy: formData.deliveryNotes,
+        awaitingClientData: false, // Dane uzupełnione
+        status: 'dane_uzupelnione', // Zmień status
+        'produkty.0.status': 'nowe', // Zmień status produktu na nowe
+        clientDataFilledAt: serverTimestamp()
       });
       
       setSubmitted(true);
@@ -14488,12 +14512,13 @@ const ClientOrderForm = ({ token }) => {
           <div style={{fontSize:'64px',marginBottom:'16px'}}>✅</div>
           <h2 style={{margin:'0 0 12px',color:'#059669'}}>Dziękujemy!</h2>
           <p style={{color:'#64748B',margin:'0 0 24px'}}>
-            Twoje dane zostały zapisane. Zamówienie zostanie wkrótce przetworzone.
+            Twoje dane zostały zapisane. Zamówienie nr <strong>{orderData.orderNumber}</strong> zostanie wkrótce przetworzone.
           </p>
           
           <div style={{background:'#F0FDF4',borderRadius:'12px',padding:'20px',textAlign:'left'}}>
             <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#059669'}}>📋 Podsumowanie zamówienia:</h3>
             <div style={{fontSize:'14px',color:'#1E293B'}}>
+              <div style={{marginBottom:'8px'}}><strong>Nr zamówienia:</strong> {orderData.orderNumber}</div>
               <div style={{marginBottom:'8px'}}><strong>Produkt:</strong> {orderData.productName}</div>
               <div style={{marginBottom:'8px'}}><strong>Cena:</strong> {orderData.productPrice} {orderData.currency}</div>
               {orderData.deposit > 0 && <div style={{marginBottom:'8px'}}><strong>Zaliczka:</strong> {orderData.deposit} {orderData.currency}</div>}
@@ -16049,6 +16074,8 @@ const PublicOrderPanel = ({ token }) => {
   // Statusy zamówienia
   const getStatusInfo = (status) => {
     const statuses = {
+      'oczekuje_na_dane': { name: 'Oczekuje na dane klienta', color: '#8B5CF6', bg: '#EDE9FE', icon: '⏳', step: -1 },
+      'dane_uzupelnione': { name: 'Dane uzupełnione', color: '#06B6D4', bg: '#CFFAFE', icon: '📋', step: 0 },
       'nowe': { name: 'Nowe zamówienie', color: '#3B82F6', bg: '#DBEAFE', icon: '📝', step: 0 },
       'potwierdzone': { name: 'Potwierdzone', color: '#8B5CF6', bg: '#EDE9FE', icon: '✅', step: 1 },
       'w_produkcji': { name: 'W produkcji', color: '#F59E0B', bg: '#FEF3C7', icon: '🏭', step: 2 },
@@ -17479,22 +17506,28 @@ const App = () => {
     }
   };
 
-  // Ładuj oczekujące zamówienia z Firebase
+  // Ładuj oczekujące zamówienia (z flagą awaitingClientData) z głównej kolekcji orders
   useEffect(() => {
-    const loadPendingOrders = async () => {
-      try {
-        const { collection, getDocs, query, where, orderBy } = await import('firebase/firestore');
-        const { db } = await import('./firebase');
-        const q = query(collection(db, 'pendingOrders'), where('status', '==', 'pending'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        setPendingOrders(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.log('Brak oczekujących zamówień');
-        setPendingOrders([]);
-      }
-    };
-    loadPendingOrders();
-  }, []);
+    // pendingOrders będzie synchronizowane z orders - filtrujemy te które czekają na dane klienta
+    const pending = orders.filter(o => o.awaitingClientData && o.clientToken);
+    setPendingOrders(pending.map(o => ({
+      id: o.id,
+      orderId: o.id,
+      orderNumber: o.nrWlasny,
+      productName: o.produkty?.[0]?.nazwa || '',
+      productPrice: o.produkty?.[0]?.cena || 0,
+      currency: o.produkty?.[0]?.waluta || 'PLN',
+      deposit: o.produkty?.[0]?.zaliczka || 0,
+      token: o.clientToken,
+      status: o.awaitingClientData ? 'pending' : 'completed',
+      clientName: o.imie,
+      clientAddress: o.adres,
+      clientPhone: o.telefon,
+      clientEmail: o.email,
+      createdAt: o.createdAt,
+      note: o.produkty?.[0]?.opis || ''
+    })));
+  }, [orders]);
 
   // Funkcje zarządzania linkami dla klientów
   const createClientLink = async (orderData) => {
@@ -17504,19 +17537,60 @@ const App = () => {
       
       const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
       
-      const docRef = await addDoc(collection(db, 'pendingOrders'), {
-        ...orderData,
-        token,
-        status: 'pending', // pending, completed, expired
+      // Generuj numer zamówienia (używamy PL jako domyślny kraj, klient może zmienić)
+      const orderNumber = generateOrderNumber(orders, 'PL');
+      
+      // Tworzymy prawdziwe zamówienie ze statusem "oczekuje_na_dane"
+      const newOrder = {
+        nrWlasny: orderNumber,
+        imie: '', // Klient uzupełni
+        telefon: '',
+        email: orderData.clientEmail || '',
+        adres: '',
+        miasto: '',
+        kodPocztowy: '',
+        kraj: 'PL',
+        uwagiDostawy: '',
+        produkty: [{
+          id: Date.now(),
+          nazwa: orderData.productName,
+          cena: orderData.productPrice,
+          waluta: orderData.currency,
+          zaliczka: orderData.deposit || 0,
+          ilosc: 1,
+          status: 'oczekuje_na_dane', // Specjalny status
+          dataOdbioru: '',
+          producent: '',
+          opis: orderData.note || ''
+        }],
+        status: 'oczekuje_na_dane', // Nowy status zamówienia
+        clientToken: token, // Token dla klienta
+        awaitingClientData: true, // Flaga że czeka na dane klienta
         createdAt: serverTimestamp(),
-        createdBy: user?.id
-      });
+        createdBy: user?.name || user?.email || 'System',
+        createdById: user?.id
+      };
       
-      setPendingOrders(prev => [{ id: docRef.id, ...orderData, token, status: 'pending', createdAt: new Date() }, ...prev]);
+      const docRef = await addDoc(collection(db, 'orders'), newOrder);
       
-      return { id: docRef.id, token };
+      // Dodaj do lokalnego stanu zamówień
+      const orderWithId = { id: docRef.id, ...newOrder, createdAt: new Date() };
+      setOrders(prev => [orderWithId, ...prev]);
+      
+      // Dodaj też do pendingOrders dla łatwego śledzenia
+      setPendingOrders(prev => [{ 
+        id: docRef.id, 
+        orderId: docRef.id,
+        orderNumber,
+        ...orderData, 
+        token, 
+        status: 'pending', 
+        createdAt: new Date() 
+      }, ...prev]);
+      
+      return { id: docRef.id, token, orderNumber };
     } catch (err) {
-      console.error('Błąd tworzenia linku:', err);
+      console.error('Błąd tworzenia zamówienia:', err);
       return null;
     }
   };
@@ -17525,8 +17599,10 @@ const App = () => {
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
       const { db } = await import('./firebase');
-      await deleteDoc(doc(db, 'pendingOrders', orderId));
+      // Usuń zamówienie z kolekcji orders
+      await deleteDoc(doc(db, 'orders', orderId));
       setPendingOrders(prev => prev.filter(p => p.id !== orderId));
+      setOrders(prev => prev.filter(o => o.id !== orderId));
       return true;
     } catch (err) {
       console.error('Błąd usuwania:', err);
@@ -19548,6 +19624,7 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
     note: ''
   });
   const [generatedLink, setGeneratedLink] = useState(null);
+  const [generatedOrderNumber, setGeneratedOrderNumber] = useState(null);
   const [sending, setSending] = useState(false);
 
   const handleCreate = async () => {
@@ -19568,6 +19645,7 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
     if (result) {
       const link = `${window.location.origin}/klient/${result.token}`;
       setGeneratedLink(link);
+      setGeneratedOrderNumber(result.orderNumber);
     }
   };
 
@@ -19604,6 +19682,7 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
   const resetForm = () => {
     setFormData({ productName: '', productPrice: '', currency: 'PLN', deposit: '', clientEmail: '', note: '' });
     setGeneratedLink(null);
+    setGeneratedOrderNumber(null);
   };
 
   return (
@@ -19695,7 +19774,15 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
                       >
                         <option value="PLN">PLN</option>
                         <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
+                        <option value="PLN">PLN 🇵🇱</option>
+                        <option value="EUR">EUR 🇪🇺</option>
+                        <option value="GBP">GBP 🇬🇧</option>
+                        <option value="USD">USD 🇺🇸</option>
+                        <option value="CHF">CHF 🇨🇭</option>
+                        <option value="CZK">CZK 🇨🇿</option>
+                        <option value="DKK">DKK 🇩🇰</option>
+                        <option value="NOK">NOK 🇳🇴</option>
+                        <option value="SEK">SEK 🇸🇪</option>
                       </select>
                     </div>
                   </div>
@@ -19743,9 +19830,13 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
               ) : (
                 <div style={{textAlign:'center'}}>
                   <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
-                  <h3 style={{margin:'0 0 8px',color:'#059669'}}>Link został wygenerowany!</h3>
-                  <p style={{color:'#64748B',fontSize:'13px',marginBottom:'20px'}}>
-                    Skopiuj link lub wyślij na email klienta
+                  <h3 style={{margin:'0 0 8px',color:'#059669'}}>Zamówienie utworzone!</h3>
+                  <p style={{color:'#64748B',fontSize:'13px',marginBottom:'12px'}}>
+                    Nr zamówienia: <strong style={{color:'#8B5CF6',fontSize:'16px'}}>{generatedOrderNumber}</strong>
+                  </p>
+                  <p style={{color:'#64748B',fontSize:'12px',marginBottom:'20px'}}>
+                    Zamówienie czeka w systemie ze statusem "Oczekuje na dane klienta".<br/>
+                    Po uzupełnieniu formularza przez klienta, dane zostaną automatycznie przepisane.
                   </p>
                   
                   <div style={{background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'10px',padding:'16px',marginBottom:'20px'}}>
@@ -19805,6 +19896,16 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
                       }}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
                           <div>
+                            <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                              <span style={{background:'#8B5CF6',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'11px',fontWeight:'700'}}>
+                                #{order.orderNumber}
+                              </span>
+                              {hasClientData ? (
+                                <span style={{background:'#10B981',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>✅ Dane uzupełnione</span>
+                              ) : (
+                                <span style={{background:'#F59E0B',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>⏳ Oczekuje na klienta</span>
+                              )}
+                            </div>
                             <div style={{fontWeight:'700',fontSize:'15px',color:'#1E293B'}}>{order.productName}</div>
                             <div style={{fontSize:'13px',color:'#8B5CF6',fontWeight:'600'}}>
                               {order.productPrice} {order.currency}
@@ -19812,26 +19913,20 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
                             </div>
                           </div>
                           <div style={{display:'flex',gap:'6px'}}>
-                            {hasClientData && (
-                              <button
-                                onClick={() => onConvertToOrder(order)}
-                                style={{padding:'6px 12px',borderRadius:'6px',border:'none',background:'#10B981',color:'white',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}
-                              >
-                                ✓ Dodaj zamówienie
-                              </button>
-                            )}
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(`${window.location.origin}/klient/${order.token}`);
                                 alert('Link skopiowany!');
                               }}
                               style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontSize:'12px'}}
+                              title="Kopiuj link"
                             >
                               📋
                             </button>
                             <button
-                              onClick={() => window.confirm('Usunąć?') && onDelete(order.id)}
+                              onClick={() => window.confirm('Usunąć zamówienie?') && onDelete(order.id)}
                               style={{padding:'6px 10px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'12px'}}
+                              title="Usuń"
                             >
                               🗑️
                             </button>
