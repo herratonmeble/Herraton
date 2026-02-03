@@ -14559,10 +14559,21 @@ const ClientOrderForm = ({ token }) => {
       const q = query(collection(db, 'orders'), where('clientToken', '==', token));
       const snapshot = await getDocs(q);
       
+      // Zbierz numery zamówień i produkty do emaila
+      let orderNumbers = [];
+      let productsList = [];
+      
       // Aktualizuj każde zamówienie
       for (const orderDoc of snapshot.docs) {
         const orderRef = doc(db, 'orders', orderDoc.id);
         const currentOrder = orderDoc.data();
+        
+        orderNumbers.push(currentOrder.nrWlasny);
+        if (currentOrder.produkty) {
+          currentOrder.produkty.forEach(p => {
+            productsList.push(p.nazwa || p.towar || '');
+          });
+        }
         
         // Zaktualizuj status WSZYSTKICH produktów na 'nowe'
         const updatedProdukty = (currentOrder.produkty || []).map(p => ({
@@ -14592,9 +14603,35 @@ const ClientOrderForm = ({ token }) => {
           // Produkty i status
           produkty: updatedProdukty,
           awaitingClientData: false,
-          status: 'nowe', // Zmień na 'nowe' zamiast 'dane_uzupelnione'
+          status: 'nowe',
           clientDataFilledAt: serverTimestamp()
         });
+      }
+      
+      // Jeśli klient podał email - wyślij potwierdzenie z linkiem do śledzenia
+      if (formData.clientEmail) {
+        const trackingLink = `${window.location.origin}/zamowienie/${token}`;
+        const orderNumbersText = orderNumbers.join(', ');
+        const productsText = productsList.filter(Boolean).join(', ');
+        
+        const subject = encodeURIComponent(`Potwierdzenie zamówienia ${orderNumbersText}`);
+        const body = encodeURIComponent(
+          `Szanowny/a ${formData.clientName},\n\n` +
+          `Dziękujemy za potwierdzenie zamówienia!\n\n` +
+          `📋 Numer zamówienia: ${orderNumbersText}\n` +
+          `📦 Produkty: ${productsText}\n` +
+          `💰 Wartość: ${orderData.productPrice} ${orderData.currency}\n` +
+          (orderData.deposit > 0 ? `✅ Wpłacona zaliczka: ${orderData.deposit} ${orderData.currency}\n` : '') +
+          (orderData.deposit > 0 ? `💳 Do zapłaty: ${(orderData.productPrice - orderData.deposit).toFixed(2)} ${orderData.currency}\n` : '') +
+          `\n📍 Adres dostawy:\n${formData.clientName}\n${formData.clientAddress}\n${formData.clientPostcode} ${formData.clientCity}\n` +
+          (formData.clientPhone ? `📞 Tel: ${formData.clientPhone}\n` : '') +
+          `\n🔗 Link do śledzenia zamówienia:\n${trackingLink}\n\n` +
+          `Pod tym linkiem możesz sprawdzić aktualny status swojego zamówienia.\n\n` +
+          `Pozdrawiamy,\nZespół Herraton`
+        );
+        
+        // Otwórz klienta pocztowego
+        window.open(`mailto:${formData.clientEmail}?subject=${subject}&body=${body}`);
       }
       
       setSubmitted(true);
