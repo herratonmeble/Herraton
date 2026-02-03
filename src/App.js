@@ -14458,7 +14458,7 @@ const ClientOrderForm = ({ token }) => {
         const { collection, query, where, getDocs } = await import('firebase/firestore');
         const { db } = await import('./firebase');
         
-        // Szukamy w kolekcji orders po clientToken
+        // Szukamy WSZYSTKICH zamówień z tym tokenem (mogą być połączone)
         const q = query(collection(db, 'orders'), where('clientToken', '==', token));
         const snapshot = await getDocs(q);
         
@@ -14468,37 +14468,67 @@ const ClientOrderForm = ({ token }) => {
           return;
         }
         
-        const doc = snapshot.docs[0];
-        const data = { id: doc.id, ...doc.data() };
+        // Zbierz wszystkie zamówienia
+        const allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const firstOrder = allOrders[0];
         
         // Jeśli dane już uzupełnione
-        if (!data.awaitingClientData) {
+        if (!firstOrder.awaitingClientData) {
           setSubmitted(true);
           setFormData({
-            clientName: data.imie || '',
-            clientPhone: data.telefon || '',
-            clientEmail: data.email || '',
-            clientAddress: data.adres || '',
-            clientCity: data.miasto || '',
-            clientPostcode: data.kodPocztowy || '',
-            clientCountry: data.kraj || 'PL',
-            deliveryNotes: data.uwagiDostawy || ''
+            clientName: firstOrder.imie || firstOrder.klient?.imie || '',
+            clientPhone: firstOrder.telefon || firstOrder.klient?.telefon || '',
+            clientEmail: firstOrder.email || firstOrder.klient?.email || '',
+            clientAddress: firstOrder.adres || '',
+            clientCity: firstOrder.miasto || '',
+            clientPostcode: firstOrder.kodPocztowy || '',
+            clientCountry: firstOrder.kraj || 'PL',
+            deliveryNotes: firstOrder.uwagiDostawy || ''
           });
         }
         
-        // Przetwórz dane do wyświetlenia
-        const product = data.produkty?.[0] || {};
-        setOrderData({
-          id: data.id,
-          orderNumber: data.nrWlasny,
-          productName: product.nazwa || '',
-          productPrice: product.cena || 0,
-          currency: product.waluta || 'PLN',
-          deposit: product.zaliczka || 0
+        // Zbierz produkty ze wszystkich zamówień
+        let allProducts = [];
+        let totalPrice = 0;
+        let totalDeposit = 0;
+        let currency = 'PLN';
+        
+        allOrders.forEach(order => {
+          if (order.produkty) {
+            order.produkty.forEach(p => {
+              allProducts.push({
+                name: p.nazwa || p.towar || '',
+                price: p.cena || 0,
+                currency: p.waluta || order.platnosci?.waluta || 'PLN'
+              });
+              totalPrice += p.cena || 0;
+              totalDeposit += p.zaliczka || 0;
+              currency = p.waluta || order.platnosci?.waluta || 'PLN';
+            });
+          }
         });
         
-        if (data.email) {
-          setFormData(prev => ({ ...prev, clientEmail: data.email }));
+        // Użyj ceny całkowitej z płatności jeśli jest
+        if (firstOrder.platnosci?.cenaCalkowita) {
+          totalPrice = firstOrder.platnosci.cenaCalkowita;
+        }
+        if (firstOrder.platnosci?.zaplacono) {
+          totalDeposit = firstOrder.platnosci.zaplacono;
+        }
+        
+        setOrderData({
+          id: firstOrder.id,
+          orderNumber: firstOrder.nrWlasny,
+          products: allProducts,
+          productName: allProducts.map(p => p.name).join(', ') || '',
+          productPrice: totalPrice,
+          currency: currency,
+          deposit: totalDeposit,
+          ordersCount: allOrders.length
+        });
+        
+        if (firstOrder.email || firstOrder.klient?.email) {
+          setFormData(prev => ({ ...prev, clientEmail: firstOrder.email || firstOrder.klient?.email }));
         }
         setLoading(false);
       } catch (err) {
@@ -14522,37 +14552,50 @@ const ClientOrderForm = ({ token }) => {
     setSubmitting(true);
     
     try {
-      const { doc, updateDoc, getDoc, serverTimestamp } = await import('firebase/firestore');
+      const { collection, query, where, getDocs, doc, updateDoc, getDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
-      // Pobierz aktualne dane zamówienia aby zaktualizować produkty
-      const orderRef = doc(db, 'orders', orderData.id);
-      const orderSnap = await getDoc(orderRef);
-      const currentOrder = orderSnap.data();
+      // Znajdź WSZYSTKIE zamówienia z tym tokenem (mogą być połączone)
+      const q = query(collection(db, 'orders'), where('clientToken', '==', token));
+      const snapshot = await getDocs(q);
       
-      // Zaktualizuj status produktów
-      const updatedProdukty = (currentOrder.produkty || []).map((p, idx) => {
-        if (idx === 0) {
-          return { ...p, status: 'nowe' };
-        }
-        return p;
-      });
-      
-      // Aktualizuj zamówienie w kolekcji orders
-      await updateDoc(orderRef, {
-        imie: formData.clientName,
-        telefon: formData.clientPhone,
-        email: formData.clientEmail,
-        adres: formData.clientAddress,
-        miasto: formData.clientCity,
-        kodPocztowy: formData.clientPostcode,
-        kraj: formData.clientCountry,
-        uwagiDostawy: formData.deliveryNotes,
-        produkty: updatedProdukty,
-        awaitingClientData: false,
-        status: 'dane_uzupelnione',
-        clientDataFilledAt: serverTimestamp()
-      });
+      // Aktualizuj każde zamówienie
+      for (const orderDoc of snapshot.docs) {
+        const orderRef = doc(db, 'orders', orderDoc.id);
+        const currentOrder = orderDoc.data();
+        
+        // Zaktualizuj status WSZYSTKICH produktów na 'nowe'
+        const updatedProdukty = (currentOrder.produkty || []).map(p => ({
+          ...p,
+          status: 'nowe'
+        }));
+        
+        // Aktualizuj zamówienie - dane klienta + status + produkty
+        await updateDoc(orderRef, {
+          // Dane klienta
+          imie: formData.clientName,
+          telefon: formData.clientPhone,
+          email: formData.clientEmail,
+          adres: formData.clientAddress,
+          miasto: formData.clientCity,
+          kodPocztowy: formData.clientPostcode,
+          kraj: formData.clientCountry,
+          uwagiDostawy: formData.deliveryNotes,
+          // Dla kompatybilności ze starym formatem
+          klient: {
+            imie: formData.clientName,
+            telefon: formData.clientPhone,
+            email: formData.clientEmail,
+            adres: `${formData.clientAddress}, ${formData.clientPostcode} ${formData.clientCity}`,
+            facebookUrl: ''
+          },
+          // Produkty i status
+          produkty: updatedProdukty,
+          awaitingClientData: false,
+          status: 'nowe', // Zmień na 'nowe' zamiast 'dane_uzupelnione'
+          clientDataFilledAt: serverTimestamp()
+        });
+      }
       
       setSubmitted(true);
     } catch (err) {
@@ -14651,11 +14694,26 @@ const ClientOrderForm = ({ token }) => {
 
         {/* Order details */}
         <div style={{background:'rgba(255,255,255,0.15)',borderRadius:'16px',padding:'20px',marginBottom:'20px',color:'white'}}>
-          <h3 style={{margin:'0 0 12px',fontSize:'14px',opacity:0.8}}>📋 Szczegóły zamówienia:</h3>
-          <div style={{fontSize:'18px',fontWeight:'700',marginBottom:'8px'}}>{orderData.productName}</div>
-          <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
+          <h3 style={{margin:'0 0 12px',fontSize:'14px',opacity:0.8}}>
+            📋 Szczegóły zamówienia {orderData.orderNumber && `#${orderData.orderNumber}`}:
+          </h3>
+          
+          {/* Lista produktów */}
+          {orderData.products && orderData.products.length > 0 ? (
+            <div style={{marginBottom:'12px'}}>
+              {orderData.products.map((prod, idx) => (
+                <div key={idx} style={{padding:'8px 0',borderBottom: idx < orderData.products.length - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none'}}>
+                  <div style={{fontWeight:'600',fontSize:'15px'}}>{prod.name}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{fontSize:'18px',fontWeight:'700',marginBottom:'8px'}}>{orderData.productName}</div>
+          )}
+          
+          <div style={{display:'flex',gap:'16px',flexWrap:'wrap',marginTop:'12px'}}>
             <div>
-              <span style={{opacity:0.8}}>Cena: </span>
+              <span style={{opacity:0.8}}>Cena całkowita: </span>
               <span style={{fontWeight:'700',fontSize:'18px'}}>{orderData.productPrice} {orderData.currency}</span>
             </div>
             {orderData.deposit > 0 && (
