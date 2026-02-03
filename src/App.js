@@ -14552,7 +14552,7 @@ const ClientOrderForm = ({ token }) => {
     setSubmitting(true);
     
     try {
-      const { collection, query, where, getDocs, doc, updateDoc, getDoc, serverTimestamp } = await import('firebase/firestore');
+      const { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
       // Znajdź WSZYSTKIE zamówienia z tym tokenem (mogą być połączone)
