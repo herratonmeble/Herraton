@@ -3885,6 +3885,67 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                     <input value={form.klient?.facebookUrl || ''} onChange={e => updateKlient('facebookUrl', e.target.value)} placeholder="https://facebook.com/..." />
                   </div>
                 </div>
+                
+                {/* Przycisk do wygenerowania linku dla klienta */}
+                {!form.klient?.imie && !form.klient?.adres && products[0]?.towar && (
+                  <div style={{marginTop:'16px',padding:'16px',background:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',borderRadius:'12px',border:'1px solid #C4B5FD'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+                      <div style={{flex:1,minWidth:'200px'}}>
+                        <div style={{fontWeight:'600',fontSize:'14px',color:'#5B21B6',marginBottom:'4px'}}>🔗 Brak danych klienta?</div>
+                        <div style={{fontSize:'12px',color:'#7C3AED'}}>Wygeneruj link - klient sam uzupełni swoje dane</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // Zapisz najpierw zamówienie ze statusem oczekuje_na_dane
+                          const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+                          const orderToSave = {
+                            ...form,
+                            produkty: products.map(p => ({
+                              ...p,
+                              nazwa: p.towar,
+                              cena: form.platnosci?.cenaCalkowita || p.cenaKlienta || 0,
+                              waluta: form.platnosci?.waluta || 'PLN',
+                              zaliczka: form.platnosci?.zaplacono || 0,
+                              status: 'oczekuje_na_dane'
+                            })),
+                            status: 'oczekuje_na_dane',
+                            clientToken: token,
+                            awaitingClientData: true
+                          };
+                          
+                          const savedOrder = await onSave(orderToSave);
+                          if (savedOrder) {
+                            const link = `${window.location.origin}/klient/${token}`;
+                            
+                            // Jeśli jest email - otwórz mailto
+                            if (form.klient?.email) {
+                              const subject = encodeURIComponent('Potwierdź zamówienie - uzupełnij dane');
+                              const body = encodeURIComponent(
+                                `Dzień dobry,\n\nProsimy o uzupełnienie danych do zamówienia:\n\n` +
+                                `Produkt: ${products[0]?.towar || ''}\n` +
+                                `Cena: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'PLN'}\n` +
+                                (form.platnosci?.zaplacono ? `Wpłacona zaliczka: ${form.platnosci?.zaplacono} ${form.platnosci?.waluta || 'PLN'}\n` : '') +
+                                `\nLink do formularza:\n${link}\n\n` +
+                                `Po wypełnieniu formularza otrzymasz potwierdzenie na email.\n\n` +
+                                `Pozdrawiamy,\nZespół Herraton`
+                              );
+                              window.open(`mailto:${form.klient.email}?subject=${subject}&body=${body}`);
+                            }
+                            
+                            // Kopiuj link
+                            navigator.clipboard.writeText(link);
+                            alert(`✅ Zamówienie zapisane!\n\nLink skopiowany do schowka:\n${link}\n\n${form.klient?.email ? 'Otwarto też klienta pocztowego.' : 'Wyślij link klientowi.'}`);
+                            onClose();
+                          }
+                        }}
+                        style={{padding:'10px 16px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap'}}
+                      >
+                        🔗 Zapisz i wygeneruj link
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -14454,11 +14515,24 @@ const ClientOrderForm = ({ token }) => {
     setSubmitting(true);
     
     try {
-      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+      const { doc, updateDoc, getDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
+      // Pobierz aktualne dane zamówienia aby zaktualizować produkty
+      const orderRef = doc(db, 'orders', orderData.id);
+      const orderSnap = await getDoc(orderRef);
+      const currentOrder = orderSnap.data();
+      
+      // Zaktualizuj status produktów
+      const updatedProdukty = (currentOrder.produkty || []).map((p, idx) => {
+        if (idx === 0) {
+          return { ...p, status: 'nowe' };
+        }
+        return p;
+      });
+      
       // Aktualizuj zamówienie w kolekcji orders
-      await updateDoc(doc(db, 'orders', orderData.id), {
+      await updateDoc(orderRef, {
         imie: formData.clientName,
         telefon: formData.clientPhone,
         email: formData.clientEmail,
@@ -14467,9 +14541,9 @@ const ClientOrderForm = ({ token }) => {
         kodPocztowy: formData.clientPostcode,
         kraj: formData.clientCountry,
         uwagiDostawy: formData.deliveryNotes,
-        awaitingClientData: false, // Dane uzupełnione
-        status: 'dane_uzupelnione', // Zmień status
-        'produkty.0.status': 'nowe', // Zmień status produktu na nowe
+        produkty: updatedProdukty,
+        awaitingClientData: false,
+        status: 'dane_uzupelnione',
         clientDataFilledAt: serverTimestamp()
       });
       
@@ -14511,9 +14585,17 @@ const ClientOrderForm = ({ token }) => {
         <div style={{background:'white',padding:'40px',borderRadius:'20px',textAlign:'center',maxWidth:'500px',margin:'20px',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
           <div style={{fontSize:'64px',marginBottom:'16px'}}>✅</div>
           <h2 style={{margin:'0 0 12px',color:'#059669'}}>Dziękujemy!</h2>
-          <p style={{color:'#64748B',margin:'0 0 24px'}}>
-            Twoje dane zostały zapisane. Zamówienie nr <strong>{orderData.orderNumber}</strong> zostanie wkrótce przetworzone.
+          <p style={{color:'#64748B',margin:'0 0 16px'}}>
+            Twoje dane zostały zapisane.
           </p>
+          
+          {formData.clientEmail && (
+            <div style={{background:'#DBEAFE',borderRadius:'10px',padding:'14px',marginBottom:'20px',textAlign:'left'}}>
+              <div style={{fontSize:'13px',color:'#1E40AF'}}>
+                📧 Na adres <strong>{formData.clientEmail}</strong> otrzymasz potwierdzenie zamówienia z linkiem do śledzenia statusu.
+              </div>
+            </div>
+          )}
           
           <div style={{background:'#F0FDF4',borderRadius:'12px',padding:'20px',textAlign:'left'}}>
             <h3 style={{margin:'0 0 12px',fontSize:'14px',color:'#059669'}}>📋 Podsumowanie zamówienia:</h3>
@@ -14528,6 +14610,10 @@ const ClientOrderForm = ({ token }) => {
               <div><strong>Miasto:</strong> {formData.clientPostcode} {formData.clientCity}</div>
             </div>
           </div>
+          
+          <p style={{color:'#94A3B8',fontSize:'12px',marginTop:'20px'}}>
+            W razie pytań skontaktuj się z nami
+          </p>
         </div>
       </div>
     );
@@ -18834,17 +18920,16 @@ Zespół obsługi zamówień
             <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
               ➕ Nowe zamówienie
             </button>
-            <button 
-              className="btn-secondary" 
-              onClick={() => setShowClientLinkModal(true)}
-              style={{background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',border:'none',padding:'8px 12px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',display:'flex',alignItems:'center',gap:'6px'}}
-              title="Wygeneruj link dla klienta do uzupełnienia danych"
-            >
-              🔗 Link dla klienta
-              {pendingOrders.length > 0 && (
-                <span style={{background:'#EF4444',color:'white',borderRadius:'50%',width:'18px',height:'18px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700'}}>{pendingOrders.length}</span>
-              )}
-            </button>
+            {pendingOrders.length > 0 && (
+              <button 
+                onClick={() => setShowClientLinkModal(true)}
+                style={{background:'linear-gradient(135deg,#F59E0B,#D97706)',color:'white',border:'none',padding:'8px 12px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',display:'flex',alignItems:'center',gap:'6px'}}
+                title="Zamówienia oczekujące na dane klienta"
+              >
+                ⏳ Oczekujące
+                <span style={{background:'white',color:'#D97706',borderRadius:'50%',width:'18px',height:'18px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700'}}>{pendingOrders.length}</span>
+              </button>
+            )}
             <input
               className="search-input search-box"
               placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
@@ -19551,19 +19636,8 @@ Zespół obsługi zamówień
       {showClientLinkModal && (
         <ClientLinkModal
           pendingOrders={pendingOrders}
-          onCreateLink={createClientLink}
           onDelete={deletePendingOrder}
           onClose={() => setShowClientLinkModal(false)}
-          onConvertToOrder={(pendingOrder) => {
-            // Konwertuj wypełnione zamówienie do normalnego
-            setEditingOrder(null);
-            setShowOrderModal(true);
-            // Przekaż dane do formularza zamówienia
-            setTimeout(() => {
-              // Te dane będą użyte w formularzu
-              window.pendingOrderData = pendingOrder;
-            }, 100);
-          }}
         />
       )}
 
@@ -19613,78 +19687,7 @@ Zespół obsługi zamówień
 // MODAL LINKÓW DLA KLIENTÓW
 // ============================================
 
-const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onConvertToOrder }) => {
-  const [activeTab, setActiveTab] = useState('create'); // 'create' lub 'list'
-  const [formData, setFormData] = useState({
-    productName: '',
-    productPrice: '',
-    currency: 'PLN',
-    deposit: '',
-    clientEmail: '',
-    note: ''
-  });
-  const [generatedLink, setGeneratedLink] = useState(null);
-  const [generatedOrderNumber, setGeneratedOrderNumber] = useState(null);
-  const [sending, setSending] = useState(false);
-
-  const handleCreate = async () => {
-    if (!formData.productName || !formData.productPrice) {
-      alert('Podaj nazwę produktu i cenę');
-      return;
-    }
-    
-    const result = await onCreateLink({
-      productName: formData.productName,
-      productPrice: parseFloat(formData.productPrice),
-      currency: formData.currency,
-      deposit: formData.deposit ? parseFloat(formData.deposit) : 0,
-      clientEmail: formData.clientEmail,
-      note: formData.note
-    });
-    
-    if (result) {
-      const link = `${window.location.origin}/klient/${result.token}`;
-      setGeneratedLink(link);
-      setGeneratedOrderNumber(result.orderNumber);
-    }
-  };
-
-  const copyLink = () => {
-    if (generatedLink) {
-      navigator.clipboard.writeText(generatedLink);
-      alert('Link skopiowany!');
-    }
-  };
-
-  const sendEmail = async () => {
-    if (!formData.clientEmail || !generatedLink) {
-      alert('Brak emaila lub linku');
-      return;
-    }
-    
-    setSending(true);
-    // Otwórz klienta pocztowego z przygotowanym mailem
-    const subject = encodeURIComponent('Potwierdź zamówienie - ' + formData.productName);
-    const body = encodeURIComponent(
-      `Dzień dobry,\n\nProsimy o uzupełnienie danych do zamówienia:\n\n` +
-      `Produkt: ${formData.productName}\n` +
-      `Cena: ${formData.productPrice} ${formData.currency}\n` +
-      (formData.deposit ? `Zaliczka: ${formData.deposit} ${formData.currency}\n` : '') +
-      `\nLink do formularza:\n${generatedLink}\n\n` +
-      `Po wypełnieniu formularza zamówienie zostanie automatycznie dodane do naszego systemu.\n\n` +
-      `Pozdrawiamy,\nZespół Herraton`
-    );
-    
-    window.open(`mailto:${formData.clientEmail}?subject=${subject}&body=${body}`);
-    setSending(false);
-  };
-
-  const resetForm = () => {
-    setFormData({ productName: '', productPrice: '', currency: 'PLN', deposit: '', clientEmail: '', note: '' });
-    setGeneratedLink(null);
-    setGeneratedOrderNumber(null);
-  };
-
+const ClientLinkModal = ({ pendingOrders, onDelete, onClose }) => {
   return (
     <>
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:99998}} onClick={onClose}></div>
@@ -19697,8 +19700,8 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
         borderRadius:'16px',
         padding:'0',
         width:'95%',
-        maxWidth:'700px',
-        maxHeight:'90vh',
+        maxWidth:'600px',
+        maxHeight:'85vh',
         overflow:'hidden',
         zIndex:99999,
         boxShadow:'0 25px 50px rgba(0,0,0,0.3)',
@@ -19706,261 +19709,102 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
         flexDirection:'column'
       }}>
         {/* Header */}
-        <div style={{padding:'20px 24px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)'}}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#F59E0B,#D97706)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <h2 style={{margin:0,fontSize:'18px',color:'white',display:'flex',alignItems:'center',gap:'10px'}}>
-              🔗 Linki dla klientów
+              ⏳ Zamówienia oczekujące na dane klienta
             </h2>
             <button onClick={onClose} style={{background:'rgba(255,255,255,0.2)',border:'none',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',color:'white',fontSize:'18px'}}>×</button>
           </div>
-          <p style={{margin:'8px 0 0',fontSize:'13px',color:'rgba(255,255,255,0.8)'}}>
-            Wygeneruj link, który klient uzupełni swoimi danymi
+          <p style={{margin:'8px 0 0',fontSize:'13px',color:'rgba(255,255,255,0.9)'}}>
+            Klienci otrzymali link i czekamy na uzupełnienie danych
           </p>
-        </div>
-
-        {/* Tabs */}
-        <div style={{display:'flex',borderBottom:'1px solid #E2E8F0'}}>
-          <button 
-            onClick={() => setActiveTab('create')}
-            style={{flex:1,padding:'12px',border:'none',background: activeTab === 'create' ? 'white' : '#F8FAFC',cursor:'pointer',fontWeight:'600',fontSize:'13px',color: activeTab === 'create' ? '#8B5CF6' : '#64748B',borderBottom: activeTab === 'create' ? '2px solid #8B5CF6' : 'none'}}
-          >
-            ➕ Nowy link
-          </button>
-          <button 
-            onClick={() => setActiveTab('list')}
-            style={{flex:1,padding:'12px',border:'none',background: activeTab === 'list' ? 'white' : '#F8FAFC',cursor:'pointer',fontWeight:'600',fontSize:'13px',color: activeTab === 'list' ? '#8B5CF6' : '#64748B',borderBottom: activeTab === 'list' ? '2px solid #8B5CF6' : 'none',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}
-          >
-            📋 Oczekujące
-            {pendingOrders.length > 0 && (
-              <span style={{background:'#EF4444',color:'white',borderRadius:'50%',width:'20px',height:'20px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'700'}}>{pendingOrders.length}</span>
-            )}
-          </button>
         </div>
 
         {/* Content */}
         <div style={{flex:1,overflow:'auto',padding:'20px 24px'}}>
-          {activeTab === 'create' && (
-            <div>
-              {!generatedLink ? (
-                <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
-                  <div>
-                    <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Nazwa produktu *</label>
-                    <input
-                      type="text"
-                      value={formData.productName}
-                      onChange={(e) => setFormData({...formData, productName: e.target.value})}
-                      placeholder="np. Stół dębowy 180x90"
-                      style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-                  
-                  <div style={{display:'flex',gap:'12px'}}>
-                    <div style={{flex:1}}>
-                      <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Cena *</label>
-                      <input
-                        type="number"
-                        value={formData.productPrice}
-                        onChange={(e) => setFormData({...formData, productPrice: e.target.value})}
-                        placeholder="0.00"
-                        style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                      />
-                    </div>
-                    <div style={{width:'100px'}}>
-                      <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Waluta</label>
-                      <select
-                        value={formData.currency}
-                        onChange={(e) => setFormData({...formData, currency: e.target.value})}
-                        style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
-                      >
-                        <option value="PLN">PLN</option>
-                        <option value="EUR">EUR</option>
-                        <option value="PLN">PLN 🇵🇱</option>
-                        <option value="EUR">EUR 🇪🇺</option>
-                        <option value="GBP">GBP 🇬🇧</option>
-                        <option value="USD">USD 🇺🇸</option>
-                        <option value="CHF">CHF 🇨🇭</option>
-                        <option value="CZK">CZK 🇨🇿</option>
-                        <option value="DKK">DKK 🇩🇰</option>
-                        <option value="NOK">NOK 🇳🇴</option>
-                        <option value="SEK">SEK 🇸🇪</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Wpłacona zaliczka</label>
-                    <input
-                      type="number"
-                      value={formData.deposit}
-                      onChange={(e) => setFormData({...formData, deposit: e.target.value})}
-                      placeholder="0.00 (opcjonalne)"
-                      style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Email klienta (opcjonalne)</label>
-                    <input
-                      type="email"
-                      value={formData.clientEmail}
-                      onChange={(e) => setFormData({...formData, clientEmail: e.target.value})}
-                      placeholder="klient@email.com"
-                      style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{fontSize:'12px',fontWeight:'600',color:'#374151',display:'block',marginBottom:'6px'}}>Notatka wewnętrzna</label>
-                    <textarea
-                      value={formData.note}
-                      onChange={(e) => setFormData({...formData, note: e.target.value})}
-                      placeholder="Widoczna tylko dla Ciebie"
-                      rows={2}
-                      style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',resize:'vertical',boxSizing:'border-box'}}
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleCreate}
-                    style={{padding:'14px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',fontWeight:'700',fontSize:'14px',cursor:'pointer',marginTop:'8px'}}
-                  >
-                    🔗 Wygeneruj link
-                  </button>
-                </div>
-              ) : (
-                <div style={{textAlign:'center'}}>
-                  <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
-                  <h3 style={{margin:'0 0 8px',color:'#059669'}}>Zamówienie utworzone!</h3>
-                  <p style={{color:'#64748B',fontSize:'13px',marginBottom:'12px'}}>
-                    Nr zamówienia: <strong style={{color:'#8B5CF6',fontSize:'16px'}}>{generatedOrderNumber}</strong>
-                  </p>
-                  <p style={{color:'#64748B',fontSize:'12px',marginBottom:'20px'}}>
-                    Zamówienie czeka w systemie ze statusem "Oczekuje na dane klienta".<br/>
-                    Po uzupełnieniu formularza przez klienta, dane zostaną automatycznie przepisane.
-                  </p>
-                  
-                  <div style={{background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'10px',padding:'16px',marginBottom:'20px'}}>
-                    <div style={{fontSize:'12px',color:'#059669',fontWeight:'600',marginBottom:'8px'}}>Link dla klienta:</div>
-                    <div style={{background:'white',padding:'12px',borderRadius:'8px',fontSize:'13px',wordBreak:'break-all',color:'#1E293B'}}>
-                      {generatedLink}
-                    </div>
-                  </div>
-
-                  <div style={{display:'flex',gap:'10px',justifyContent:'center',flexWrap:'wrap'}}>
-                    <button
-                      onClick={copyLink}
-                      style={{padding:'12px 20px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',fontWeight:'600',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}
-                    >
-                      📋 Kopiuj link
-                    </button>
-                    {formData.clientEmail && (
-                      <button
-                        onClick={sendEmail}
-                        disabled={sending}
-                        style={{padding:'12px 20px',borderRadius:'8px',border:'none',background:'#10B981',color:'white',fontWeight:'600',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px',opacity:sending?0.7:1}}
-                      >
-                        📧 Wyślij na email
-                      </button>
-                    )}
-                    <button
-                      onClick={resetForm}
-                      style={{padding:'12px 20px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',color:'#64748B',fontWeight:'600',cursor:'pointer'}}
-                    >
-                      ➕ Nowy link
-                    </button>
-                  </div>
-                </div>
-              )}
+          {pendingOrders.length === 0 ? (
+            <div style={{textAlign:'center',padding:'40px 20px',color:'#94A3B8'}}>
+              <div style={{fontSize:'48px',marginBottom:'12px'}}>✅</div>
+              <div style={{fontWeight:'600',marginBottom:'8px'}}>Brak oczekujących zamówień</div>
+              <div style={{fontSize:'13px'}}>
+                Aby wygenerować link dla klienta, utwórz nowe zamówienie<br/>
+                i użyj opcji "Zapisz i wygeneruj link" w sekcji danych klienta
+              </div>
             </div>
-          )}
-
-          {activeTab === 'list' && (
-            <div>
-              {pendingOrders.length === 0 ? (
-                <div style={{textAlign:'center',padding:'40px 20px',color:'#94A3B8'}}>
-                  <div style={{fontSize:'48px',marginBottom:'12px'}}>📭</div>
-                  <div>Brak oczekujących zamówień</div>
-                  <div style={{fontSize:'13px',marginTop:'8px'}}>Wygenerowane linki pojawią się tutaj</div>
-                </div>
-              ) : (
-                <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                  {pendingOrders.map(order => {
-                    const hasClientData = order.clientName && order.clientAddress;
-                    
-                    return (
-                      <div key={order.id} style={{
-                        border: hasClientData ? '2px solid #10B981' : '1px solid #E2E8F0',
-                        borderRadius:'12px',
-                        padding:'16px',
-                        background: hasClientData ? '#F0FDF4' : 'white'
-                      }}>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-                          <div>
-                            <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
-                              <span style={{background:'#8B5CF6',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'11px',fontWeight:'700'}}>
-                                #{order.orderNumber}
-                              </span>
-                              {hasClientData ? (
-                                <span style={{background:'#10B981',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>✅ Dane uzupełnione</span>
-                              ) : (
-                                <span style={{background:'#F59E0B',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>⏳ Oczekuje na klienta</span>
-                              )}
-                            </div>
-                            <div style={{fontWeight:'700',fontSize:'15px',color:'#1E293B'}}>{order.productName}</div>
-                            <div style={{fontSize:'13px',color:'#8B5CF6',fontWeight:'600'}}>
-                              {order.productPrice} {order.currency}
-                              {order.deposit > 0 && <span style={{color:'#10B981',marginLeft:'8px'}}>zaliczka: {order.deposit} {order.currency}</span>}
-                            </div>
-                          </div>
-                          <div style={{display:'flex',gap:'6px'}}>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/klient/${order.token}`);
-                                alert('Link skopiowany!');
-                              }}
-                              style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontSize:'12px'}}
-                              title="Kopiuj link"
-                            >
-                              📋
-                            </button>
-                            <button
-                              onClick={() => window.confirm('Usunąć zamówienie?') && onDelete(order.id)}
-                              style={{padding:'6px 10px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'12px'}}
-                              title="Usuń"
-                            >
-                              🗑️
-                            </button>
-                          </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              {pendingOrders.map(order => {
+                const hasClientData = order.clientName && order.clientAddress;
+                
+                return (
+                  <div key={order.id} style={{
+                    border: hasClientData ? '2px solid #10B981' : '1px solid #E2E8F0',
+                    borderRadius:'12px',
+                    padding:'16px',
+                    background: hasClientData ? '#F0FDF4' : 'white'
+                  }}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+                      <div>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                          <span style={{background:'#8B5CF6',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'11px',fontWeight:'700'}}>
+                            #{order.orderNumber}
+                          </span>
+                          {hasClientData ? (
+                            <span style={{background:'#10B981',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>✅ Dane uzupełnione</span>
+                          ) : (
+                            <span style={{background:'#F59E0B',color:'white',padding:'2px 8px',borderRadius:'4px',fontSize:'10px'}}>⏳ Oczekuje</span>
+                          )}
                         </div>
-
-                        {hasClientData ? (
-                          <div style={{background:'white',borderRadius:'8px',padding:'12px',marginTop:'8px'}}>
-                            <div style={{fontSize:'12px',fontWeight:'600',color:'#10B981',marginBottom:'8px'}}>✅ Klient wypełnił dane:</div>
-                            <div style={{fontSize:'13px',color:'#1E293B'}}>
-                              <div><strong>Imię i nazwisko:</strong> {order.clientName}</div>
-                              <div><strong>Adres:</strong> {order.clientAddress}</div>
-                              {order.clientPhone && <div><strong>Telefon:</strong> {order.clientPhone}</div>}
-                              {order.clientEmail && <div><strong>Email:</strong> {order.clientEmail}</div>}
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{fontSize:'12px',color:'#F59E0B',display:'flex',alignItems:'center',gap:'6px'}}>
-                            ⏳ Oczekiwanie na wypełnienie przez klienta...
-                          </div>
-                        )}
-
-                        {order.note && (
-                          <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'8px'}}>📝 {order.note}</div>
-                        )}
-                        
-                        <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'6px'}}>
-                          Utworzono: {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('pl-PL') : new Date(order.createdAt).toLocaleString('pl-PL')}
+                        <div style={{fontWeight:'700',fontSize:'15px',color:'#1E293B'}}>{order.productName}</div>
+                        <div style={{fontSize:'13px',color:'#8B5CF6',fontWeight:'600'}}>
+                          {order.productPrice} {order.currency}
+                          {order.deposit > 0 && <span style={{color:'#10B981',marginLeft:'8px'}}>zaliczka: {order.deposit} {order.currency}</span>}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <div style={{display:'flex',gap:'6px'}}>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/klient/${order.token}`);
+                            alert('Link skopiowany!');
+                          }}
+                          style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontSize:'12px'}}
+                          title="Kopiuj link"
+                        >
+                          📋
+                        </button>
+                        <button
+                          onClick={() => window.confirm('Usunąć zamówienie?') && onDelete(order.id)}
+                          style={{padding:'6px 10px',borderRadius:'6px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'12px'}}
+                          title="Usuń"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+
+                    {hasClientData ? (
+                      <div style={{background:'white',borderRadius:'8px',padding:'12px',marginTop:'8px'}}>
+                        <div style={{fontSize:'12px',fontWeight:'600',color:'#10B981',marginBottom:'8px'}}>✅ Klient wypełnił dane:</div>
+                        <div style={{fontSize:'13px',color:'#1E293B'}}>
+                          <div><strong>Imię i nazwisko:</strong> {order.clientName}</div>
+                          <div><strong>Adres:</strong> {order.clientAddress}</div>
+                          {order.clientPhone && <div><strong>Telefon:</strong> {order.clientPhone}</div>}
+                          {order.clientEmail && <div><strong>Email:</strong> {order.clientEmail}</div>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{fontSize:'12px',color:'#F59E0B',display:'flex',alignItems:'center',gap:'6px',marginTop:'8px'}}>
+                        ⏳ Oczekiwanie na wypełnienie przez klienta...
+                      </div>
+                    )}
+
+                    {order.note && (
+                      <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'8px'}}>📝 {order.note}</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
