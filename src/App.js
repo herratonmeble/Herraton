@@ -3887,7 +3887,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                 </div>
                 
                 {/* Przycisk do wygenerowania linku dla klienta */}
-                {!form.klient?.imie && !form.klient?.adres && products[0]?.towar && (
+                {!form.klient?.imie && !form.klient?.adres && form.produkty?.[0]?.towar && (
                   <div style={{marginTop:'16px',padding:'16px',background:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',borderRadius:'12px',border:'1px solid #C4B5FD'}}>
                     <div style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
                       <div style={{flex:1,minWidth:'200px'}}>
@@ -3901,7 +3901,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                           const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
                           const orderToSave = {
                             ...form,
-                            produkty: products.map(p => ({
+                            produkty: form.produkty.map(p => ({
                               ...p,
                               nazwa: p.towar,
                               cena: form.platnosci?.cenaCalkowita || p.cenaKlienta || 0,
@@ -3923,7 +3923,7 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                               const subject = encodeURIComponent('Potwierdź zamówienie - uzupełnij dane');
                               const body = encodeURIComponent(
                                 `Dzień dobry,\n\nProsimy o uzupełnienie danych do zamówienia:\n\n` +
-                                `Produkt: ${products[0]?.towar || ''}\n` +
+                                `Produkt: ${form.produkty[0]?.towar || ''}\n` +
                                 `Cena: ${form.platnosci?.cenaCalkowita || 0} ${form.platnosci?.waluta || 'PLN'}\n` +
                                 (form.platnosci?.zaplacono ? `Wpłacona zaliczka: ${form.platnosci?.zaplacono} ${form.platnosci?.waluta || 'PLN'}\n` : '') +
                                 `\nLink do formularza:\n${link}\n\n` +
