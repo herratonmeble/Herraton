@@ -19794,7 +19794,6 @@ const ClientLinkModal = ({ pendingOrders, onCreateLink, onDelete, onClose, onCon
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
                   {pendingOrders.map(order => {
-                    const isCompleted = order.status === 'completed';
                     const hasClientData = order.clientName && order.clientAddress;
                     
                     return (
