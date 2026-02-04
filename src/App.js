@@ -17468,8 +17468,8 @@ const PublicOrderPanel = ({ token }) => {
   );
 };
 
-const App = () => {
-  // ROUTING PUBLICZNY - sprawdź PRZED wszystkim innym
+// ROUTER - sprawdza publiczne ścieżki przed główną aplikacją
+const AppRouter = () => {
   const currentPath = window.location.pathname;
   
   // Publiczny czat - nie wymaga logowania
@@ -17494,7 +17494,12 @@ const App = () => {
   if (complaintMatch) {
     return <PublicComplaintForm token={complaintMatch[1]} />;
   }
+  
+  // Główna aplikacja
+  return <App />;
+};
 
+const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
@@ -21382,4 +21387,4 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
   );
 };
 
-export default App;
+export default AppRouter;
