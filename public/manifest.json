@@ -37,6 +37,20 @@
       "description": "Dodaj nowe zamówienie",
       "url": "/?action=new-order",
       "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Czat z klientem",
+      "short_name": "Czat",
+      "description": "Rozpocznij rozmowę z obsługą",
+      "url": "/czat",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
     }
   ]
 }
+```
+
+**Dla klientów** - w instrukcji instalacji na stronie `/czat` wystarczy że dodadzą stronę do ekranu głównego. Wtedy przeglądarka zapamięta że otwierali `/czat` i tam ich przekieruje.
+
+Alternatywnie możesz wysyłać klientom link:
+```
+https://herraton.vercel.app/czat
