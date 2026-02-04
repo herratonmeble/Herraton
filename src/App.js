@@ -14377,7 +14377,6 @@ const PublicChat = () => {
   const [lightboxContent, setLightboxContent] = useState(null); // { type: 'photo' | 'visualization', data: ... }
   const [chatHistory, setChatHistory] = useState([]); // Historia zakończonych czatów
   const [viewingHistoryChat, setViewingHistoryChat] = useState(null); // Przeglądany czat z historii
-  const [chatStatus, setChatStatus] = useState('active'); // Status bieżącego czatu
   
   // Wizualizacja
   const [vizWidth, setVizWidth] = useState('');
@@ -14599,7 +14598,6 @@ const PublicChat = () => {
             const chatData = chatDoc.data();
             setChatId(savedChatId);
             setFormData(prev => ({ ...prev, name: savedName || '' }));
-            setChatStatus(chatData.status || 'active');
             
             // Jeśli czat jest zamknięty, przenieś do historii i pokaż formularz
             if (chatData.status === 'closed') {
