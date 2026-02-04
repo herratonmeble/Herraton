@@ -17468,37 +17468,6 @@ const PublicOrderPanel = ({ token }) => {
   );
 };
 
-// ROUTER - sprawdza publiczne ścieżki przed główną aplikacją
-const AppRouter = () => {
-  const currentPath = window.location.pathname;
-  
-  // Publiczny czat - nie wymaga logowania
-  if (currentPath === '/czat') {
-    return <PublicChat />;
-  }
-  
-  // Panel śledzenia zamówienia - nie wymaga logowania
-  const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
-  if (orderMatch) {
-    return <PublicOrderPanel token={orderMatch[1]} />;
-  }
-  
-  // Formularz klienta - nie wymaga logowania
-  const clientFormMatch = currentPath.match(/^\/klient\/(.+)$/);
-  if (clientFormMatch) {
-    return <ClientOrderForm token={clientFormMatch[1]} />;
-  }
-  
-  // Formularz reklamacji - nie wymaga logowania
-  const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
-  if (complaintMatch) {
-    return <PublicComplaintForm token={complaintMatch[1]} />;
-  }
-  
-  // Główna aplikacja
-  return <App />;
-};
-
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21385,6 +21354,37 @@ const TutorialOverlay = ({ steps, category, currentStep, userRole, onNext, onPre
       `}</style>
     </div>
   );
+};
+
+// ROUTER - sprawdza publiczne ścieżki przed główną aplikacją
+const AppRouter = () => {
+  const currentPath = window.location.pathname;
+  
+  // Publiczny czat - nie wymaga logowania
+  if (currentPath === '/czat') {
+    return <PublicChat />;
+  }
+  
+  // Panel śledzenia zamówienia - nie wymaga logowania
+  const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
+  if (orderMatch) {
+    return <PublicOrderPanel token={orderMatch[1]} />;
+  }
+  
+  // Formularz klienta - nie wymaga logowania
+  const clientFormMatch = currentPath.match(/^\/klient\/(.+)$/);
+  if (clientFormMatch) {
+    return <ClientOrderForm token={clientFormMatch[1]} />;
+  }
+  
+  // Formularz reklamacji - nie wymaga logowania
+  const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
+  if (complaintMatch) {
+    return <PublicComplaintForm token={complaintMatch[1]} />;
+  }
+  
+  // Główna aplikacja
+  return <App />;
 };
 
 export default AppRouter;
