@@ -14477,12 +14477,48 @@ const PublicChat = () => {
     }
 
     try {
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const { collection, addDoc, serverTimestamp, arrayUnion } = await import('firebase/firestore');
       const { db } = await import('./firebase');
 
       const categoryName = formData.category === 'inne' 
         ? formData.customCategory 
         : categories.find(c => c.id === formData.category)?.name || formData.category;
+
+      // Przygotuj początkowe wiadomości
+      const initialMessages = [];
+      
+      // Wiadomość powitalna systemowa
+      initialMessages.push({
+        id: 'welcome',
+        type: 'system',
+        text: `Dziękujemy za wiadomość! 🛋️\n\nDział obsługi klienta pracuje od poniedziałku do piątku w godzinach 8:00 - 16:00.\n\nOdpowiemy najszybciej jak to możliwe.`,
+        timestamp: new Date().toISOString()
+      });
+
+      // Jeśli klient wybrał meble na wymiar - dodaj wizualizację
+      if (formData.category === 'naroznik_na_wymiar' && formData.customWidth && formData.customDepth) {
+        initialMessages.push({
+          id: 'client_viz_' + Date.now(),
+          type: 'visualization',
+          senderType: 'client',
+          width: formData.customWidth,
+          depth: formData.customDepth,
+          armrest: formData.customArmrest,
+          chaise: formData.customChaise,
+          side: formData.cornerSide,
+          timestamp: new Date().toISOString(),
+          senderName: formData.name
+        });
+      } else {
+        // Dla innych kategorii dodaj wiadomość z opisem
+        initialMessages.push({
+          id: 'client_msg_' + Date.now(),
+          type: 'client',
+          text: `Dzień dobry, jestem zainteresowany/a: ${categoryName}`,
+          timestamp: new Date().toISOString(),
+          senderName: formData.name
+        });
+      }
 
       const chatData = {
         clientName: formData.name,
@@ -14501,7 +14537,7 @@ const PublicChat = () => {
         status: 'waiting',
         assignedTo: null,
         assignedToName: null,
-        messages: [],
+        messages: initialMessages,
         createdAt: serverTimestamp(),
         lastMessageAt: serverTimestamp(),
         unreadByStaff: true,
@@ -14518,19 +14554,7 @@ const PublicChat = () => {
       localStorage.setItem('herraton_chat_name', formData.name);
       
       setStep('chat');
-      
-      // Wiadomość powitalna
-      const now = new Date();
-      const hour = now.getHours();
-      const isWorkingHours = hour >= 8 && hour < 15;
-      
-      const welcomeMsg = {
-        id: 'welcome',
-        type: 'system',
-        text: `🏠 Witamy w firmie Herraton!\n\nDział obsługi klienta pracuje od poniedziałku do piątku w godzinach 8:00 - 15:00.\n\n${isWorkingHours ? '✅ Jesteśmy teraz online! Jeden z naszych konsultantów wkrótce dołączy do rozmowy.' : '⏰ Obecnie jesteśmy offline. Zostaw wiadomość, a odpowiemy najszybciej jak to możliwe.'}\n\nDziękujemy za kontakt, ${formData.name}!`,
-        timestamp: new Date()
-      };
-      setMessages([welcomeMsg]);
+      setMessages(initialMessages);
       
     } catch (err) {
       console.error('Błąd tworzenia czatu:', err);
@@ -20559,6 +20583,7 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
   const currentChat = chats.find(c => c.id === selectedChat);
   const waitingChats = chats.filter(c => c.status === 'waiting');
   const activeChats = chats.filter(c => c.status === 'active' && c.assignedTo === currentUser.id);
+  const closedChats = chats.filter(c => c.status === 'closed').slice(0, 20); // Ostatnie 20 zamkniętych
   const unreadCount = chats.filter(c => c.unreadByStaff && (c.assignedTo === currentUser.id || !c.assignedTo)).length;
 
   return (
@@ -20639,10 +20664,41 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
               </div>
             )}
 
-            {waitingChats.length === 0 && activeChats.length === 0 && (
+            {waitingChats.length === 0 && activeChats.length === 0 && closedChats.length === 0 && (
               <div style={{padding:'40px 20px',textAlign:'center',color:'#94A3B8'}}>
                 <div style={{fontSize:'48px',marginBottom:'12px'}}>💬</div>
                 <div>Brak aktywnych czatów</div>
+              </div>
+            )}
+
+            {/* Zamknięte czaty */}
+            {closedChats.length > 0 && (
+              <div>
+                <div style={{padding:'12px 16px',background:'#F1F5F9',fontWeight:'600',fontSize:'12px',color:'#64748B'}}>
+                  📜 Zamknięte ({closedChats.length})
+                </div>
+                {closedChats.map(chat => (
+                  <div
+                    key={chat.id}
+                    onClick={() => onSelectChat(chat.id)}
+                    style={{
+                      padding:'12px 16px',
+                      borderBottom:'1px solid #E2E8F0',
+                      cursor:'pointer',
+                      background: chat.id === selectedChat ? '#EDE9FE' : 'white',
+                      opacity: 0.7
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontWeight:'600',fontSize:'14px',color:'#64748B'}}>{chat.clientName}</div>
+                      <span style={{fontSize:'9px',background:'#94A3B8',color:'white',padding:'2px 6px',borderRadius:'4px'}}>ZAKOŃCZONY</span>
+                    </div>
+                    <div style={{fontSize:'12px',color:'#94A3B8',marginTop:'4px'}}>{chat.categoryName}</div>
+                    <div style={{fontSize:'10px',color:'#CBD5E1',marginTop:'2px'}}>
+                      {(chat.messages || []).length} wiadomości
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -20744,34 +20800,50 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                 {showVisualization && (
                   <div style={{padding:'16px',background:'#F5F3FF',borderTop:'1px solid #C4B5FD'}}>
                     <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>📐 Wyślij wizualizację narożnika</div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
-                      <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szerokość *</label>
-                        <input type="number" value={vizWidth} onChange={(e) => setVizWidth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                    <div style={{display:'flex',gap:'16px'}}>
+                      {/* Formularz */}
+                      <div style={{flex:1}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}>
+                          <div>
+                            <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szerokość *</label>
+                            <input type="number" value={vizWidth} onChange={(e) => setVizWidth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                          </div>
+                          <div>
+                            <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Głębokość *</label>
+                            <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                          </div>
+                          <div>
+                            <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
+                            <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                          </div>
+                          <div>
+                            <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
+                            <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                          <select value={vizSide} onChange={(e) => setVizSide(e.target.value)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px'}}>
+                            <option value="left">⬅️ Lewy</option>
+                            <option value="right">➡️ Prawy</option>
+                          </select>
+                          <button onClick={sendVisualization} disabled={!vizWidth || !vizDepth} style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',opacity: vizWidth && vizDepth ? 1 : 0.5}}>Wyślij</button>
+                          <button onClick={() => setShowVisualization(false)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}>✕</button>
+                        </div>
                       </div>
-                      <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Głębokość *</label>
-                        <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
-                      </div>
-                      <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
-                        <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
-                      </div>
-                      <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
-                        <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
-                      </div>
-                      <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Strona</label>
-                        <select value={vizSide} onChange={(e) => setVizSide(e.target.value)} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px'}}>
-                          <option value="left">⬅️ Lewy</option>
-                          <option value="right">➡️ Prawy</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div style={{display:'flex',gap:'8px'}}>
-                      <button onClick={sendVisualization} disabled={!vizWidth || !vizDepth} style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',opacity: vizWidth && vizDepth ? 1 : 0.5}}>Wyślij</button>
-                      <button onClick={() => setShowVisualization(false)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}>✕</button>
+                      
+                      {/* Podgląd wizualizacji */}
+                      {vizWidth && vizDepth && (
+                        <div style={{width:'220px',flexShrink:0}}>
+                          <div style={{fontSize:'10px',color:'#64748B',marginBottom:'4px',textAlign:'center'}}>Podgląd:</div>
+                          <AdminCornerVisualization 
+                            width={vizWidth} 
+                            depth={vizDepth} 
+                            armrest={vizArmrest} 
+                            chaise={vizChaise} 
+                            side={vizSide} 
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
