@@ -14580,6 +14580,32 @@ const PublicChat = () => {
             setAssignedTo(data.assignedToName || null);
             setStaffOnline(data.staffOnline || false);
             
+            // Jeśli czat został zamknięty przez admina - przenieś do historii
+            if (data.status === 'closed' && step === 'chat') {
+              // Zapisz do lokalnej historii
+              const history = JSON.parse(localStorage.getItem('herraton_chat_history') || '[]');
+              if (!history.find(h => h.id === chatId)) {
+                const newHistory = [{
+                  id: chatId,
+                  clientName: data.clientName,
+                  categoryName: data.categoryName,
+                  createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+                  closedAt: data.closedAt || new Date().toISOString(),
+                  messagesCount: (data.messages || []).length
+                }, ...history].slice(0, 10);
+                localStorage.setItem('herraton_chat_history', JSON.stringify(newHistory));
+                setChatHistory(newHistory);
+              }
+              
+              localStorage.removeItem('herraton_chat_id');
+              localStorage.removeItem('herraton_chat_name');
+              
+              // Pokaż komunikat i przejdź do formularza
+              alert('Czat został zakończony przez konsultanta. Dziękujemy za rozmowę!');
+              setChatId(null);
+              setStep('form');
+            }
+            
             if (data.unreadByClient) {
               updateDoc(doc(db, 'chats', chatId), { unreadByClient: false });
             }
@@ -14595,7 +14621,7 @@ const PublicChat = () => {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [chatId]);
+  }, [chatId, step]);
 
   // Sprawdź zapisany czat i załaduj historię
   useEffect(() => {
@@ -14785,7 +14811,22 @@ const PublicChat = () => {
   // Zakończ czat
   const endChat = async () => {
     if (window.confirm('Czy na pewno chcesz zakończyć czat?')) {
-      // Zapisz do historii
+      // Zmień status w Firebase na closed
+      if (chatId) {
+        try {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          await updateDoc(doc(db, 'chats', chatId), {
+            status: 'closed',
+            closedAt: new Date().toISOString(),
+            closedBy: 'client'
+          });
+        } catch (err) {
+          console.error('Błąd zamykania czatu:', err);
+        }
+      }
+      
+      // Zapisz do lokalnej historii
       if (chatId && messages.length > 0) {
         const history = JSON.parse(localStorage.getItem('herraton_chat_history') || '[]');
         if (!history.find(h => h.id === chatId)) {
@@ -20573,8 +20614,15 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
       
       await updateDoc(doc(db, 'chats', chatId), {
         status: 'closed',
-        staffOnline: false
+        staffOnline: false,
+        closedAt: new Date().toISOString(),
+        closedBy: currentUser.name || currentUser.email || 'staff'
       });
+      
+      // Odznacz wybrany czat jeśli to ten który zamykamy
+      if (selectedChat === chatId) {
+        onSelectChat(null);
+      }
     } catch (err) {
       console.error('Błąd zamykania czatu:', err);
     }
