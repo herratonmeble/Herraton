@@ -14834,19 +14834,19 @@ const PublicChat = () => {
                 <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
                 <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{depth} cm</text>
                 
-                {/* Głębokość podłokietnika - dół */}
+                {/* Szezlong - dół (od strony szerokości) */}
                 {armrest && (
                   <>
-                    <line x1="35" y1={45 + scaledD} x2={35 + scaledArm} y2={45 + scaledD} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
-                    <text x={35 + scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600">↔ podr. {armrest}cm</text>
+                    <line x1="35" y1={45 + scaledD} x2={35 + scaledArm} y2={45 + scaledD} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={35 + scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">↔ szezl. {armrest}cm</text>
                   </>
                 )}
                 
-                {/* Głębokość szezlonga - prawo */}
+                {/* Podłokietnik - prawo (od strony głębokości) */}
                 {chaise && (
                   <>
-                    <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledCh} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
-                    <text x={55 + scaledW} y={35 + scaledCh/2 + 4} textAnchor="start" fontSize="9" fill="#F59E0B" fontWeight="600">↕ szezl. {chaise}cm</text>
+                    <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledCh} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={55 + scaledW} y={35 + scaledCh/2 + 4} textAnchor="start" fontSize="9" fill="#10B981" fontWeight="600">↕ podr. {chaise}cm</text>
                   </>
                 )}
               </>
@@ -14867,19 +14867,19 @@ const PublicChat = () => {
                 <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
                 <text x={55 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${55 + scaledW}, ${35 + scaledD/2})`}>{depth} cm</text>
                 
-                {/* Głębokość podłokietnika - dół */}
+                {/* Szezlong - dół (od strony szerokości) */}
                 {armrest && (
                   <>
-                    <line x1={35 + scaledW - scaledArm} y1={45 + scaledD} x2={35 + scaledW} y2={45 + scaledD} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
-                    <text x={35 + scaledW - scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600">↔ podr. {armrest}cm</text>
+                    <line x1={35 + scaledW - scaledArm} y1={45 + scaledD} x2={35 + scaledW} y2={45 + scaledD} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={35 + scaledW - scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">↔ szezl. {armrest}cm</text>
                   </>
                 )}
                 
-                {/* Głębokość szezlonga - lewo */}
+                {/* Podłokietnik - lewo (od strony głębokości) */}
                 {chaise && (
                   <>
-                    <line x1="20" y1="35" x2="20" y2={35 + scaledCh} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
-                    <text x="10" y={35 + scaledCh/2 + 4} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600" transform={`rotate(-90, 10, ${35 + scaledCh/2})`}>szezl. {chaise}cm</text>
+                    <line x1="20" y1="35" x2="20" y2={35 + scaledCh} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x="10" y={35 + scaledCh/2 + 4} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600" transform={`rotate(-90, 10, ${35 + scaledCh/2})`}>podr. {chaise}cm</text>
                   </>
                 )}
               </>
@@ -14896,8 +14896,8 @@ const PublicChat = () => {
             {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
           </span>
           <span style={{color:'#374151'}}><strong>{width}</strong>×<strong>{depth}</strong> cm</span>
-          {armrest && <span style={{color:'#10B981'}}>podr. <strong>{armrest}</strong>cm</span>}
-          {chaise && <span style={{color:'#F59E0B'}}>szezl. <strong>{chaise}</strong>cm</span>}
+          {armrest && <span style={{color:'#F59E0B'}}>szezl. <strong>{armrest}</strong>cm</span>}
+          {chaise && <span style={{color:'#10B981'}}>podr. <strong>{chaise}</strong>cm</span>}
         </div>
       </div>
     );
@@ -15095,7 +15095,7 @@ const PublicChat = () => {
                       />
                     </div>
                     <div>
-                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość podłokietnika (cm)</label>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość szezlonga (cm)</label>
                       <input
                         type="number"
                         value={formData.customArmrest}
@@ -15105,7 +15105,7 @@ const PublicChat = () => {
                       />
                     </div>
                     <div>
-                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość szezlonga (cm)</label>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość podłokietnika (cm)</label>
                       <input
                         type="number"
                         value={formData.customChaise}
@@ -15415,11 +15415,11 @@ const PublicChat = () => {
               <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
             </div>
             <div>
-              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
               <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
             </div>
             <div>
-              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
               <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
             </div>
           </div>
@@ -20754,11 +20754,11 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                         <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
                       </div>
                       <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
                         <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
                       </div>
                       <div>
-                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
                         <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
                       </div>
                       <div>
@@ -20929,13 +20929,13 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                     <strong>{lightboxContent.data.width}</strong> × <strong>{lightboxContent.data.depth}</strong> cm
                   </span>
                   {lightboxContent.data.armrest && (
-                    <span style={{background:'#D1FAE5',color:'#065F46',padding:'6px 12px',borderRadius:'8px'}}>
-                      Podłokietnik: <strong>{lightboxContent.data.armrest}</strong> cm
+                    <span style={{background:'#FEF3C7',color:'#92400E',padding:'6px 12px',borderRadius:'8px'}}>
+                      Szezlong: <strong>{lightboxContent.data.armrest}</strong> cm
                     </span>
                   )}
                   {lightboxContent.data.chaise && (
-                    <span style={{background:'#FEF3C7',color:'#92400E',padding:'6px 12px',borderRadius:'8px'}}>
-                      Szezlong: <strong>{lightboxContent.data.chaise}</strong> cm
+                    <span style={{background:'#D1FAE5',color:'#065F46',padding:'6px 12px',borderRadius:'8px'}}>
+                      Podłokietnik: <strong>{lightboxContent.data.chaise}</strong> cm
                     </span>
                   )}
                 </div>
