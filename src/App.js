@@ -14477,7 +14477,7 @@ const PublicChat = () => {
     }
 
     try {
-      const { collection, addDoc, serverTimestamp, arrayUnion } = await import('firebase/firestore');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
 
       const categoryName = formData.category === 'inne' 
