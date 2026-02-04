@@ -14371,6 +14371,16 @@ const PublicChat = () => {
   const [sending, setSending] = useState(false);
   const [assignedTo, setAssignedTo] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [staffOnline, setStaffOnline] = useState(false);
+  const [showVisualization, setShowVisualization] = useState(false);
+  
+  // Wizualizacja
+  const [vizWidth, setVizWidth] = useState('');
+  const [vizDepth, setVizDepth] = useState('');
+  const [vizArmrest, setVizArmrest] = useState('');
+  const [vizChaise, setVizChaise] = useState('');
+  const [vizSide, setVizSide] = useState('left');
   
   // Formularz startowy
   const [formData, setFormData] = useState({
@@ -14379,8 +14389,11 @@ const PublicChat = () => {
     email: '',
     phone: '',
     category: '',
+    customCategory: '',
     customWidth: '',
     customDepth: '',
+    customArmrest: '',
+    customChaise: '',
     cornerSide: 'left'
   });
 
@@ -14389,7 +14402,8 @@ const PublicChat = () => {
     { id: 'narozniki', name: '🔲 Narożniki', icon: '🔲' },
     { id: 'fotele', name: '💺 Fotele', icon: '💺' },
     { id: 'meble_twarde', name: '🪑 Meble twarde', icon: '🪑' },
-    { id: 'naroznik_na_wymiar', name: '📐 Narożnik na wymiar', icon: '📐' }
+    { id: 'naroznik_na_wymiar', name: '📐 Meble na wymiar', icon: '📐' },
+    { id: 'inne', name: '❓ Inne', icon: '❓' }
   ];
 
   const countries = [
@@ -14411,10 +14425,51 @@ const PublicChat = () => {
     { code: 'OTHER', name: '🌍 Inny' }
   ];
 
+  // Aktualizuj status online klienta
+  useEffect(() => {
+    if (!chatId) return;
+    
+    const updateOnline = async () => {
+      try {
+        const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        await updateDoc(doc(db, 'chats', chatId), {
+          clientOnline: true,
+          clientLastSeen: serverTimestamp()
+        });
+      } catch (err) {}
+    };
+    
+    updateOnline();
+    const interval = setInterval(updateOnline, 30000); // Co 30 sekund
+    
+    // Przy zamknięciu ustaw offline
+    const handleBeforeUnload = async () => {
+      try {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        await updateDoc(doc(db, 'chats', chatId), { clientOnline: false });
+      } catch (err) {}
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
+    };
+  }, [chatId]);
+
   // Rozpocznij czat
   const startChat = async () => {
     if (!formData.name || !formData.category) {
       alert('Wypełnij imię i wybierz kategorię');
+      return;
+    }
+    
+    if (formData.category === 'inne' && !formData.customCategory) {
+      alert('Wpisz czym jesteś zainteresowany');
       return;
     }
 
@@ -14422,42 +14477,54 @@ const PublicChat = () => {
       const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
 
+      const categoryName = formData.category === 'inne' 
+        ? formData.customCategory 
+        : categories.find(c => c.id === formData.category)?.name || formData.category;
+
       const chatData = {
         clientName: formData.name,
         clientCountry: formData.country,
         clientEmail: formData.email,
         clientPhone: formData.phone,
         category: formData.category,
-        categoryName: categories.find(c => c.id === formData.category)?.name || formData.category,
+        categoryName: categoryName,
         customDimensions: formData.category === 'naroznik_na_wymiar' ? {
           width: formData.customWidth,
           depth: formData.customDepth,
+          armrest: formData.customArmrest,
+          chaise: formData.customChaise,
           side: formData.cornerSide
         } : null,
-        status: 'waiting', // waiting, active, closed
+        status: 'waiting',
         assignedTo: null,
         assignedToName: null,
         messages: [],
         createdAt: serverTimestamp(),
         lastMessageAt: serverTimestamp(),
         unreadByStaff: true,
-        unreadByClient: false
+        unreadByClient: false,
+        clientOnline: true,
+        clientLastSeen: serverTimestamp(),
+        staffOnline: false
       };
 
       const docRef = await addDoc(collection(db, 'chats'), chatData);
       setChatId(docRef.id);
       
-      // Zapisz w localStorage żeby można było wrócić do czatu
       localStorage.setItem('herraton_chat_id', docRef.id);
       localStorage.setItem('herraton_chat_name', formData.name);
       
       setStep('chat');
       
-      // Dodaj wiadomość powitalną
+      // Wiadomość powitalna
+      const now = new Date();
+      const hour = now.getHours();
+      const isWorkingHours = hour >= 8 && hour < 15;
+      
       const welcomeMsg = {
         id: 'welcome',
         type: 'system',
-        text: `Witaj ${formData.name}! Dziękujemy za kontakt. Jeden z naszych konsultantów wkrótce dołączy do rozmowy.`,
+        text: `🏠 Witamy w firmie Herraton!\n\nDział obsługi klienta pracuje od poniedziałku do piątku w godzinach 8:00 - 15:00.\n\n${isWorkingHours ? '✅ Jesteśmy teraz online! Jeden z naszych konsultantów wkrótce dołączy do rozmowy.' : '⏰ Obecnie jesteśmy offline. Zostaw wiadomość, a odpowiemy najszybciej jak to możliwe.'}\n\nDziękujemy za kontakt, ${formData.name}!`,
         timestamp: new Date()
       };
       setMessages([welcomeMsg]);
@@ -14468,7 +14535,7 @@ const PublicChat = () => {
     }
   };
 
-  // Nasłuchuj wiadomości
+  // Nasłuchuj wiadomości i status online
   useEffect(() => {
     if (!chatId) return;
 
@@ -14476,7 +14543,7 @@ const PublicChat = () => {
 
     const loadMessages = async () => {
       try {
-        const { doc, onSnapshot } = await import('firebase/firestore');
+        const { doc, onSnapshot, updateDoc } = await import('firebase/firestore');
         const { db } = await import('./firebase');
 
         unsubscribe = onSnapshot(doc(db, 'chats', chatId), (docSnap) => {
@@ -14484,14 +14551,10 @@ const PublicChat = () => {
             const data = docSnap.data();
             setMessages(data.messages || []);
             setAssignedTo(data.assignedToName || null);
+            setStaffOnline(data.staffOnline || false);
             
-            // Oznacz jako przeczytane przez klienta
             if (data.unreadByClient) {
-              import('firebase/firestore').then(({ updateDoc }) => {
-                import('./firebase').then(({ db }) => {
-                  updateDoc(doc(db, 'chats', chatId), { unreadByClient: false });
-                });
-              });
+              updateDoc(doc(db, 'chats', chatId), { unreadByClient: false });
             }
           }
         });
@@ -14507,7 +14570,7 @@ const PublicChat = () => {
     };
   }, [chatId]);
 
-  // Sprawdź czy jest zapisany czat
+  // Sprawdź zapisany czat
   useEffect(() => {
     const savedChatId = localStorage.getItem('herraton_chat_id');
     const savedName = localStorage.getItem('herraton_chat_name');
@@ -14557,7 +14620,6 @@ const PublicChat = () => {
 
     setUploadingPhoto(true);
     try {
-      // Konwertuj na base64
       const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result;
@@ -14589,6 +14651,43 @@ const PublicChat = () => {
     }
   };
 
+  // Wyślij wizualizację od klienta
+  const sendVisualization = async () => {
+    if (!vizWidth || !vizDepth || !chatId) return;
+
+    try {
+      const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+
+      const message = {
+        id: Date.now().toString(),
+        type: 'visualization',
+        senderType: 'client',
+        width: vizWidth,
+        depth: vizDepth,
+        armrest: vizArmrest,
+        chaise: vizChaise,
+        side: vizSide,
+        timestamp: new Date().toISOString(),
+        senderName: formData.name || localStorage.getItem('herraton_chat_name')
+      };
+
+      await updateDoc(doc(db, 'chats', chatId), {
+        messages: arrayUnion(message),
+        lastMessageAt: serverTimestamp(),
+        unreadByStaff: true
+      });
+
+      setShowVisualization(false);
+      setVizWidth('');
+      setVizDepth('');
+      setVizArmrest('');
+      setVizChaise('');
+    } catch (err) {
+      console.error('Błąd wysyłania wizualizacji:', err);
+    }
+  };
+
   // Zakończ czat
   const endChat = () => {
     if (window.confirm('Czy na pewno chcesz zakończyć czat?')) {
@@ -14603,74 +14702,65 @@ const PublicChat = () => {
         email: '',
         phone: '',
         category: '',
+        customCategory: '',
         customWidth: '',
         customDepth: '',
+        customArmrest: '',
+        customChaise: '',
         cornerSide: 'left'
       });
     }
   };
 
   // Komponent wizualizacji narożnika
-  const CornerVisualization = ({ width, depth, side }) => {
+  const CornerVisualization = ({ width, depth, armrest, chaise, side }) => {
     const w = parseInt(width) || 250;
     const d = parseInt(depth) || 150;
+    const arm = parseInt(armrest) || 0;
+    const ch = parseInt(chaise) || 0;
     const maxSize = 200;
     const scale = Math.min(maxSize / Math.max(w, d), 1);
     const scaledW = w * scale;
     const scaledD = d * scale;
+    const scaledArm = arm * scale;
+    const scaledCh = ch * scale;
 
     return (
-      <div style={{background:'#F8FAFC',borderRadius:'12px',padding:'16px',marginTop:'12px'}}>
-        <div style={{fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'12px',textAlign:'center'}}>
+      <div style={{background:'#F8FAFC',borderRadius:'12px',padding:'16px'}}>
+        <div style={{fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'8px',textAlign:'center'}}>
           📐 Wizualizacja narożnika
         </div>
-        <div style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'150px'}}>
-          <svg width={maxSize + 60} height={maxSize + 60} viewBox={`0 0 ${maxSize + 60} ${maxSize + 60}`}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'120px'}}>
+          <svg width={maxSize + 80} height={maxSize + 80} viewBox={`0 0 ${maxSize + 80} ${maxSize + 80}`}>
             {side === 'left' ? (
               <>
-                {/* Narożnik lewy */}
                 <path 
-                  d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledD * 0.4} L ${30 + scaledD} ${30 + scaledD * 0.4} L ${30 + scaledD} ${30 + scaledD} L 30 ${30 + scaledD} Z`}
+                  d={`M 40 40 L ${40 + scaledW} 40 L ${40 + scaledW} ${40 + (scaledCh || scaledD * 0.4)} L ${40 + (scaledArm || scaledD)} ${40 + (scaledCh || scaledD * 0.4)} L ${40 + (scaledArm || scaledD)} ${40 + scaledD} L 40 ${40 + scaledD} Z`}
                   fill="#8B5CF6"
                   stroke="#6D28D9"
                   strokeWidth="2"
                 />
-                {/* Wymiar szerokość */}
-                <line x1="30" y1="20" x2={30 + scaledW} y2="20" stroke="#374151" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow2)"/>
-                <text x={30 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{width} cm</text>
-                {/* Wymiar głębokość */}
-                <line x1="20" y1="30" x2="20" y2={30 + scaledD} stroke="#374151" strokeWidth="1"/>
-                <text x="10" y={30 + scaledD/2} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform={`rotate(-90, 10, ${30 + scaledD/2})`}>{depth} cm</text>
+                <text x={40 + scaledW/2} y="30" textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600">{width} cm</text>
+                <text x="25" y={40 + scaledD/2} textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600" transform={`rotate(-90, 25, ${40 + scaledD/2})`}>{depth} cm</text>
+                {armrest && <text x={40 + (scaledArm || scaledD)/2} y={50 + scaledD} textAnchor="middle" fontSize="9" fill="#6B7280">podr. {armrest}cm</text>}
+                {chaise && <text x={50 + scaledW} y={40 + (scaledCh || scaledD * 0.4)/2} textAnchor="start" fontSize="9" fill="#6B7280">szezl. {chaise}cm</text>}
               </>
             ) : (
               <>
-                {/* Narożnik prawy */}
                 <path 
-                  d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledD} L ${30 + scaledW - scaledD} ${30 + scaledD} L ${30 + scaledW - scaledD} ${30 + scaledD * 0.4} L 30 ${30 + scaledD * 0.4} Z`}
+                  d={`M 40 40 L ${40 + scaledW} 40 L ${40 + scaledW} ${40 + scaledD} L ${40 + scaledW - (scaledArm || scaledD)} ${40 + scaledD} L ${40 + scaledW - (scaledArm || scaledD)} ${40 + (scaledCh || scaledD * 0.4)} L 40 ${40 + (scaledCh || scaledD * 0.4)} Z`}
                   fill="#8B5CF6"
                   stroke="#6D28D9"
                   strokeWidth="2"
                 />
-                {/* Wymiar szerokość */}
-                <line x1="30" y1="20" x2={30 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
-                <text x={30 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{width} cm</text>
-                {/* Wymiar głębokość */}
-                <line x1={40 + scaledW} y1="30" x2={40 + scaledW} y2={30 + scaledD} stroke="#374151" strokeWidth="1"/>
-                <text x={50 + scaledW} y={30 + scaledD/2} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform={`rotate(90, ${50 + scaledW}, ${30 + scaledD/2})`}>{depth} cm</text>
+                <text x={40 + scaledW/2} y="30" textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600">{width} cm</text>
+                <text x={55 + scaledW} y={40 + scaledD/2} textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600" transform={`rotate(90, ${55 + scaledW}, ${40 + scaledD/2})`}>{depth} cm</text>
               </>
             )}
-            <defs>
-              <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6" fill="#374151"/>
-              </marker>
-              <marker id="arrow2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-                <path d="M6,0 L0,3 L6,6" fill="#374151"/>
-              </marker>
-            </defs>
           </svg>
         </div>
-        <div style={{textAlign:'center',fontSize:'11px',color:'#94A3B8',marginTop:'8px'}}>
-          Strona narożnika: {side === 'left' ? '⬅️ Lewa' : '➡️ Prawa'}
+        <div style={{textAlign:'center',fontSize:'10px',color:'#94A3B8'}}>
+          {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'} narożnik
         </div>
       </div>
     );
@@ -14688,13 +14778,53 @@ const PublicChat = () => {
             <p style={{color:'rgba(255,255,255,0.7)',margin:0,fontSize:'14px'}}>Rozpocznij rozmowę z naszym konsultantem</p>
           </div>
 
-          {/* Powiadomienie o aplikacji */}
-          <div style={{background:'rgba(139,92,246,0.2)',border:'1px solid rgba(139,92,246,0.4)',borderRadius:'12px',padding:'14px',marginBottom:'20px',display:'flex',alignItems:'center',gap:'12px'}}>
-            <span style={{fontSize:'24px'}}>📱</span>
-            <div>
-              <div style={{color:'white',fontWeight:'600',fontSize:'13px'}}>Pobierz naszą aplikację!</div>
-              <div style={{color:'rgba(255,255,255,0.7)',fontSize:'12px'}}>Otrzymuj powiadomienia o odpowiedziach</div>
+          {/* Instrukcja instalacji aplikacji */}
+          <div 
+            style={{background:'rgba(139,92,246,0.2)',border:'1px solid rgba(139,92,246,0.4)',borderRadius:'12px',padding:'14px',marginBottom:'20px',cursor:'pointer'}}
+            onClick={() => setShowInstallGuide(!showInstallGuide)}
+          >
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                <span style={{fontSize:'24px'}}>📱</span>
+                <div>
+                  <div style={{color:'white',fontWeight:'600',fontSize:'13px'}}>Zainstaluj naszą aplikację</div>
+                  <div style={{color:'rgba(255,255,255,0.7)',fontSize:'12px'}}>Otrzymuj powiadomienia o odpowiedziach</div>
+                </div>
+              </div>
+              <span style={{color:'white',fontSize:'18px'}}>{showInstallGuide ? '▲' : '▼'}</span>
             </div>
+            
+            {showInstallGuide && (
+              <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid rgba(255,255,255,0.2)'}}>
+                <div style={{color:'white',fontSize:'13px',lineHeight:'1.6'}}>
+                  <div style={{fontWeight:'600',marginBottom:'12px'}}>📱 Jak zainstalować:</div>
+                  
+                  <div style={{background:'rgba(0,0,0,0.2)',borderRadius:'8px',padding:'12px',marginBottom:'12px'}}>
+                    <div style={{fontWeight:'600',marginBottom:'6px'}}>🍎 iPhone / iPad:</div>
+                    <ol style={{margin:0,paddingLeft:'20px',fontSize:'12px',color:'rgba(255,255,255,0.9)'}}>
+                      <li>Otwórz tę stronę w Safari</li>
+                      <li>Kliknij ikonę udostępniania (□↑)</li>
+                      <li>Przewiń i wybierz "Dodaj do ekranu początkowego"</li>
+                      <li>Kliknij "Dodaj"</li>
+                    </ol>
+                  </div>
+                  
+                  <div style={{background:'rgba(0,0,0,0.2)',borderRadius:'8px',padding:'12px'}}>
+                    <div style={{fontWeight:'600',marginBottom:'6px'}}>🤖 Android:</div>
+                    <ol style={{margin:0,paddingLeft:'20px',fontSize:'12px',color:'rgba(255,255,255,0.9)'}}>
+                      <li>Otwórz tę stronę w Chrome</li>
+                      <li>Kliknij menu (⋮) w prawym górnym rogu</li>
+                      <li>Wybierz "Zainstaluj aplikację" lub "Dodaj do ekranu głównego"</li>
+                      <li>Potwierdź instalację</li>
+                    </ol>
+                  </div>
+                  
+                  <div style={{marginTop:'12px',fontSize:'11px',color:'rgba(255,255,255,0.6)',textAlign:'center'}}>
+                    Po instalacji aplikacja otworzy się bezpośrednio w czacie! 🎉
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Formularz */}
@@ -14733,9 +14863,7 @@ const PublicChat = () => {
               {/* Email i Telefon */}
               <div style={{display:'flex',gap:'12px'}}>
                 <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
-                    Email
-                  </label>
+                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>Email</label>
                   <input
                     type="email"
                     value={formData.email}
@@ -14745,9 +14873,7 @@ const PublicChat = () => {
                   />
                 </div>
                 <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
-                    Telefon
-                  </label>
+                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>Telefon</label>
                   <input
                     type="tel"
                     value={formData.phone}
@@ -14763,24 +14889,23 @@ const PublicChat = () => {
                 <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'10px'}}>
                   Czym jesteś zainteresowany? *
                 </label>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
                   {categories.map(cat => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setFormData({...formData, category: cat.id})}
                       style={{
-                        padding:'14px 12px',
+                        padding:'12px 8px',
                         borderRadius:'10px',
                         border: formData.category === cat.id ? '2px solid #8B5CF6' : '1px solid #E2E8F0',
                         background: formData.category === cat.id ? '#F5F3FF' : 'white',
                         cursor:'pointer',
-                        textAlign:'center',
-                        transition:'all 0.2s'
+                        textAlign:'center'
                       }}
                     >
-                      <div style={{fontSize:'24px',marginBottom:'4px'}}>{cat.icon}</div>
-                      <div style={{fontSize:'12px',fontWeight:'600',color: formData.category === cat.id ? '#8B5CF6' : '#374151'}}>
+                      <div style={{fontSize:'20px',marginBottom:'4px'}}>{cat.icon}</div>
+                      <div style={{fontSize:'10px',fontWeight:'600',color: formData.category === cat.id ? '#8B5CF6' : '#374151'}}>
                         {cat.name.replace(cat.icon + ' ', '')}
                       </div>
                     </button>
@@ -14788,15 +14913,32 @@ const PublicChat = () => {
                 </div>
               </div>
 
-              {/* Wymiary dla narożnika na wymiar */}
+              {/* Pole "Inne" - własny opis */}
+              {formData.category === 'inne' && (
+                <div>
+                  <label style={{display:'block',fontSize:'13px',fontWeight:'600',color:'#374151',marginBottom:'6px'}}>
+                    Opisz czym jesteś zainteresowany *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customCategory}
+                    onChange={(e) => setFormData({...formData, customCategory: e.target.value})}
+                    placeholder="np. Łóżko tapicerowane, Pufa..."
+                    style={{width:'100%',padding:'12px 14px',borderRadius:'10px',border:'1px solid #E2E8F0',fontSize:'15px',boxSizing:'border-box'}}
+                  />
+                </div>
+              )}
+
+              {/* Wymiary dla mebli na wymiar */}
               {formData.category === 'naroznik_na_wymiar' && (
                 <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',border:'1px solid #C4B5FD'}}>
                   <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
                     📐 Podaj wymiary narożnika
                   </div>
-                  <div style={{display:'flex',gap:'12px',marginBottom:'12px'}}>
-                    <div style={{flex:1}}>
-                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm)</label>
+                  
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                    <div>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość całkowita (cm) *</label>
                       <input
                         type="number"
                         value={formData.customWidth}
@@ -14805,8 +14947,8 @@ const PublicChat = () => {
                         style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                       />
                     </div>
-                    <div style={{flex:1}}>
-                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm)</label>
+                    <div>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość całkowita (cm) *</label>
                       <input
                         type="number"
                         value={formData.customDepth}
@@ -14815,7 +14957,28 @@ const PublicChat = () => {
                         style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                       />
                     </div>
+                    <div>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość podłokietnika (cm)</label>
+                      <input
+                        type="number"
+                        value={formData.customArmrest}
+                        onChange={(e) => setFormData({...formData, customArmrest: e.target.value})}
+                        placeholder="opcjonalne"
+                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                      />
+                    </div>
+                    <div>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość szezlonga (cm)</label>
+                      <input
+                        type="number"
+                        value={formData.customChaise}
+                        onChange={(e) => setFormData({...formData, customChaise: e.target.value})}
+                        placeholder="opcjonalne"
+                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                      />
+                    </div>
                   </div>
+                  
                   <div>
                     <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona narożnika</label>
                     <div style={{display:'flex',gap:'10px'}}>
@@ -14823,15 +14986,11 @@ const PublicChat = () => {
                         type="button"
                         onClick={() => setFormData({...formData, cornerSide: 'left'})}
                         style={{
-                          flex:1,
-                          padding:'10px',
-                          borderRadius:'8px',
+                          flex:1,padding:'10px',borderRadius:'8px',
                           border: formData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
                           background: formData.cornerSide === 'left' ? '#8B5CF6' : 'white',
                           color: formData.cornerSide === 'left' ? 'white' : '#374151',
-                          cursor:'pointer',
-                          fontWeight:'600',
-                          fontSize:'13px'
+                          cursor:'pointer',fontWeight:'600',fontSize:'13px'
                         }}
                       >
                         ⬅️ Lewy
@@ -14840,15 +14999,11 @@ const PublicChat = () => {
                         type="button"
                         onClick={() => setFormData({...formData, cornerSide: 'right'})}
                         style={{
-                          flex:1,
-                          padding:'10px',
-                          borderRadius:'8px',
+                          flex:1,padding:'10px',borderRadius:'8px',
                           border: formData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
                           background: formData.cornerSide === 'right' ? '#8B5CF6' : 'white',
                           color: formData.cornerSide === 'right' ? 'white' : '#374151',
-                          cursor:'pointer',
-                          fontWeight:'600',
-                          fontSize:'13px'
+                          cursor:'pointer',fontWeight:'600',fontSize:'13px'
                         }}
                       >
                         ➡️ Prawy
@@ -14856,13 +15011,16 @@ const PublicChat = () => {
                     </div>
                   </div>
                   
-                  {/* Wizualizacja */}
                   {formData.customWidth && formData.customDepth && (
-                    <CornerVisualization 
-                      width={formData.customWidth} 
-                      depth={formData.customDepth} 
-                      side={formData.cornerSide}
-                    />
+                    <div style={{marginTop:'12px'}}>
+                      <CornerVisualization 
+                        width={formData.customWidth} 
+                        depth={formData.customDepth}
+                        armrest={formData.customArmrest}
+                        chaise={formData.customChaise}
+                        side={formData.cornerSide}
+                      />
+                    </div>
                   )}
                 </div>
               )}
@@ -14871,16 +15029,9 @@ const PublicChat = () => {
               <button
                 onClick={startChat}
                 style={{
-                  width:'100%',
-                  padding:'16px',
-                  borderRadius:'12px',
-                  border:'none',
-                  background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',
-                  color:'white',
-                  fontSize:'16px',
-                  fontWeight:'700',
-                  cursor:'pointer',
-                  marginTop:'8px'
+                  width:'100%',padding:'16px',borderRadius:'12px',border:'none',
+                  background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',
+                  fontSize:'16px',fontWeight:'700',cursor:'pointer',marginTop:'8px'
                 }}
               >
                 💬 Rozpocznij czat
@@ -14899,10 +15050,15 @@ const PublicChat = () => {
       <div style={{background:'linear-gradient(135deg,#1E293B,#334155)',padding:'16px 20px',color:'white'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div>
-            <div style={{fontSize:'18px',fontWeight:'700'}}>🛋️ Herraton Meble</div>
+            <div style={{fontSize:'18px',fontWeight:'700',display:'flex',alignItems:'center',gap:'8px'}}>
+              🛋️ Herraton Meble
+              {staffOnline && (
+                <span style={{width:'10px',height:'10px',background:'#10B981',borderRadius:'50%',display:'inline-block'}}></span>
+              )}
+            </div>
             <div style={{fontSize:'13px',opacity:0.8,marginTop:'4px'}}>
               {assignedTo ? (
-                <span>💬 Rozmawiasz z: <strong>{assignedTo}</strong></span>
+                <span>💬 Rozmawiasz z: <strong>{assignedTo}</strong> {staffOnline ? '(online)' : '(offline)'}</span>
               ) : (
                 <span>⏳ Oczekiwanie na konsultanta...</span>
               )}
@@ -14925,16 +15081,18 @@ const PublicChat = () => {
         {messages.map((msg, idx) => (
           <div key={msg.id || idx} style={{
             display:'flex',
-            justifyContent: msg.type === 'client' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
+            justifyContent: msg.type === 'client' || msg.senderType === 'client' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
           }}>
             {msg.type === 'system' ? (
-              <div style={{background:'#E2E8F0',padding:'10px 16px',borderRadius:'20px',fontSize:'13px',color:'#64748B',maxWidth:'80%',textAlign:'center'}}>
+              <div style={{background:'#E2E8F0',padding:'12px 16px',borderRadius:'12px',fontSize:'13px',color:'#64748B',maxWidth:'85%',textAlign:'center',whiteSpace:'pre-line'}}>
                 {msg.text}
               </div>
             ) : msg.type === 'visualization' ? (
-              <div style={{background:'white',padding:'16px',borderRadius:'16px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px'}}>
-                <div style={{fontSize:'12px',color:'#64748B',marginBottom:'8px'}}>📐 Wizualizacja od konsultanta:</div>
-                <CornerVisualization width={msg.width} depth={msg.depth} side={msg.side} />
+              <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'280px'}}>
+                <div style={{fontSize:'11px',color: msg.senderType === 'client' ? '#8B5CF6' : '#10B981',fontWeight:'600',marginBottom:'4px'}}>
+                  📐 Wizualizacja od {msg.senderType === 'client' ? 'Ciebie' : msg.senderName}
+                </div>
+                <CornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} />
               </div>
             ) : (
               <div style={{
@@ -14963,65 +15121,72 @@ const PublicChat = () => {
         ))}
       </div>
 
+      {/* Panel wizualizacji */}
+      {showVisualization && (
+        <div style={{background:'#F5F3FF',padding:'16px',borderTop:'1px solid #C4B5FD'}}>
+          <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>📐 Wyślij wizualizację narożnika</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
+            <div>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szerokość *</label>
+              <input type="number" value={vizWidth} onChange={(e) => setVizWidth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Głębokość *</label>
+              <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
+              <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
+              <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}} />
+            </div>
+          </div>
+          <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+            <select value={vizSide} onChange={(e) => setVizSide(e.target.value)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px'}}>
+              <option value="left">⬅️ Lewy</option>
+              <option value="right">➡️ Prawy</option>
+            </select>
+            <button onClick={sendVisualization} disabled={!vizWidth || !vizDepth} style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',opacity: vizWidth && vizDepth ? 1 : 0.5}}>Wyślij</button>
+            <button onClick={() => setShowVisualization(false)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}>✕</button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div style={{background:'white',padding:'16px',borderTop:'1px solid #E2E8F0'}}>
         <div style={{display:'flex',gap:'10px',alignItems:'flex-end'}}>
-          {/* Przycisk zdjęcia */}
-          <label style={{
-            width:'44px',
-            height:'44px',
-            borderRadius:'12px',
-            background:'#F1F5F9',
-            display:'flex',
-            alignItems:'center',
-            justifyContent:'center',
-            cursor:'pointer',
-            flexShrink:0
-          }}>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={sendPhoto}
-              style={{display:'none'}}
-              disabled={uploadingPhoto}
-            />
+          <label style={{width:'44px',height:'44px',borderRadius:'12px',background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+            <input type="file" accept="image/*" onChange={sendPhoto} style={{display:'none'}} disabled={uploadingPhoto} />
             {uploadingPhoto ? '⏳' : '📷'}
           </label>
           
-          {/* Input wiadomości */}
+          <button
+            onClick={() => setShowVisualization(!showVisualization)}
+            style={{width:'44px',height:'44px',borderRadius:'12px',background: showVisualization ? '#F5F3FF' : '#F1F5F9',border: showVisualization ? '2px solid #8B5CF6' : 'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,fontSize:'18px'}}
+            title="Wyślij wizualizację"
+          >
+            📐
+          </button>
+          
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Napisz wiadomość..."
-            style={{
-              flex:1,
-              padding:'12px 16px',
-              borderRadius:'12px',
-              border:'1px solid #E2E8F0',
-              fontSize:'15px',
-              outline:'none'
-            }}
+            style={{flex:1,padding:'12px 16px',borderRadius:'12px',border:'1px solid #E2E8F0',fontSize:'15px',outline:'none'}}
           />
           
-          {/* Przycisk wyślij */}
           <button
             onClick={sendMessage}
             disabled={sending || !newMessage.trim()}
             style={{
-              width:'44px',
-              height:'44px',
-              borderRadius:'12px',
-              border:'none',
+              width:'44px',height:'44px',borderRadius:'12px',border:'none',
               background: newMessage.trim() ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : '#E2E8F0',
-              color:'white',
-              cursor: newMessage.trim() ? 'pointer' : 'default',
-              display:'flex',
-              alignItems:'center',
-              justifyContent:'center',
-              fontSize:'18px',
-              flexShrink:0
+              color:'white',cursor: newMessage.trim() ? 'pointer' : 'default',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0
             }}
           >
             {sending ? '⏳' : '➤'}
@@ -19816,18 +19981,54 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
   const [showVisualization, setShowVisualization] = useState(false);
   const [vizWidth, setVizWidth] = useState('');
   const [vizDepth, setVizDepth] = useState('');
+  const [vizArmrest, setVizArmrest] = useState('');
+  const [vizChaise, setVizChaise] = useState('');
   const [vizSide, setVizSide] = useState('left');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Aktualizuj status online pracownika
+  useEffect(() => {
+    if (!selectedChat) return;
+    
+    const updateOnline = async () => {
+      try {
+        const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        await updateDoc(doc(db, 'chats', selectedChat), {
+          staffOnline: true,
+          staffLastSeen: serverTimestamp()
+        });
+      } catch (err) {}
+    };
+    
+    updateOnline();
+    const interval = setInterval(updateOnline, 30000);
+    
+    return () => {
+      clearInterval(interval);
+      // Ustaw offline przy opuszczeniu
+      (async () => {
+        try {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          await updateDoc(doc(db, 'chats', selectedChat), { staffOnline: false });
+        } catch (err) {}
+      })();
+    };
+  }, [selectedChat]);
 
   // Przejmij czat
   const takeChat = async (chatId) => {
     try {
-      const { doc, updateDoc } = await import('firebase/firestore');
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
       await updateDoc(doc(db, 'chats', chatId), {
         assignedTo: currentUser.id,
         assignedToName: currentUser.name || currentUser.email,
-        status: 'active'
+        status: 'active',
+        staffOnline: true,
+        staffLastSeen: serverTimestamp()
       });
       
       onSelectChat(chatId);
@@ -19869,6 +20070,46 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
     }
   };
 
+  // Wyślij zdjęcie
+  const sendPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedChat) return;
+
+    setUploadingPhoto(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result;
+        
+        const { doc, updateDoc, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+
+        const message = {
+          id: Date.now().toString(),
+          type: 'staff',
+          text: '',
+          photo: base64,
+          timestamp: new Date().toISOString(),
+          senderName: currentUser.name || currentUser.email,
+          senderId: currentUser.id
+        };
+
+        await updateDoc(doc(db, 'chats', selectedChat), {
+          messages: arrayUnion(message),
+          lastMessageAt: serverTimestamp(),
+          unreadByClient: true,
+          unreadByStaff: false
+        });
+
+        setUploadingPhoto(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Błąd wysyłania zdjęcia:', err);
+      setUploadingPhoto(false);
+    }
+  };
+
   // Wyślij wizualizację
   const sendVisualization = async () => {
     if (!vizWidth || !vizDepth || !selectedChat) return;
@@ -19880,8 +20121,11 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
       const message = {
         id: Date.now().toString(),
         type: 'visualization',
+        senderType: 'staff',
         width: vizWidth,
         depth: vizDepth,
+        armrest: vizArmrest,
+        chaise: vizChaise,
         side: vizSide,
         timestamp: new Date().toISOString(),
         senderName: currentUser.name || currentUser.email
@@ -19896,6 +20140,8 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
       setShowVisualization(false);
       setVizWidth('');
       setVizDepth('');
+      setVizArmrest('');
+      setVizChaise('');
     } catch (err) {
       console.error('Błąd wysyłania wizualizacji:', err);
     }
@@ -19910,7 +20156,8 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
       const { db } = await import('./firebase');
       
       await updateDoc(doc(db, 'chats', chatId), {
-        status: 'closed'
+        status: 'closed',
+        staffOnline: false
       });
     } catch (err) {
       console.error('Błąd zamykania czatu:', err);
@@ -20016,13 +20263,26 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                 <div style={{padding:'12px 16px',background:'white',borderBottom:'1px solid #E2E8F0'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div>
-                      <div style={{fontWeight:'600',fontSize:'15px'}}>{currentChat.clientName}</div>
+                      <div style={{fontWeight:'600',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}}>
+                        {currentChat.clientName}
+                        {currentChat.clientOnline ? (
+                          <span style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'#10B981'}}>
+                            <span style={{width:'8px',height:'8px',background:'#10B981',borderRadius:'50%'}}></span>
+                            online
+                          </span>
+                        ) : (
+                          <span style={{fontSize:'11px',color:'#94A3B8'}}>offline</span>
+                        )}
+                      </div>
                       <div style={{fontSize:'12px',color:'#64748B'}}>
                         {currentChat.categoryName} • {currentChat.clientEmail || currentChat.clientPhone || 'Brak kontaktu'}
                       </div>
                       {currentChat.customDimensions && (
                         <div style={{fontSize:'11px',color:'#8B5CF6',marginTop:'4px'}}>
-                          📐 Wymiary: {currentChat.customDimensions.width}x{currentChat.customDimensions.depth} cm ({currentChat.customDimensions.side === 'left' ? 'lewy' : 'prawy'})
+                          📐 {currentChat.customDimensions.width}x{currentChat.customDimensions.depth} cm
+                          {currentChat.customDimensions.armrest && ` • podr. ${currentChat.customDimensions.armrest}cm`}
+                          {currentChat.customDimensions.chaise && ` • szezl. ${currentChat.customDimensions.chaise}cm`}
+                          {' '}({currentChat.customDimensions.side === 'left' ? 'lewy' : 'prawy'})
                         </div>
                       )}
                     </div>
@@ -20092,50 +20352,35 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                 {/* Modal wizualizacji */}
                 {showVisualization && (
                   <div style={{padding:'16px',background:'#F5F3FF',borderTop:'1px solid #C4B5FD'}}>
-                    <div style={{display:'flex',gap:'12px',alignItems:'flex-end'}}>
-                      <div style={{flex:1}}>
-                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm)</label>
-                        <input
-                          type="number"
-                          value={vizWidth}
-                          onChange={(e) => setVizWidth(e.target.value)}
-                          placeholder="250"
-                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}}
-                        />
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>📐 Wyślij wizualizację narożnika</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
+                      <div>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szerokość *</label>
+                        <input type="number" value={vizWidth} onChange={(e) => setVizWidth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
                       </div>
-                      <div style={{flex:1}}>
-                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm)</label>
-                        <input
-                          type="number"
-                          value={vizDepth}
-                          onChange={(e) => setVizDepth(e.target.value)}
-                          placeholder="150"
-                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px',boxSizing:'border-box'}}
-                        />
+                      <div>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Głębokość *</label>
+                        <input type="number" value={vizDepth} onChange={(e) => setVizDepth(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
                       </div>
-                      <div style={{flex:1}}>
-                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona</label>
-                        <select
-                          value={vizSide}
-                          onChange={(e) => setVizSide(e.target.value)}
-                          style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'13px'}}
-                        >
+                      <div>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Podłokietnik</label>
+                        <input type="number" value={vizArmrest} onChange={(e) => setVizArmrest(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Szezlong</label>
+                        <input type="number" value={vizChaise} onChange={(e) => setVizChaise(e.target.value)} placeholder="cm" style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px',boxSizing:'border-box'}} />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'10px',color:'#6B7280',marginBottom:'2px'}}>Strona</label>
+                        <select value={vizSide} onChange={(e) => setVizSide(e.target.value)} style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #C4B5FD',fontSize:'12px'}}>
                           <option value="left">⬅️ Lewy</option>
                           <option value="right">➡️ Prawy</option>
                         </select>
                       </div>
-                      <button
-                        onClick={sendVisualization}
-                        style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer'}}
-                      >
-                        Wyślij
-                      </button>
-                      <button
-                        onClick={() => setShowVisualization(false)}
-                        style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}
-                      >
-                        ✕
-                      </button>
+                    </div>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <button onClick={sendVisualization} disabled={!vizWidth || !vizDepth} style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'#8B5CF6',color:'white',fontWeight:'600',fontSize:'13px',cursor:'pointer',opacity: vizWidth && vizDepth ? 1 : 0.5}}>Wyślij</button>
+                      <button onClick={() => setShowVisualization(false)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #C4B5FD',background:'white',color:'#6B7280',cursor:'pointer'}}>✕</button>
                     </div>
                   </div>
                 )}
@@ -20143,6 +20388,22 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                 {/* Input */}
                 <div style={{padding:'12px 16px',background:'white',borderTop:'1px solid #E2E8F0'}}>
                   <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+                    {/* Przycisk zdjęcia */}
+                    <label style={{
+                      width:'40px',
+                      height:'40px',
+                      borderRadius:'8px',
+                      border:'1px solid #E2E8F0',
+                      background:'white',
+                      cursor:'pointer',
+                      display:'flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      fontSize:'16px'
+                    }}>
+                      <input type="file" accept="image/*" onChange={sendPhoto} style={{display:'none'}} disabled={uploadingPhoto} />
+                      {uploadingPhoto ? '⏳' : '📷'}
+                    </label>
                     <button
                       onClick={() => setShowVisualization(!showVisualization)}
                       title="Wyślij wizualizację narożnika"
