@@ -21371,12 +21371,6 @@ const AppRouter = () => {
     return <PublicOrderPanel token={orderMatch[1]} />;
   }
   
-  // Formularz klienta - nie wymaga logowania
-  const clientFormMatch = currentPath.match(/^\/klient\/(.+)$/);
-  if (clientFormMatch) {
-    return <ClientOrderForm token={clientFormMatch[1]} />;
-  }
-  
   // Formularz reklamacji - nie wymaga logowania
   const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
   if (complaintMatch) {
