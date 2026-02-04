@@ -14374,6 +14374,7 @@ const PublicChat = () => {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [staffOnline, setStaffOnline] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState(null); // Powiększone zdjęcie
   
   // Wizualizacja
   const [vizWidth, setVizWidth] = useState('');
@@ -14712,55 +14713,105 @@ const PublicChat = () => {
     }
   };
 
-  // Komponent wizualizacji narożnika
-  const CornerVisualization = ({ width, depth, armrest, chaise, side }) => {
+  // Komponent wizualizacji narożnika z pełnymi wymiarami
+  const CornerVisualization = ({ width, depth, armrest, chaise, side, compact = false }) => {
     const w = parseInt(width) || 250;
     const d = parseInt(depth) || 150;
     const arm = parseInt(armrest) || 0;
     const ch = parseInt(chaise) || 0;
-    const maxSize = 200;
-    const scale = Math.min(maxSize / Math.max(w, d), 1);
+    const size = compact ? 160 : 220;
+    const padding = 50;
+    const scale = Math.min((size - padding) / Math.max(w, d), 1);
     const scaledW = w * scale;
     const scaledD = d * scale;
-    const scaledArm = arm * scale;
-    const scaledCh = ch * scale;
+    const scaledArm = arm ? arm * scale : scaledD * 0.4;
+    const scaledCh = ch ? ch * scale : scaledD * 0.35;
 
     return (
-      <div style={{background:'#F8FAFC',borderRadius:'12px',padding:'16px'}}>
-        <div style={{fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'8px',textAlign:'center'}}>
-          📐 Wizualizacja narożnika
-        </div>
-        <div style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'120px'}}>
-          <svg width={maxSize + 80} height={maxSize + 80} viewBox={`0 0 ${maxSize + 80} ${maxSize + 80}`}>
+      <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+          <svg width={size + 40} height={size + 20} viewBox={`0 0 ${size + 40} ${size + 20}`}>
             {side === 'left' ? (
               <>
+                {/* Kształt narożnika lewego */}
                 <path 
-                  d={`M 40 40 L ${40 + scaledW} 40 L ${40 + scaledW} ${40 + (scaledCh || scaledD * 0.4)} L ${40 + (scaledArm || scaledD)} ${40 + (scaledCh || scaledD * 0.4)} L ${40 + (scaledArm || scaledD)} ${40 + scaledD} L 40 ${40 + scaledD} Z`}
+                  d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledD} L 35 ${35 + scaledD} Z`}
                   fill="#8B5CF6"
                   stroke="#6D28D9"
                   strokeWidth="2"
                 />
-                <text x={40 + scaledW/2} y="30" textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600">{width} cm</text>
-                <text x="25" y={40 + scaledD/2} textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600" transform={`rotate(-90, 25, ${40 + scaledD/2})`}>{depth} cm</text>
-                {armrest && <text x={40 + (scaledArm || scaledD)/2} y={50 + scaledD} textAnchor="middle" fontSize="9" fill="#6B7280">podr. {armrest}cm</text>}
-                {chaise && <text x={50 + scaledW} y={40 + (scaledCh || scaledD * 0.4)/2} textAnchor="start" fontSize="9" fill="#6B7280">szezl. {chaise}cm</text>}
+                {/* Szerokość - góra */}
+                <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1" markerEnd="url(#arrowR)" markerStart="url(#arrowL)"/>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                
+                {/* Głębokość - lewo */}
+                <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{depth} cm</text>
+                
+                {/* Głębokość podłokietnika - dół */}
+                {armrest && (
+                  <>
+                    <line x1="35" y1={45 + scaledD} x2={35 + scaledArm} y2={45 + scaledD} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={35 + scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600">↔ podr. {armrest}cm</text>
+                  </>
+                )}
+                
+                {/* Głębokość szezlonga - prawo */}
+                {chaise && (
+                  <>
+                    <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledCh} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={55 + scaledW} y={35 + scaledCh/2 + 4} textAnchor="start" fontSize="9" fill="#F59E0B" fontWeight="600">↕ szezl. {chaise}cm</text>
+                  </>
+                )}
               </>
             ) : (
               <>
+                {/* Kształt narożnika prawego */}
                 <path 
-                  d={`M 40 40 L ${40 + scaledW} 40 L ${40 + scaledW} ${40 + scaledD} L ${40 + scaledW - (scaledArm || scaledD)} ${40 + scaledD} L ${40 + scaledW - (scaledArm || scaledD)} ${40 + (scaledCh || scaledD * 0.4)} L 40 ${40 + (scaledCh || scaledD * 0.4)} Z`}
+                  d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledCh} L 35 ${35 + scaledCh} Z`}
                   fill="#8B5CF6"
                   stroke="#6D28D9"
                   strokeWidth="2"
                 />
-                <text x={40 + scaledW/2} y="30" textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600">{width} cm</text>
-                <text x={55 + scaledW} y={40 + scaledD/2} textAnchor="middle" fontSize="10" fill="#374151" fontWeight="600" transform={`rotate(90, ${55 + scaledW}, ${40 + scaledD/2})`}>{depth} cm</text>
+                {/* Szerokość - góra */}
+                <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                
+                {/* Głębokość - prawo */}
+                <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x={55 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${55 + scaledW}, ${35 + scaledD/2})`}>{depth} cm</text>
+                
+                {/* Głębokość podłokietnika - dół */}
+                {armrest && (
+                  <>
+                    <line x1={35 + scaledW - scaledArm} y1={45 + scaledD} x2={35 + scaledW} y2={45 + scaledD} stroke="#10B981" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x={35 + scaledW - scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600">↔ podr. {armrest}cm</text>
+                  </>
+                )}
+                
+                {/* Głębokość szezlonga - lewo */}
+                {chaise && (
+                  <>
+                    <line x1="20" y1="35" x2="20" y2={35 + scaledCh} stroke="#F59E0B" strokeWidth="1" strokeDasharray="3,2"/>
+                    <text x="10" y={35 + scaledCh/2 + 4} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600" transform={`rotate(-90, 10, ${35 + scaledCh/2})`}>szezl. {chaise}cm</text>
+                  </>
+                )}
               </>
             )}
+            <defs>
+              <marker id="arrowR" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#374151"/></marker>
+              <marker id="arrowL" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M6,0 L0,3 L6,6" fill="#374151"/></marker>
+            </defs>
           </svg>
         </div>
-        <div style={{textAlign:'center',fontSize:'10px',color:'#94A3B8'}}>
-          {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'} narożnik
+        {/* Legenda wymiarów */}
+        <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
+          <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>
+            {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
+          </span>
+          <span style={{color:'#374151'}}><strong>{width}</strong>×<strong>{depth}</strong> cm</span>
+          {armrest && <span style={{color:'#10B981'}}>podr. <strong>{armrest}</strong>cm</span>}
+          {chaise && <span style={{color:'#F59E0B'}}>szezl. <strong>{chaise}</strong>cm</span>}
         </div>
       </div>
     );
@@ -15088,11 +15139,11 @@ const PublicChat = () => {
                 {msg.text}
               </div>
             ) : msg.type === 'visualization' ? (
-              <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'280px'}}>
+              <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px'}}>
                 <div style={{fontSize:'11px',color: msg.senderType === 'client' ? '#8B5CF6' : '#10B981',fontWeight:'600',marginBottom:'4px'}}>
                   📐 Wizualizacja od {msg.senderType === 'client' ? 'Ciebie' : msg.senderName}
                 </div>
-                <CornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} />
+                <CornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} compact />
               </div>
             ) : (
               <div style={{
@@ -15109,7 +15160,19 @@ const PublicChat = () => {
                   </div>
                 )}
                 {msg.photo && (
-                  <img src={msg.photo} alt="Zdjęcie" style={{maxWidth:'100%',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0}} />
+                  <div 
+                    onClick={() => setLightboxPhoto(msg.photo)}
+                    style={{cursor:'pointer',position:'relative',display:'inline-block'}}
+                  >
+                    <img 
+                      src={msg.photo} 
+                      alt="Zdjęcie" 
+                      style={{maxWidth:'150px',maxHeight:'150px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0,objectFit:'cover'}} 
+                    />
+                    <div style={{position:'absolute',bottom: msg.text ? '12px' : '4px',right:'4px',background:'rgba(0,0,0,0.5)',color:'white',padding:'2px 6px',borderRadius:'4px',fontSize:'10px'}}>
+                      🔍 Powiększ
+                    </div>
+                  </div>
                 )}
                 {msg.text && <div style={{fontSize:'14px',lineHeight:'1.4'}}>{msg.text}</div>}
                 <div style={{fontSize:'10px',opacity:0.7,marginTop:'6px',textAlign:'right'}}>
@@ -15193,6 +15256,56 @@ const PublicChat = () => {
           </button>
         </div>
       </div>
+
+      {/* Lightbox do powiększenia zdjęcia */}
+      {lightboxPhoto && (
+        <div 
+          onClick={() => setLightboxPhoto(null)}
+          style={{
+            position:'fixed',
+            top:0,left:0,right:0,bottom:0,
+            background:'rgba(0,0,0,0.9)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            zIndex:9999,
+            padding:'20px',
+            cursor:'pointer'
+          }}
+        >
+          <button
+            onClick={() => setLightboxPhoto(null)}
+            style={{
+              position:'absolute',
+              top:'20px',
+              right:'20px',
+              background:'white',
+              border:'none',
+              borderRadius:'50%',
+              width:'40px',
+              height:'40px',
+              fontSize:'20px',
+              cursor:'pointer',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center'
+            }}
+          >
+            ✕
+          </button>
+          <img 
+            src={lightboxPhoto} 
+            alt="Powiększone zdjęcie"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth:'90%',
+              maxHeight:'90%',
+              borderRadius:'8px',
+              objectFit:'contain'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
@@ -19985,6 +20098,48 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
   const [vizChaise, setVizChaise] = useState('');
   const [vizSide, setVizSide] = useState('left');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+
+  // Komponent wizualizacji dla panelu admina
+  const AdminCornerVisualization = ({ width, depth, armrest, chaise, side }) => {
+    const w = parseInt(width) || 250;
+    const d = parseInt(depth) || 150;
+    const size = 180;
+    const padding = 45;
+    const scale = Math.min((size - padding) / Math.max(w, d), 1);
+    const scaledW = w * scale;
+    const scaledD = d * scale;
+    const scaledArm = armrest ? parseInt(armrest) * scale : scaledD * 0.4;
+    const scaledCh = chaise ? parseInt(chaise) * scale : scaledD * 0.35;
+
+    return (
+      <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'10px'}}>
+        <div style={{display:'flex',justifyContent:'center'}}>
+          <svg width={size + 30} height={size} viewBox={`0 0 ${size + 30} ${size}`}>
+            {side === 'left' ? (
+              <>
+                <path d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledCh} L ${30 + scaledArm} ${30 + scaledCh} L ${30 + scaledArm} ${30 + scaledD} L 30 ${30 + scaledD} Z`} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+                <text x={30 + scaledW/2} y="22" textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{width}cm</text>
+                <text x="18" y={30 + scaledD/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 18, ${30 + scaledD/2})`}>{depth}cm</text>
+              </>
+            ) : (
+              <>
+                <path d={`M 30 30 L ${30 + scaledW} 30 L ${30 + scaledW} ${30 + scaledD} L ${30 + scaledW - scaledArm} ${30 + scaledD} L ${30 + scaledW - scaledArm} ${30 + scaledCh} L 30 ${30 + scaledCh} Z`} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+                <text x={30 + scaledW/2} y="22" textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{width}cm</text>
+                <text x={42 + scaledW} y={30 + scaledD/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${42 + scaledW}, ${30 + scaledD/2})`}>{depth}cm</text>
+              </>
+            )}
+          </svg>
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize:'9px',marginTop:'4px'}}>
+          <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'3px'}}>{side === 'left' ? '⬅️L' : '➡️P'}</span>
+          <span style={{color:'#374151'}}>{width}×{depth}</span>
+          {armrest && <span style={{color:'#10B981'}}>podr.{armrest}</span>}
+          {chaise && <span style={{color:'#F59E0B'}}>szezl.{chaise}</span>}
+        </div>
+      </div>
+    );
+  };
 
   // Aktualizuj status online pracownika
   useEffect(() => {
@@ -20300,29 +20455,18 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                   {(currentChat.messages || []).map((msg, idx) => (
                     <div key={msg.id || idx} style={{
                       display:'flex',
-                      justifyContent: msg.type === 'staff' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
+                      justifyContent: msg.type === 'staff' || msg.senderType === 'staff' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
                     }}>
                       {msg.type === 'system' ? (
-                        <div style={{background:'#E2E8F0',padding:'8px 14px',borderRadius:'16px',fontSize:'12px',color:'#64748B'}}>
+                        <div style={{background:'#E2E8F0',padding:'8px 14px',borderRadius:'16px',fontSize:'12px',color:'#64748B',whiteSpace:'pre-line'}}>
                           {msg.text}
                         </div>
                       ) : msg.type === 'visualization' ? (
-                        <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'280px'}}>
-                          <div style={{fontSize:'11px',color:'#8B5CF6',fontWeight:'600',marginBottom:'8px'}}>📐 Wizualizacja</div>
-                          <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
-                            <svg width="200" height="150" viewBox="0 0 200 150">
-                              {msg.side === 'left' ? (
-                                <path d="M 20 20 L 180 20 L 180 60 L 80 60 L 80 130 L 20 130 Z" fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-                              ) : (
-                                <path d="M 20 20 L 180 20 L 180 130 L 120 130 L 120 60 L 20 60 Z" fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-                              )}
-                              <text x="100" y="12" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{msg.width} cm</text>
-                              <text x="10" y="75" textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600" transform="rotate(-90, 10, 75)">{msg.depth} cm</text>
-                            </svg>
+                        <div style={{background:'white',padding:'10px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'260px'}}>
+                          <div style={{fontSize:'10px',color: msg.senderType === 'staff' ? '#10B981' : '#8B5CF6',fontWeight:'600',marginBottom:'6px'}}>
+                            📐 {msg.senderType === 'staff' ? 'Twoja wizualizacja' : `Wizualizacja od ${msg.senderName || 'klienta'}`}
                           </div>
-                          <div style={{fontSize:'10px',color:'#64748B',marginTop:'6px',textAlign:'center'}}>
-                            {msg.width}x{msg.depth} cm • {msg.side === 'left' ? 'Lewy' : 'Prawy'}
-                          </div>
+                          <AdminCornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} />
                         </div>
                       ) : (
                         <div style={{
@@ -20337,7 +20481,13 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                             <div style={{fontSize:'10px',color:'#8B5CF6',fontWeight:'600',marginBottom:'4px'}}>{msg.senderName}</div>
                           )}
                           {msg.photo && (
-                            <img src={msg.photo} alt="" style={{maxWidth:'100%',maxHeight:'200px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0}} />
+                            <div 
+                              onClick={() => setLightboxPhoto(msg.photo)}
+                              style={{cursor:'pointer',position:'relative',display:'inline-block'}}
+                            >
+                              <img src={msg.photo} alt="" style={{maxWidth:'120px',maxHeight:'120px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0,objectFit:'cover'}} />
+                              <div style={{position:'absolute',bottom: msg.text ? '12px' : '4px',right:'4px',background:'rgba(0,0,0,0.6)',color:'white',padding:'2px 5px',borderRadius:'3px',fontSize:'9px'}}>🔍</div>
+                            </div>
                           )}
                           {msg.text && <div style={{fontSize:'13px',lineHeight:'1.4'}}>{msg.text}</div>}
                           <div style={{fontSize:'10px',opacity:0.7,marginTop:'4px',textAlign:'right'}}>
@@ -20456,6 +20606,34 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
             )}
           </div>
         </div>
+
+        {/* Lightbox do powiększenia zdjęcia */}
+        {lightboxPhoto && (
+          <div 
+            onClick={() => setLightboxPhoto(null)}
+            style={{
+              position:'fixed',
+              top:0,left:0,right:0,bottom:0,
+              background:'rgba(0,0,0,0.9)',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              zIndex:99999,
+              cursor:'pointer'
+            }}
+          >
+            <button
+              onClick={() => setLightboxPhoto(null)}
+              style={{position:'absolute',top:'20px',right:'20px',background:'white',border:'none',borderRadius:'50%',width:'40px',height:'40px',fontSize:'20px',cursor:'pointer'}}
+            >✕</button>
+            <img 
+              src={lightboxPhoto} 
+              alt="Powiększone"
+              onClick={(e) => e.stopPropagation()}
+              style={{maxWidth:'90%',maxHeight:'90%',borderRadius:'8px',objectFit:'contain'}}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
