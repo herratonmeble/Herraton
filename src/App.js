@@ -17469,6 +17469,32 @@ const PublicOrderPanel = ({ token }) => {
 };
 
 const App = () => {
+  // ROUTING PUBLICZNY - sprawdź PRZED wszystkim innym
+  const currentPath = window.location.pathname;
+  
+  // Publiczny czat - nie wymaga logowania
+  if (currentPath === '/czat') {
+    return <PublicChat />;
+  }
+  
+  // Panel śledzenia zamówienia - nie wymaga logowania
+  const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
+  if (orderMatch) {
+    return <PublicOrderPanel token={orderMatch[1]} />;
+  }
+  
+  // Formularz klienta - nie wymaga logowania
+  const clientFormMatch = currentPath.match(/^\/klient\/(.+)$/);
+  if (clientFormMatch) {
+    return <ClientOrderForm token={clientFormMatch[1]} />;
+  }
+  
+  // Formularz reklamacji - nie wymaga logowania
+  const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
+  if (complaintMatch) {
+    return <PublicComplaintForm token={complaintMatch[1]} />;
+  }
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
@@ -17778,7 +17804,7 @@ const App = () => {
     
     const loadChats = async () => {
       try {
-        const { collection, query, orderBy, onSnapshot, where } = await import('firebase/firestore');
+        const { collection, query, orderBy, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('./firebase');
         
         // Dla zwykłych pracowników - pokaż tylko ich czaty lub nieprzypisane
@@ -18660,28 +18686,6 @@ Zespół obsługi zamówień
   });
 
   const paymentSums = calcPaymentSums(filteredOrders);
-
-  // Sprawdź czy URL wskazuje na formularz reklamacji (publiczny, bez logowania)
-  const currentPath = window.location.pathname;
-  
-  // Routing: Publiczny czat dla klienta
-  if (currentPath === '/czat') {
-    return <PublicChat />;
-  }
-  
-  // Routing: Panel zamówienia dla klienta
-  const orderMatch = currentPath.match(/^\/zamowienie\/(.+)$/);
-  if (orderMatch) {
-    const orderToken = orderMatch[1];
-    return <PublicOrderPanel token={orderToken} />;
-  }
-  
-  // Routing: Formularz reklamacji
-  const complaintMatch = currentPath.match(/^\/reklamacja\/(.+)$/);
-  if (complaintMatch) {
-    const complaintToken = complaintMatch[1];
-    return <PublicComplaintForm token={complaintToken} />;
-  }
 
   if (user?.role === 'driver') {
     return (
