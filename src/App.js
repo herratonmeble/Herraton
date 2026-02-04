@@ -14364,7 +14364,7 @@ const SettlementsPanel = ({
 // ============================================
 
 const PublicChat = () => {
-  const [step, setStep] = useState('form'); // 'form' lub 'chat'
+  const [step, setStep] = useState('form'); // 'form', 'chat' lub 'history'
   const [chatId, setChatId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -14374,7 +14374,10 @@ const PublicChat = () => {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [staffOnline, setStaffOnline] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState(null); // Powiększone zdjęcie
+  const [lightboxContent, setLightboxContent] = useState(null); // { type: 'photo' | 'visualization', data: ... }
+  const [chatHistory, setChatHistory] = useState([]); // Historia zakończonych czatów
+  const [viewingHistoryChat, setViewingHistoryChat] = useState(null); // Przeglądany czat z historii
+  const [chatStatus, setChatStatus] = useState('active'); // Status bieżącego czatu
   
   // Wizualizacja
   const [vizWidth, setVizWidth] = useState('');
@@ -14571,17 +14574,85 @@ const PublicChat = () => {
     };
   }, [chatId]);
 
-  // Sprawdź zapisany czat
+  // Sprawdź zapisany czat i załaduj historię
   useEffect(() => {
-    const savedChatId = localStorage.getItem('herraton_chat_id');
-    const savedName = localStorage.getItem('herraton_chat_name');
+    const loadChatData = async () => {
+      const savedChatId = localStorage.getItem('herraton_chat_id');
+      const savedName = localStorage.getItem('herraton_chat_name');
+      const savedHistory = localStorage.getItem('herraton_chat_history');
+      
+      // Załaduj historię czatów
+      if (savedHistory) {
+        try {
+          setChatHistory(JSON.parse(savedHistory));
+        } catch (e) {}
+      }
+      
+      if (savedChatId) {
+        // Sprawdź czy czat nadal istnieje i jaki ma status
+        try {
+          const { doc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          const chatDoc = await getDoc(doc(db, 'chats', savedChatId));
+          
+          if (chatDoc.exists()) {
+            const chatData = chatDoc.data();
+            setChatId(savedChatId);
+            setFormData(prev => ({ ...prev, name: savedName || '' }));
+            setChatStatus(chatData.status || 'active');
+            
+            // Jeśli czat jest zamknięty, przenieś do historii i pokaż formularz
+            if (chatData.status === 'closed') {
+              // Dodaj do historii jeśli jeszcze nie ma
+              const history = JSON.parse(localStorage.getItem('herraton_chat_history') || '[]');
+              if (!history.find(h => h.id === savedChatId)) {
+                const newHistory = [{
+                  id: savedChatId,
+                  clientName: chatData.clientName,
+                  categoryName: chatData.categoryName,
+                  createdAt: chatData.createdAt?.toDate?.() || new Date(),
+                  closedAt: new Date(),
+                  messagesCount: (chatData.messages || []).length
+                }, ...history].slice(0, 10); // Max 10 czatów w historii
+                localStorage.setItem('herraton_chat_history', JSON.stringify(newHistory));
+                setChatHistory(newHistory);
+              }
+              localStorage.removeItem('herraton_chat_id');
+              setStep('form');
+            } else {
+              setStep('chat');
+            }
+          } else {
+            localStorage.removeItem('herraton_chat_id');
+          }
+        } catch (err) {
+          console.error('Błąd sprawdzania czatu:', err);
+          setChatId(savedChatId);
+          setFormData(prev => ({ ...prev, name: savedName || '' }));
+          setStep('chat');
+        }
+      }
+    };
     
-    if (savedChatId) {
-      setChatId(savedChatId);
-      setFormData(prev => ({ ...prev, name: savedName || '' }));
-      setStep('chat');
-    }
+    loadChatData();
   }, []);
+
+  // Załaduj historyczny czat do podglądu
+  const loadHistoryChat = async (historyChatId) => {
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      const chatDoc = await getDoc(doc(db, 'chats', historyChatId));
+      
+      if (chatDoc.exists()) {
+        setViewingHistoryChat({ id: historyChatId, ...chatDoc.data() });
+        setStep('history');
+      }
+    } catch (err) {
+      console.error('Błąd ładowania historii:', err);
+      alert('Nie udało się załadować historii czatu');
+    }
+  };
 
   // Wyślij wiadomość
   const sendMessage = async () => {
@@ -14690,8 +14761,25 @@ const PublicChat = () => {
   };
 
   // Zakończ czat
-  const endChat = () => {
+  const endChat = async () => {
     if (window.confirm('Czy na pewno chcesz zakończyć czat?')) {
+      // Zapisz do historii
+      if (chatId && messages.length > 0) {
+        const history = JSON.parse(localStorage.getItem('herraton_chat_history') || '[]');
+        if (!history.find(h => h.id === chatId)) {
+          const newHistory = [{
+            id: chatId,
+            clientName: formData.name || localStorage.getItem('herraton_chat_name'),
+            categoryName: formData.category ? (categories.find(c => c.id === formData.category)?.name || formData.category) : 'Czat',
+            createdAt: new Date().toISOString(),
+            closedAt: new Date().toISOString(),
+            messagesCount: messages.length
+          }, ...history].slice(0, 10);
+          localStorage.setItem('herraton_chat_history', JSON.stringify(newHistory));
+          setChatHistory(newHistory);
+        }
+      }
+      
       localStorage.removeItem('herraton_chat_id');
       localStorage.removeItem('herraton_chat_name');
       setChatId(null);
@@ -15087,8 +15175,135 @@ const PublicChat = () => {
               >
                 💬 Rozpocznij czat
               </button>
+              
+              {/* Historia czatów */}
+              {chatHistory.length > 0 && (
+                <div style={{marginTop:'20px',paddingTop:'20px',borderTop:'1px solid #E2E8F0'}}>
+                  <div style={{fontSize:'13px',fontWeight:'600',color:'#64748B',marginBottom:'12px'}}>
+                    📜 Historia rozmów
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                    {chatHistory.map((historyItem, idx) => (
+                      <button
+                        key={historyItem.id || idx}
+                        onClick={() => loadHistoryChat(historyItem.id)}
+                        style={{
+                          width:'100%',
+                          padding:'12px',
+                          borderRadius:'10px',
+                          border:'1px solid #E2E8F0',
+                          background:'#F8FAFC',
+                          cursor:'pointer',
+                          textAlign:'left',
+                          display:'flex',
+                          justifyContent:'space-between',
+                          alignItems:'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{fontSize:'13px',fontWeight:'600',color:'#374151'}}>
+                            {historyItem.categoryName || 'Rozmowa'}
+                          </div>
+                          <div style={{fontSize:'11px',color:'#94A3B8',marginTop:'2px'}}>
+                            {historyItem.messagesCount || 0} wiadomości
+                          </div>
+                        </div>
+                        <div style={{fontSize:'11px',color:'#94A3B8'}}>
+                          {new Date(historyItem.closedAt || historyItem.createdAt).toLocaleDateString('pl-PL')}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // WIDOK HISTORII CZATU
+  if (step === 'history' && viewingHistoryChat) {
+    return (
+      <div style={{minHeight:'100vh',background:'#F1F5F9',display:'flex',flexDirection:'column'}}>
+        {/* Header */}
+        <div style={{background:'linear-gradient(135deg,#1E293B,#334155)',padding:'16px 20px',color:'white'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:'18px',fontWeight:'700'}}>📜 Historia rozmowy</div>
+              <div style={{fontSize:'13px',opacity:0.8,marginTop:'4px'}}>
+                {viewingHistoryChat.categoryName} • {new Date(viewingHistoryChat.createdAt?.toDate?.() || viewingHistoryChat.createdAt).toLocaleDateString('pl-PL')}
+              </div>
+            </div>
+            <button
+              onClick={() => { setViewingHistoryChat(null); setStep('form'); }}
+              style={{background:'rgba(255,255,255,0.1)',border:'none',padding:'8px 16px',borderRadius:'8px',color:'white',cursor:'pointer',fontSize:'12px'}}
+            >
+              ← Powrót
+            </button>
+          </div>
+        </div>
+
+        {/* Wiadomości z historii */}
+        <div style={{flex:1,overflow:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+          <div style={{background:'#FEF3C7',padding:'12px 16px',borderRadius:'12px',textAlign:'center',fontSize:'13px',color:'#92400E'}}>
+            📜 To jest archiwalna rozmowa. Nie możesz wysyłać nowych wiadomości.
+          </div>
+          
+          {(viewingHistoryChat.messages || []).map((msg, idx) => (
+            <div key={msg.id || idx} style={{
+              display:'flex',
+              justifyContent: msg.type === 'client' ? 'flex-end' : msg.type === 'system' ? 'center' : 'flex-start'
+            }}>
+              {msg.type === 'system' ? (
+                <div style={{background:'#E2E8F0',padding:'10px 16px',borderRadius:'12px',fontSize:'12px',color:'#64748B',maxWidth:'85%',textAlign:'center',whiteSpace:'pre-line'}}>
+                  {msg.text}
+                </div>
+              ) : msg.type === 'visualization' ? (
+                <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px'}}>
+                  <div style={{fontSize:'11px',color:'#8B5CF6',fontWeight:'600',marginBottom:'4px'}}>
+                    📐 Wizualizacja
+                  </div>
+                  <CornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} compact />
+                </div>
+              ) : (
+                <div style={{
+                  background: msg.type === 'client' ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : 'white',
+                  color: msg.type === 'client' ? 'white' : '#1E293B',
+                  padding:'12px 16px',
+                  borderRadius: msg.type === 'client' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  maxWidth:'75%',
+                  boxShadow:'0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  {msg.type === 'staff' && (
+                    <div style={{fontSize:'11px',color:'#8B5CF6',fontWeight:'600',marginBottom:'4px'}}>{msg.senderName}</div>
+                  )}
+                  {msg.photo && (
+                    <img src={msg.photo} alt="" style={{maxWidth:'200px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0}} />
+                  )}
+                  {msg.text && <div style={{fontSize:'14px',lineHeight:'1.4'}}>{msg.text}</div>}
+                  <div style={{fontSize:'10px',opacity:0.7,marginTop:'6px',textAlign:'right'}}>
+                    {new Date(msg.timestamp).toLocaleTimeString('pl-PL', {hour:'2-digit',minute:'2-digit'})}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Przycisk nowy czat */}
+        <div style={{padding:'16px',background:'white',borderTop:'1px solid #E2E8F0'}}>
+          <button
+            onClick={() => { setViewingHistoryChat(null); setStep('form'); }}
+            style={{
+              width:'100%',padding:'14px',borderRadius:'12px',border:'none',
+              background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',
+              fontSize:'15px',fontWeight:'700',cursor:'pointer'
+            }}
+          >
+            💬 Rozpocznij nową rozmowę
+          </button>
         </div>
       </div>
     );
@@ -15139,11 +15354,15 @@ const PublicChat = () => {
                 {msg.text}
               </div>
             ) : msg.type === 'visualization' ? (
-              <div style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px'}}>
+              <div 
+                onClick={() => setLightboxContent({ type: 'visualization', data: msg })}
+                style={{background:'white',padding:'12px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'300px',cursor:'pointer',position:'relative'}}
+              >
                 <div style={{fontSize:'11px',color: msg.senderType === 'client' ? '#8B5CF6' : '#10B981',fontWeight:'600',marginBottom:'4px'}}>
                   📐 Wizualizacja od {msg.senderType === 'client' ? 'Ciebie' : msg.senderName}
                 </div>
                 <CornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} compact />
+                <div style={{position:'absolute',top:'8px',right:'8px',background:'rgba(0,0,0,0.5)',color:'white',padding:'2px 6px',borderRadius:'4px',fontSize:'9px'}}>🔍 Powiększ</div>
               </div>
             ) : (
               <div style={{
@@ -15161,7 +15380,7 @@ const PublicChat = () => {
                 )}
                 {msg.photo && (
                   <div 
-                    onClick={() => setLightboxPhoto(msg.photo)}
+                    onClick={() => setLightboxContent({ type: 'photo', data: msg.photo })}
                     style={{cursor:'pointer',position:'relative',display:'inline-block'}}
                   >
                     <img 
@@ -15257,10 +15476,10 @@ const PublicChat = () => {
         </div>
       </div>
 
-      {/* Lightbox do powiększenia zdjęcia */}
-      {lightboxPhoto && (
+      {/* Lightbox do powiększenia zdjęcia lub wizualizacji */}
+      {lightboxContent && (
         <div 
-          onClick={() => setLightboxPhoto(null)}
+          onClick={() => setLightboxContent(null)}
           style={{
             position:'fixed',
             top:0,left:0,right:0,bottom:0,
@@ -15274,7 +15493,7 @@ const PublicChat = () => {
           }}
         >
           <button
-            onClick={() => setLightboxPhoto(null)}
+            onClick={() => setLightboxContent(null)}
             style={{
               position:'absolute',
               top:'20px',
@@ -15282,28 +15501,48 @@ const PublicChat = () => {
               background:'white',
               border:'none',
               borderRadius:'50%',
-              width:'40px',
-              height:'40px',
-              fontSize:'20px',
+              width:'44px',
+              height:'44px',
+              fontSize:'22px',
               cursor:'pointer',
               display:'flex',
               alignItems:'center',
-              justifyContent:'center'
+              justifyContent:'center',
+              boxShadow:'0 2px 10px rgba(0,0,0,0.3)'
             }}
           >
             ✕
           </button>
-          <img 
-            src={lightboxPhoto} 
-            alt="Powiększone zdjęcie"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth:'90%',
-              maxHeight:'90%',
-              borderRadius:'8px',
-              objectFit:'contain'
-            }}
-          />
+          
+          {lightboxContent.type === 'photo' ? (
+            <img 
+              src={lightboxContent.data} 
+              alt="Powiększone zdjęcie"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth:'90%',
+                maxHeight:'90%',
+                borderRadius:'12px',
+                objectFit:'contain'
+              }}
+            />
+          ) : (
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              style={{background:'white',borderRadius:'20px',padding:'24px',maxWidth:'450px',width:'90%'}}
+            >
+              <div style={{fontSize:'16px',fontWeight:'700',color:'#1E293B',marginBottom:'16px',textAlign:'center'}}>
+                📐 Wizualizacja narożnika
+              </div>
+              <CornerVisualization 
+                width={lightboxContent.data.width} 
+                depth={lightboxContent.data.depth} 
+                armrest={lightboxContent.data.armrest} 
+                chaise={lightboxContent.data.chaise} 
+                side={lightboxContent.data.side} 
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -20098,7 +20337,7 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
   const [vizChaise, setVizChaise] = useState('');
   const [vizSide, setVizSide] = useState('left');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  const [lightboxContent, setLightboxContent] = useState(null); // { type: 'photo' | 'visualization', data: ... }
 
   // Komponent wizualizacji dla panelu admina
   const AdminCornerVisualization = ({ width, depth, armrest, chaise, side }) => {
@@ -20462,11 +20701,15 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                           {msg.text}
                         </div>
                       ) : msg.type === 'visualization' ? (
-                        <div style={{background:'white',padding:'10px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'260px'}}>
+                        <div 
+                          onClick={() => setLightboxContent({ type: 'visualization', data: msg })}
+                          style={{background:'white',padding:'10px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',maxWidth:'260px',cursor:'pointer',position:'relative'}}
+                        >
                           <div style={{fontSize:'10px',color: msg.senderType === 'staff' ? '#10B981' : '#8B5CF6',fontWeight:'600',marginBottom:'6px'}}>
                             📐 {msg.senderType === 'staff' ? 'Twoja wizualizacja' : `Wizualizacja od ${msg.senderName || 'klienta'}`}
                           </div>
                           <AdminCornerVisualization width={msg.width} depth={msg.depth} armrest={msg.armrest} chaise={msg.chaise} side={msg.side} />
+                          <div style={{position:'absolute',top:'8px',right:'8px',background:'rgba(0,0,0,0.5)',color:'white',padding:'2px 6px',borderRadius:'4px',fontSize:'9px'}}>🔍 Powiększ</div>
                         </div>
                       ) : (
                         <div style={{
@@ -20482,7 +20725,7 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
                           )}
                           {msg.photo && (
                             <div 
-                              onClick={() => setLightboxPhoto(msg.photo)}
+                              onClick={() => setLightboxContent({ type: 'photo', data: msg.photo })}
                               style={{cursor:'pointer',position:'relative',display:'inline-block'}}
                             >
                               <img src={msg.photo} alt="" style={{maxWidth:'120px',maxHeight:'120px',borderRadius:'8px',marginBottom: msg.text ? '8px' : 0,objectFit:'cover'}} />
@@ -20607,10 +20850,10 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
           </div>
         </div>
 
-        {/* Lightbox do powiększenia zdjęcia */}
-        {lightboxPhoto && (
+        {/* Lightbox do powiększenia zdjęcia lub wizualizacji */}
+        {lightboxContent && (
           <div 
-            onClick={() => setLightboxPhoto(null)}
+            onClick={() => setLightboxContent(null)}
             style={{
               position:'fixed',
               top:0,left:0,right:0,bottom:0,
@@ -20619,19 +20862,87 @@ const ClientChatsPanel = ({ chats, selectedChat, onSelectChat, onClose, currentU
               alignItems:'center',
               justifyContent:'center',
               zIndex:99999,
-              cursor:'pointer'
+              cursor:'pointer',
+              padding:'20px'
             }}
           >
             <button
-              onClick={() => setLightboxPhoto(null)}
-              style={{position:'absolute',top:'20px',right:'20px',background:'white',border:'none',borderRadius:'50%',width:'40px',height:'40px',fontSize:'20px',cursor:'pointer'}}
+              onClick={() => setLightboxContent(null)}
+              style={{position:'absolute',top:'20px',right:'20px',background:'white',border:'none',borderRadius:'50%',width:'44px',height:'44px',fontSize:'22px',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.3)'}}
             >✕</button>
-            <img 
-              src={lightboxPhoto} 
-              alt="Powiększone"
-              onClick={(e) => e.stopPropagation()}
-              style={{maxWidth:'90%',maxHeight:'90%',borderRadius:'8px',objectFit:'contain'}}
-            />
+            
+            {lightboxContent.type === 'photo' ? (
+              <img 
+                src={lightboxContent.data} 
+                alt="Powiększone zdjęcie"
+                onClick={(e) => e.stopPropagation()}
+                style={{maxWidth:'90%',maxHeight:'90%',borderRadius:'12px',objectFit:'contain'}}
+              />
+            ) : (
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                style={{background:'white',borderRadius:'20px',padding:'30px',maxWidth:'500px',width:'90%'}}
+              >
+                <div style={{fontSize:'18px',fontWeight:'700',color:'#1E293B',marginBottom:'20px',textAlign:'center'}}>
+                  📐 Wizualizacja narożnika
+                </div>
+                <div style={{background:'#F8FAFC',borderRadius:'12px',padding:'20px'}}>
+                  <svg width="100%" height="300" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+                    {(() => {
+                      const msg = lightboxContent.data;
+                      const w = parseInt(msg.width) || 250;
+                      const d = parseInt(msg.depth) || 150;
+                      const scale = Math.min(300 / Math.max(w, d), 1);
+                      const scaledW = w * scale;
+                      const scaledD = d * scale;
+                      const arm = msg.armrest ? parseInt(msg.armrest) * scale : scaledD * 0.4;
+                      const ch = msg.chaise ? parseInt(msg.chaise) * scale : scaledD * 0.35;
+                      const ox = 60, oy = 50;
+                      
+                      return msg.side === 'left' ? (
+                        <>
+                          <path d={`M ${ox} ${oy} L ${ox + scaledW} ${oy} L ${ox + scaledW} ${oy + ch} L ${ox + arm} ${oy + ch} L ${ox + arm} ${oy + scaledD} L ${ox} ${oy + scaledD} Z`} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="3"/>
+                          <line x1={ox} y1={oy - 15} x2={ox + scaledW} y2={oy - 15} stroke="#374151" strokeWidth="2"/>
+                          <text x={ox + scaledW/2} y={oy - 25} textAnchor="middle" fontSize="16" fill="#1E293B" fontWeight="700">{msg.width} cm</text>
+                          <line x1={ox - 15} y1={oy} x2={ox - 15} y2={oy + scaledD} stroke="#374151" strokeWidth="2"/>
+                          <text x={ox - 30} y={oy + scaledD/2} textAnchor="middle" fontSize="16" fill="#1E293B" fontWeight="700" transform={`rotate(-90, ${ox - 30}, ${oy + scaledD/2})`}>{msg.depth} cm</text>
+                          {msg.armrest && <><line x1={ox} y1={oy + scaledD + 15} x2={ox + arm} y2={oy + scaledD + 15} stroke="#10B981" strokeWidth="2" strokeDasharray="5,3"/><text x={ox + arm/2} y={oy + scaledD + 35} textAnchor="middle" fontSize="14" fill="#10B981" fontWeight="600">podłokietnik {msg.armrest} cm</text></>}
+                          {msg.chaise && <><line x1={ox + scaledW + 15} y1={oy} x2={ox + scaledW + 15} y2={oy + ch} stroke="#F59E0B" strokeWidth="2" strokeDasharray="5,3"/><text x={ox + scaledW + 30} y={oy + ch/2 + 5} textAnchor="start" fontSize="14" fill="#F59E0B" fontWeight="600">szezlong {msg.chaise} cm</text></>}
+                        </>
+                      ) : (
+                        <>
+                          <path d={`M ${ox} ${oy} L ${ox + scaledW} ${oy} L ${ox + scaledW} ${oy + scaledD} L ${ox + scaledW - arm} ${oy + scaledD} L ${ox + scaledW - arm} ${oy + ch} L ${ox} ${oy + ch} Z`} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="3"/>
+                          <line x1={ox} y1={oy - 15} x2={ox + scaledW} y2={oy - 15} stroke="#374151" strokeWidth="2"/>
+                          <text x={ox + scaledW/2} y={oy - 25} textAnchor="middle" fontSize="16" fill="#1E293B" fontWeight="700">{msg.width} cm</text>
+                          <line x1={ox + scaledW + 15} y1={oy} x2={ox + scaledW + 15} y2={oy + scaledD} stroke="#374151" strokeWidth="2"/>
+                          <text x={ox + scaledW + 30} y={oy + scaledD/2} textAnchor="middle" fontSize="16" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${ox + scaledW + 30}, ${oy + scaledD/2})`}>{msg.depth} cm</text>
+                          {msg.armrest && <><line x1={ox + scaledW - arm} y1={oy + scaledD + 15} x2={ox + scaledW} y2={oy + scaledD + 15} stroke="#10B981" strokeWidth="2" strokeDasharray="5,3"/><text x={ox + scaledW - arm/2} y={oy + scaledD + 35} textAnchor="middle" fontSize="14" fill="#10B981" fontWeight="600">podłokietnik {msg.armrest} cm</text></>}
+                          {msg.chaise && <><line x1={ox - 15} y1={oy} x2={ox - 15} y2={oy + ch} stroke="#F59E0B" strokeWidth="2" strokeDasharray="5,3"/><text x={ox - 30} y={oy + ch/2 + 5} textAnchor="middle" fontSize="14" fill="#F59E0B" fontWeight="600" transform={`rotate(-90, ${ox - 30}, ${oy + ch/2})`}>szezlong {msg.chaise} cm</text></>}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
+                <div style={{marginTop:'16px',display:'flex',flexWrap:'wrap',gap:'10px',justifyContent:'center',fontSize:'14px'}}>
+                  <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'6px 12px',borderRadius:'8px',fontWeight:'600'}}>
+                    {lightboxContent.data.side === 'left' ? '⬅️ Lewy narożnik' : '➡️ Prawy narożnik'}
+                  </span>
+                  <span style={{background:'#F1F5F9',padding:'6px 12px',borderRadius:'8px'}}>
+                    <strong>{lightboxContent.data.width}</strong> × <strong>{lightboxContent.data.depth}</strong> cm
+                  </span>
+                  {lightboxContent.data.armrest && (
+                    <span style={{background:'#D1FAE5',color:'#065F46',padding:'6px 12px',borderRadius:'8px'}}>
+                      Podłokietnik: <strong>{lightboxContent.data.armrest}</strong> cm
+                    </span>
+                  )}
+                  {lightboxContent.data.chaise && (
+                    <span style={{background:'#FEF3C7',color:'#92400E',padding:'6px 12px',borderRadius:'8px'}}>
+                      Szezlong: <strong>{lightboxContent.data.chaise}</strong> cm
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
