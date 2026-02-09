@@ -813,13 +813,6 @@ const LoginScreen = ({ onLogin, users, loading }) => {
         </div>
         {error && <div className="error-message">⚠️ {error}</div>}
         <button className="btn-primary btn-full" onClick={handleLogin}>Zaloguj się</button>
-        <div className="login-demo">
-          <strong>Konta demo:</strong><br />
-          👑 admin / admin123<br />
-          👤 jan / jan123<br />
-          🚚 kierowca1 / kierowca123<br />
-          🏢 kontrahent1 / kontr123
-        </div>
       </div>
     </div>
   );
