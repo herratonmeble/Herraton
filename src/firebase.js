@@ -574,6 +574,51 @@ export const deleteMailItem = async (id) => {
 };
 
 // ============================================
+// ZADANIA (TASKS)
+// ============================================
+
+const tasksCollection = collection(db, 'tasks');
+
+export const subscribeToTasks = (callback) => {
+  const q = query(tasksCollection, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(tasks);
+  }, (error) => {
+    console.error('Error subscribing to tasks:', error);
+    callback([]);
+  });
+};
+
+export const addTask = async (task) => {
+  try {
+    const docRef = await addDoc(tasksCollection, task);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding task:', error);
+    throw error;
+  }
+};
+
+export const updateTask = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'tasks', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating task:', error);
+    throw error;
+  }
+};
+
+export const deleteTask = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'tasks', id));
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    throw error;
+  }
+};
+
+// ============================================
 // INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
