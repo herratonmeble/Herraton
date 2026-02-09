@@ -486,6 +486,94 @@ export const deleteSettlement = async (id) => {
 };
 
 // ============================================
+// PRÓBKI (SAMPLES)
+// ============================================
+
+const samplesCollection = collection(db, 'samples');
+
+export const subscribeToSamples = (callback) => {
+  return onSnapshot(samplesCollection, (snapshot) => {
+    const samples = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(samples);
+  }, (error) => {
+    console.error('Error subscribing to samples:', error);
+    callback([]);
+  });
+};
+
+export const addSample = async (sample) => {
+  try {
+    const docRef = await addDoc(samplesCollection, sample);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding sample:', error);
+    throw error;
+  }
+};
+
+export const updateSample = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'samples', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating sample:', error);
+    throw error;
+  }
+};
+
+export const deleteSample = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'samples', id));
+  } catch (error) {
+    console.error('Error deleting sample:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// POCZTA (MAIL ITEMS)
+// ============================================
+
+const mailItemsCollection = collection(db, 'mailItems');
+
+export const subscribeToMailItems = (callback) => {
+  return onSnapshot(mailItemsCollection, (snapshot) => {
+    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(items);
+  }, (error) => {
+    console.error('Error subscribing to mail items:', error);
+    callback([]);
+  });
+};
+
+export const addMailItem = async (item) => {
+  try {
+    const docRef = await addDoc(mailItemsCollection, item);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding mail item:', error);
+    throw error;
+  }
+};
+
+export const updateMailItem = async (id, data) => {
+  try {
+    await setDoc(doc(db, 'mailItems', id), data, { merge: true });
+  } catch (error) {
+    console.error('Error updating mail item:', error);
+    throw error;
+  }
+};
+
+export const deleteMailItem = async (id) => {
+  try {
+    await deleteDoc(doc(db, 'mailItems', id));
+  } catch (error) {
+    console.error('Error deleting mail item:', error);
+    throw error;
+  }
+};
+
+// ============================================
 // INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
