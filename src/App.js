@@ -12,6 +12,7 @@ import {
   subscribeToSettlements, addSettlement, updateSettlement, deleteSettlement,
   subscribeToSamples, addSample, updateSample, deleteSample,
   subscribeToMailItems, addMailItem, updateMailItem, deleteMailItem,
+  subscribeToTasks, addTask, updateTask, deleteTask,
   initializeDefaultData
 } from './firebase';
 import { exportToExcel, autoSyncToGoogleSheets, setGoogleScriptUrl, getGoogleScriptUrl } from './export';
@@ -18096,6 +18097,10 @@ const App = () => {
   const [samples, setSamples] = useState([]);
   const [mailItems, setMailItems] = useState([]);
   
+  // Zadania
+  const [tasks, setTasks] = useState([]);
+  const [showTasksPanel, setShowTasksPanel] = useState(false);
+  
   // Messenger state
   const [messages, setMessages] = useState([]);
   const [showMessenger, setShowMessenger] = useState(false);
@@ -18145,6 +18150,14 @@ const App = () => {
   useEffect(() => {
     const unsubscribe = subscribeToMailItems((data) => {
       setMailItems(data);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  // Subskrypcja Firestore dla zadań
+  useEffect(() => {
+    const unsubscribe = subscribeToTasks((data) => {
+      setTasks(data);
     });
     return () => unsubscribe && unsubscribe();
   }, []);
@@ -19288,6 +19301,17 @@ Zespół obsługi zamówień
               💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
             </button>
 
+            {/* Przycisk zadań */}
+            {(isAdmin || user?.role === 'worker') && (
+              <button 
+                className="btn-secondary" 
+                onClick={() => setShowTasksPanel(true)}
+                style={{background: tasks.filter(t => t.assignedTo === user?.id && !t.completed).length > 0 ? 'linear-gradient(135deg,#10B981,#059669)' : undefined, color: tasks.filter(t => t.assignedTo === user?.id && !t.completed).length > 0 ? 'white' : undefined}}
+              >
+                ✅ Zadania ({tasks.filter(t => t.assignedTo === user?.id && !t.completed).length})
+              </button>
+            )}
+
             <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
               📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
             </button>
@@ -20085,6 +20109,16 @@ Zespół obsługi zamówień
         />
       )}
 
+      {/* PANEL ZADAŃ */}
+      {showTasksPanel && (
+        <TasksPanel
+          tasks={tasks}
+          users={users}
+          currentUser={user}
+          onClose={() => setShowTasksPanel(false)}
+        />
+      )}
+
       {showComplaintsPanel && (
         <ComplaintsPanel
           complaints={visibleComplaints}
@@ -20375,6 +20409,476 @@ Zespół obsługi zamówień
           }}
         />
       )}
+    </div>
+  );
+};
+
+// ============================================
+// PANEL ZADAŃ
+// ============================================
+
+const TasksPanel = ({ tasks, users, currentUser, onClose }) => {
+  const [filter, setFilter] = useState('my'); // 'my', 'all', 'created'
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    assignedTo: '',
+    priority: 'normal',
+    dueDate: ''
+  });
+
+  const isAdmin = currentUser?.role === 'admin';
+  const assignableUsers = users.filter(u => ['admin', 'worker'].includes(u.role));
+
+  // Filtruj zadania
+  const filteredTasks = tasks.filter(task => {
+    if (filter === 'my') return task.assignedTo === currentUser?.id;
+    if (filter === 'created') return task.createdBy?.id === currentUser?.id;
+    return true; // 'all'
+  });
+
+  // Sortuj: nieukończone na górze, potem po priorytecie i dacie
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+    if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    }
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  const handleAddTask = async () => {
+    if (!newTask.title.trim()) {
+      alert('Wpisz tytuł zadania');
+      return;
+    }
+    if (!newTask.assignedTo) {
+      alert('Wybierz osobę do przypisania');
+      return;
+    }
+
+    try {
+      const assignedUser = users.find(u => u.id === newTask.assignedTo);
+      await addTask({
+        ...newTask,
+        assignedToName: assignedUser?.name || '',
+        completed: false,
+        createdAt: new Date().toISOString(),
+        createdBy: {
+          id: currentUser.id,
+          name: currentUser.name
+        }
+      });
+      setNewTask({ title: '', description: '', assignedTo: '', priority: 'normal', dueDate: '' });
+      setShowAddTask(false);
+    } catch (err) {
+      console.error('Błąd dodawania zadania:', err);
+      alert('Błąd dodawania zadania');
+    }
+  };
+
+  const handleToggleComplete = async (task) => {
+    try {
+      await updateTask(task.id, {
+        completed: !task.completed,
+        completedAt: !task.completed ? new Date().toISOString() : null,
+        completedBy: !task.completed ? { id: currentUser.id, name: currentUser.name } : null
+      });
+    } catch (err) {
+      console.error('Błąd aktualizacji zadania:', err);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Usunąć to zadanie?')) return;
+    try {
+      await deleteTask(taskId);
+    } catch (err) {
+      console.error('Błąd usuwania zadania:', err);
+    }
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+    try {
+      const assignedUser = users.find(u => u.id === editingTask.assignedTo);
+      await updateTask(editingTask.id, {
+        title: editingTask.title,
+        description: editingTask.description,
+        assignedTo: editingTask.assignedTo,
+        assignedToName: assignedUser?.name || '',
+        priority: editingTask.priority,
+        dueDate: editingTask.dueDate,
+        updatedAt: new Date().toISOString()
+      });
+      setEditingTask(null);
+    } catch (err) {
+      console.error('Błąd aktualizacji zadania:', err);
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'urgent': return '#DC2626';
+      case 'high': return '#F59E0B';
+      case 'normal': return '#3B82F6';
+      case 'low': return '#6B7280';
+      default: return '#3B82F6';
+    }
+  };
+
+  const getPriorityLabel = (priority) => {
+    switch (priority) {
+      case 'urgent': return '🔴 Pilne';
+      case 'high': return '🟠 Wysoki';
+      case 'normal': return '🔵 Normalny';
+      case 'low': return '⚪ Niski';
+      default: return '🔵 Normalny';
+    }
+  };
+
+  const myTasksCount = tasks.filter(t => t.assignedTo === currentUser?.id && !t.completed).length;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'900px',height:'85vh',display:'flex',flexDirection:'column',padding:0}}>
+        {/* Header */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#1E293B,#334155)',color:'white',borderRadius:'12px 12px 0 0'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <h2 style={{margin:0,fontSize:'18px',display:'flex',alignItems:'center',gap:'10px'}}>
+              ✅ Zadania
+              {myTasksCount > 0 && (
+                <span style={{background:'#EF4444',padding:'2px 8px',borderRadius:'10px',fontSize:'12px'}}>{myTasksCount} do zrobienia</span>
+              )}
+            </h2>
+            <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+              <button 
+                onClick={() => setShowAddTask(true)}
+                style={{background:'#10B981',border:'none',color:'white',padding:'8px 16px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
+              >
+                + Nowe zadanie
+              </button>
+              <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtry */}
+        <div style={{padding:'12px 20px',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'10px',background:'#F8FAFC'}}>
+          <button 
+            onClick={() => setFilter('my')}
+            style={{padding:'8px 16px',borderRadius:'8px',border:'none',background: filter === 'my' ? '#8B5CF6' : 'white',color: filter === 'my' ? 'white' : '#64748B',cursor:'pointer',fontWeight:'500',fontSize:'13px'}}
+          >
+            📋 Moje zadania ({tasks.filter(t => t.assignedTo === currentUser?.id).length})
+          </button>
+          <button 
+            onClick={() => setFilter('created')}
+            style={{padding:'8px 16px',borderRadius:'8px',border:'none',background: filter === 'created' ? '#8B5CF6' : 'white',color: filter === 'created' ? 'white' : '#64748B',cursor:'pointer',fontWeight:'500',fontSize:'13px'}}
+          >
+            ✍️ Utworzone przeze mnie ({tasks.filter(t => t.createdBy?.id === currentUser?.id).length})
+          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setFilter('all')}
+              style={{padding:'8px 16px',borderRadius:'8px',border:'none',background: filter === 'all' ? '#8B5CF6' : 'white',color: filter === 'all' ? 'white' : '#64748B',cursor:'pointer',fontWeight:'500',fontSize:'13px'}}
+            >
+              👥 Wszystkie ({tasks.length})
+            </button>
+          )}
+        </div>
+
+        {/* Lista zadań */}
+        <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
+          {sortedTasks.length === 0 ? (
+            <div style={{textAlign:'center',padding:'60px 20px',color:'#94A3B8'}}>
+              <div style={{fontSize:'64px',marginBottom:'16px'}}>✅</div>
+              <div style={{fontSize:'16px'}}>Brak zadań</div>
+              <div style={{fontSize:'13px',marginTop:'8px'}}>Kliknij "Nowe zadanie" aby dodać</div>
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              {sortedTasks.map(task => (
+                <div 
+                  key={task.id}
+                  style={{
+                    background: task.completed ? '#F1F5F9' : 'white',
+                    border: `1px solid ${task.completed ? '#E2E8F0' : getPriorityColor(task.priority)}20`,
+                    borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
+                    borderRadius:'12px',
+                    padding:'16px',
+                    opacity: task.completed ? 0.7 : 1
+                  }}
+                >
+                  <div style={{display:'flex',gap:'12px',alignItems:'flex-start'}}>
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => handleToggleComplete(task)}
+                      style={{
+                        width:'24px',
+                        height:'24px',
+                        borderRadius:'6px',
+                        border: task.completed ? 'none' : '2px solid #CBD5E1',
+                        background: task.completed ? '#10B981' : 'white',
+                        color:'white',
+                        cursor:'pointer',
+                        display:'flex',
+                        alignItems:'center',
+                        justifyContent:'center',
+                        fontSize:'14px',
+                        flexShrink:0,
+                        marginTop:'2px'
+                      }}
+                    >
+                      {task.completed && '✓'}
+                    </button>
+
+                    {/* Treść */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'12px'}}>
+                        <div>
+                          <div style={{
+                            fontWeight:'600',
+                            fontSize:'15px',
+                            color: task.completed ? '#94A3B8' : '#1E293B',
+                            textDecoration: task.completed ? 'line-through' : 'none'
+                          }}>
+                            {task.title}
+                          </div>
+                          {task.description && (
+                            <div style={{fontSize:'13px',color:'#64748B',marginTop:'4px'}}>{task.description}</div>
+                          )}
+                        </div>
+                        <div style={{display:'flex',gap:'6px',flexShrink:0}}>
+                          <span style={{
+                            fontSize:'10px',
+                            padding:'4px 8px',
+                            borderRadius:'6px',
+                            background: getPriorityColor(task.priority) + '20',
+                            color: getPriorityColor(task.priority),
+                            fontWeight:'600'
+                          }}>
+                            {getPriorityLabel(task.priority)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Meta info */}
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'12px',marginTop:'10px',fontSize:'12px',color:'#64748B'}}>
+                        <span>👤 {task.assignedToName || 'Nieprzypisane'}</span>
+                        {task.dueDate && (
+                          <span style={{color: new Date(task.dueDate) < new Date() && !task.completed ? '#DC2626' : '#64748B'}}>
+                            📅 {new Date(task.dueDate).toLocaleDateString('pl-PL')}
+                          </span>
+                        )}
+                        <span>✍️ {task.createdBy?.name}</span>
+                        {task.completed && task.completedBy && (
+                          <span style={{color:'#10B981'}}>✅ {task.completedBy.name}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Akcje */}
+                    <div style={{display:'flex',gap:'6px',flexShrink:0}}>
+                      <button
+                        onClick={() => setEditingTask({...task})}
+                        style={{width:'32px',height:'32px',borderRadius:'6px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontSize:'14px'}}
+                        title="Edytuj"
+                      >
+                        ✏️
+                      </button>
+                      {(isAdmin || task.createdBy?.id === currentUser?.id) && (
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          style={{width:'32px',height:'32px',borderRadius:'6px',border:'1px solid #FEE2E2',background:'#FEF2F2',cursor:'pointer',fontSize:'14px'}}
+                          title="Usuń"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Modal dodawania zadania */}
+        {showAddTask && (
+          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'12px'}}>
+            <div style={{background:'white',borderRadius:'16px',padding:'24px',width:'90%',maxWidth:'500px'}}>
+              <h3 style={{margin:'0 0 20px',fontSize:'18px'}}>➕ Nowe zadanie</h3>
+              
+              <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Tytuł *</label>
+                  <input
+                    type="text"
+                    value={newTask.title}
+                    onChange={e => setNewTask({...newTask, title: e.target.value})}
+                    placeholder="Co trzeba zrobić?"
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Opis</label>
+                  <textarea
+                    value={newTask.description}
+                    onChange={e => setNewTask({...newTask, description: e.target.value})}
+                    placeholder="Szczegóły zadania (opcjonalne)"
+                    rows={3}
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box',resize:'vertical'}}
+                  />
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Przypisz do *</label>
+                    <select
+                      value={newTask.assignedTo}
+                      onChange={e => setNewTask({...newTask, assignedTo: e.target.value})}
+                      style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                    >
+                      <option value="">Wybierz osobę...</option>
+                      {assignableUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? 'Admin' : 'Pracownik'})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Priorytet</label>
+                    <select
+                      value={newTask.priority}
+                      onChange={e => setNewTask({...newTask, priority: e.target.value})}
+                      style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                    >
+                      <option value="low">⚪ Niski</option>
+                      <option value="normal">🔵 Normalny</option>
+                      <option value="high">🟠 Wysoki</option>
+                      <option value="urgent">🔴 Pilne</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Termin (opcjonalnie)</label>
+                  <input
+                    type="date"
+                    value={newTask.dueDate}
+                    onChange={e => setNewTask({...newTask, dueDate: e.target.value})}
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{display:'flex',gap:'12px',marginTop:'24px'}}>
+                <button
+                  onClick={() => setShowAddTask(false)}
+                  style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={handleAddTask}
+                  style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}
+                >
+                  Dodaj zadanie
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal edycji zadania */}
+        {editingTask && (
+          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'12px'}}>
+            <div style={{background:'white',borderRadius:'16px',padding:'24px',width:'90%',maxWidth:'500px'}}>
+              <h3 style={{margin:'0 0 20px',fontSize:'18px'}}>✏️ Edytuj zadanie</h3>
+              
+              <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Tytuł *</label>
+                  <input
+                    type="text"
+                    value={editingTask.title}
+                    onChange={e => setEditingTask({...editingTask, title: e.target.value})}
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Opis</label>
+                  <textarea
+                    value={editingTask.description || ''}
+                    onChange={e => setEditingTask({...editingTask, description: e.target.value})}
+                    rows={3}
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box',resize:'vertical'}}
+                  />
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Przypisz do *</label>
+                    <select
+                      value={editingTask.assignedTo}
+                      onChange={e => setEditingTask({...editingTask, assignedTo: e.target.value})}
+                      style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                    >
+                      <option value="">Wybierz osobę...</option>
+                      {assignableUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? 'Admin' : 'Pracownik'})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Priorytet</label>
+                    <select
+                      value={editingTask.priority}
+                      onChange={e => setEditingTask({...editingTask, priority: e.target.value})}
+                      style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px'}}
+                    >
+                      <option value="low">⚪ Niski</option>
+                      <option value="normal">🔵 Normalny</option>
+                      <option value="high">🟠 Wysoki</option>
+                      <option value="urgent">🔴 Pilne</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>Termin</label>
+                  <input
+                    type="date"
+                    value={editingTask.dueDate || ''}
+                    onChange={e => setEditingTask({...editingTask, dueDate: e.target.value})}
+                    style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{display:'flex',gap:'12px',marginTop:'24px'}}>
+                <button
+                  onClick={() => setEditingTask(null)}
+                  style={{flex:1,padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'600'}}
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={handleUpdateTask}
+                  style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}
+                >
+                  Zapisz zmiany
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
