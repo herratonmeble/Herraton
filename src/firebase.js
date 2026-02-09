@@ -79,8 +79,6 @@ const leadsCollection = collection(db, 'leads');
 const priceListsCollection = collection(db, 'priceLists');
 const messagesCollection = collection(db, 'messages');
 const settlementsCollection = collection(db, 'settlements');
-const samplesCollection = collection(db, 'samples');
-const mailItemsCollection = collection(db, 'mailItems');
 
 // ============================================
 // ZAMÓWIENIA
@@ -488,138 +486,13 @@ export const deleteSettlement = async (id) => {
 };
 
 // ============================================
-// PRÓBKI (SAMPLES) - WYSYŁKA
-// ============================================
-
-export const subscribeToSamples = (callback) => {
-  const q = query(samplesCollection, orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const samples = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(samples);
-  }, (error) => {
-    console.error('Error subscribing to samples:', error);
-    callback([]);
-  });
-};
-
-export const addSample = async (sample) => {
-  try {
-    const data = {
-      ...sample,
-      createdAt: sample.createdAt || new Date().toISOString()
-    };
-    // Usuń id jeśli istnieje (Firestore sam generuje)
-    delete data.id;
-    const docRef = await addDoc(samplesCollection, data);
-    return docRef.id;
-  } catch (error) {
-    console.error('Error adding sample:', error);
-    throw error;
-  }
-};
-
-export const updateSample = async (id, data) => {
-  try {
-    const updateData = { ...data };
-    delete updateData.id; // Nie zapisuj id w dokumencie
-    await setDoc(doc(db, 'samples', id), updateData, { merge: true });
-  } catch (error) {
-    console.error('Error updating sample:', error);
-    throw error;
-  }
-};
-
-export const deleteSample = async (id) => {
-  try {
-    await deleteDoc(doc(db, 'samples', id));
-  } catch (error) {
-    console.error('Error deleting sample:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// POCZTA (MAIL ITEMS) - WYSYŁKA
-// ============================================
-
-export const subscribeToMailItems = (callback) => {
-  const q = query(mailItemsCollection, orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const mailItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(mailItems);
-  }, (error) => {
-    console.error('Error subscribing to mailItems:', error);
-    callback([]);
-  });
-};
-
-export const addMailItem = async (mailItem) => {
-  try {
-    const data = {
-      ...mailItem,
-      createdAt: mailItem.createdAt || new Date().toISOString()
-    };
-    // Usuń id jeśli istnieje (Firestore sam generuje)
-    delete data.id;
-    const docRef = await addDoc(mailItemsCollection, data);
-    return docRef.id;
-  } catch (error) {
-    console.error('Error adding mailItem:', error);
-    throw error;
-  }
-};
-
-export const updateMailItem = async (id, data) => {
-  try {
-    const updateData = { ...data };
-    delete updateData.id; // Nie zapisuj id w dokumencie
-    await setDoc(doc(db, 'mailItems', id), updateData, { merge: true });
-  } catch (error) {
-    console.error('Error updating mailItem:', error);
-    throw error;
-  }
-};
-
-export const deleteMailItem = async (id) => {
-  try {
-    await deleteDoc(doc(db, 'mailItems', id));
-  } catch (error) {
-    console.error('Error deleting mailItem:', error);
-    throw error;
-  }
-};
-
-// ============================================
 // INICJALIZACJA DANYCH DOMYŚLNYCH
 // ============================================
 
 export const initializeDefaultData = async () => {
-  try {
-    const defaultUsers = [
-      { id: 'admin', username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
-      { id: 'jan', username: 'jan', password: 'jan123', name: 'Jan Kowalski', role: 'worker' },
-      { id: 'kierowca1', username: 'kierowca1', password: 'kierowca123', name: 'Marek Transportowy', role: 'driver', phone: '+48 600 100 200' },
-      { id: 'kontrahent1', username: 'kontrahent1', password: 'kontr123', name: 'Firma ABC', role: 'contractor', companyName: 'Meble ABC Sp. z o.o.' },
-    ];
-
-    const defaultProducers = [
-      { id: 'tomek_meble', name: 'Tomek Meble', email: 'tomek@meble.pl', phone: '+48 123 456 789', address: 'ul. Fabryczna 1, 61-001 Poznań' },
-      { id: 'brattex', name: 'Brattex', email: 'zamowienia@brattex.pl', phone: '+48 234 567 890', address: 'ul. Przemysłowa 15, 90-001 Łódź' },
-      { id: 'furntex', name: 'FURNTEX', email: 'biuro@furntex.pl', phone: '+48 345 678 901', address: 'ul. Meblowa 8, 02-001 Warszawa' },
-    ];
-
-    for (const user of defaultUsers) {
-      await setDoc(doc(db, 'users', user.id), user, { merge: true });
-    }
-
-    for (const producer of defaultProducers) {
-      await setDoc(doc(db, 'producers', producer.id), producer, { merge: true });
-    }
-
-    console.log('Default data initialized');
-  } catch (error) {
-    console.error('Error initializing default data:', error);
-  }
+  // Funkcja pusta - nie tworzymy już domyślnych danych
+  // Użytkownicy i producenci dodawani są ręcznie przez admina
+  console.log('App initialized');
 };
 
 export { db, storage };
