@@ -872,14 +872,29 @@ const LoginScreen = ({ onLogin, users, loading, onUpdateLastLogin }) => {
     if (user) {
       // Zapisz czas logowania
       const loginTime = new Date().toISOString();
-      const updatedUser = { ...user, lastLogin: loginTime };
+      
+      // Dodaj do historii logowań (max 50 ostatnich)
+      const loginHistory = user.loginHistory || [];
+      const newLoginEntry = {
+        time: loginTime,
+        userAgent: navigator.userAgent?.substring(0, 100) || 'Unknown',
+        platform: navigator.platform || 'Unknown'
+      };
+      const updatedHistory = [newLoginEntry, ...loginHistory].slice(0, 50);
+      
+      const updatedUser = { 
+        ...user, 
+        lastLogin: loginTime,
+        lastActivity: loginTime,
+        loginHistory: updatedHistory
+      };
       
       localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
       onLogin(updatedUser);
       
       // Zaktualizuj w Firebase
       if (onUpdateLastLogin) {
-        onUpdateLastLogin(user.id, loginTime);
+        onUpdateLastLogin(user.id, loginTime, updatedHistory);
       }
     } else {
       setError('Nieprawidłowy login lub hasło');
@@ -5356,8 +5371,16 @@ const MyProfilePanel = ({ user, onSave, onClose }) => {
 // ============================================
 
 const UserActivityPanel = ({ users, onClose }) => {
-  const [filter, setFilter] = useState('all'); // all, today, week, never
+  const [filter, setFilter] = useState('all'); // all, online, today, week, never
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, name
+  const [selectedUser, setSelectedUser] = useState(null); // Do pokazania historii logowań
+  const [, forceUpdate] = useState(0); // Do odświeżania co minutę
+
+  // Odświeżaj widok co minutę żeby aktualizować statusy online
+  useEffect(() => {
+    const interval = setInterval(() => forceUpdate(n => n + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -5380,43 +5403,70 @@ const UserActivityPanel = ({ users, onClose }) => {
     return `${Math.floor(days / 30)} mies. temu`;
   };
 
-  const getStatusColor = (lastLogin) => {
-    if (!lastLogin) return { bg: '#F3F4F6', color: '#9CA3AF', label: 'Nigdy' };
-    const date = new Date(lastLogin);
-    const diff = now - date;
-    const hours = diff / 3600000;
+  // Status na podstawie lastActivity (heartbeat co 5 min)
+  const getStatusColor = (user) => {
+    const lastActivity = user.lastActivity || user.lastLogin;
+    if (!lastActivity) return { bg: '#F3F4F6', color: '#9CA3AF', label: 'Nigdy', icon: '⚪' };
     
-    if (hours < 1) return { bg: '#D1FAE5', color: '#059669', label: 'Online' };
-    if (hours < 24) return { bg: '#DBEAFE', color: '#2563EB', label: 'Dziś' };
-    if (hours < 168) return { bg: '#FEF3C7', color: '#D97706', label: 'Ten tydzień' };
-    return { bg: '#FEE2E2', color: '#DC2626', label: 'Dawno' };
+    const date = new Date(lastActivity);
+    const diff = now - date;
+    const minutes = diff / 60000;
+    
+    // Online = aktywność w ciągu ostatnich 6 minut (heartbeat co 5 min + bufor)
+    if (minutes < 6) return { bg: '#D1FAE5', color: '#059669', label: 'Online', icon: '🟢' };
+    // Niedawno = ostatnia godzina
+    if (minutes < 60) return { bg: '#DBEAFE', color: '#2563EB', label: `${Math.floor(minutes)} min temu`, icon: '🔵' };
+    // Dziś
+    const hours = diff / 3600000;
+    if (hours < 24) return { bg: '#FEF3C7', color: '#D97706', label: `${Math.floor(hours)} godz. temu`, icon: '🟡' };
+    // Dawno
+    return { bg: '#FEE2E2', color: '#DC2626', label: 'Offline', icon: '🔴' };
+  };
+
+  // Sprawdź czy online (aktywność < 6 min)
+  const isOnline = (user) => {
+    const lastActivity = user.lastActivity || user.lastLogin;
+    if (!lastActivity) return false;
+    return (now - new Date(lastActivity)) < 360000; // 6 minut
   };
 
   let filteredUsers = [...users];
   
   // Filtrowanie
-  if (filter === 'today') {
-    filteredUsers = filteredUsers.filter(u => u.lastLogin && new Date(u.lastLogin) >= todayStart);
+  if (filter === 'online') {
+    filteredUsers = filteredUsers.filter(u => isOnline(u));
+  } else if (filter === 'today') {
+    filteredUsers = filteredUsers.filter(u => {
+      const last = u.lastActivity || u.lastLogin;
+      return last && new Date(last) >= todayStart;
+    });
   } else if (filter === 'week') {
-    filteredUsers = filteredUsers.filter(u => u.lastLogin && new Date(u.lastLogin) >= weekAgo);
+    filteredUsers = filteredUsers.filter(u => {
+      const last = u.lastActivity || u.lastLogin;
+      return last && new Date(last) >= weekAgo;
+    });
   } else if (filter === 'never') {
-    filteredUsers = filteredUsers.filter(u => !u.lastLogin);
+    filteredUsers = filteredUsers.filter(u => !u.lastLogin && !u.lastActivity);
   }
 
   // Sortowanie
   if (sortBy === 'recent') {
     filteredUsers.sort((a, b) => {
-      if (!a.lastLogin && !b.lastLogin) return 0;
-      if (!a.lastLogin) return 1;
-      if (!b.lastLogin) return -1;
-      return new Date(b.lastLogin) - new Date(a.lastLogin);
+      const aLast = a.lastActivity || a.lastLogin;
+      const bLast = b.lastActivity || b.lastLogin;
+      if (!aLast && !bLast) return 0;
+      if (!aLast) return 1;
+      if (!bLast) return -1;
+      return new Date(bLast) - new Date(aLast);
     });
   } else if (sortBy === 'oldest') {
     filteredUsers.sort((a, b) => {
-      if (!a.lastLogin && !b.lastLogin) return 0;
-      if (!a.lastLogin) return -1;
-      if (!b.lastLogin) return 1;
-      return new Date(a.lastLogin) - new Date(b.lastLogin);
+      const aLast = a.lastActivity || a.lastLogin;
+      const bLast = b.lastActivity || b.lastLogin;
+      if (!aLast && !bLast) return 0;
+      if (!aLast) return -1;
+      if (!bLast) return 1;
+      return new Date(aLast) - new Date(bLast);
     });
   } else if (sortBy === 'name') {
     filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -5425,10 +5475,57 @@ const UserActivityPanel = ({ users, onClose }) => {
   // Statystyki
   const stats = {
     total: users.length,
-    today: users.filter(u => u.lastLogin && new Date(u.lastLogin) >= todayStart).length,
-    week: users.filter(u => u.lastLogin && new Date(u.lastLogin) >= weekAgo).length,
-    never: users.filter(u => !u.lastLogin).length
+    online: users.filter(u => isOnline(u)).length,
+    today: users.filter(u => {
+      const last = u.lastActivity || u.lastLogin;
+      return last && new Date(last) >= todayStart;
+    }).length,
+    never: users.filter(u => !u.lastLogin && !u.lastActivity).length
   };
+
+  // Modal historii logowań
+  if (selectedUser) {
+    const history = selectedUser.loginHistory || [];
+    return (
+      <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'600px',maxHeight:'80vh',display:'flex',flexDirection:'column',padding:0}}>
+          <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',borderRadius:'12px 12px 0 0'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <h2 style={{margin:0,fontSize:'18px'}}>📜 Historia logowań - {selectedUser.name}</h2>
+              <button onClick={() => setSelectedUser(null)} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
+            </div>
+          </div>
+          <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
+            {history.length === 0 ? (
+              <div style={{textAlign:'center',padding:'40px',color:'#64748B'}}>
+                <div style={{fontSize:'48px',marginBottom:'12px'}}>📭</div>
+                <div>Brak historii logowań</div>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                {history.map((entry, idx) => (
+                  <div key={idx} style={{padding:'12px 16px',background:'#F8FAFC',borderRadius:'8px',border:'1px solid #E2E8F0'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontWeight:'600',color:'#1E293B'}}>
+                        {new Date(entry.time).toLocaleString('pl-PL')}
+                      </div>
+                      {idx === 0 && <span style={{background:'#D1FAE5',color:'#059669',padding:'2px 8px',borderRadius:'4px',fontSize:'10px',fontWeight:'600'}}>Ostatnie</span>}
+                    </div>
+                    <div style={{fontSize:'11px',color:'#64748B',marginTop:'4px'}}>
+                      {entry.platform} • {entry.userAgent?.substring(0, 50)}...
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white'}}>
+            <button onClick={() => setSelectedUser(null)} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}>Zamknij</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -5442,29 +5539,30 @@ const UserActivityPanel = ({ users, onClose }) => {
 
         {/* Statystyki */}
         <div style={{padding:'16px 20px',background:'#F8FAFC',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',flexWrap:'wrap'}}>
-          <div style={{background:'white',padding:'12px 16px',borderRadius:'10px',border:'1px solid #E2E8F0',flex:'1',minWidth:'120px',textAlign:'center'}}>
+          <div style={{background:'white',padding:'12px 16px',borderRadius:'10px',border:'1px solid #E2E8F0',flex:'1',minWidth:'100px',textAlign:'center'}}>
             <div style={{fontSize:'24px',fontWeight:'700',color:'#1E293B'}}>{stats.total}</div>
             <div style={{fontSize:'11px',color:'#64748B'}}>Wszystkich</div>
           </div>
-          <div style={{background:'#D1FAE5',padding:'12px 16px',borderRadius:'10px',border:'1px solid #A7F3D0',flex:'1',minWidth:'120px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#059669'}}>{stats.today}</div>
-            <div style={{fontSize:'11px',color:'#059669'}}>Dziś aktywnych</div>
+          <div style={{background:'#D1FAE5',padding:'12px 16px',borderRadius:'10px',border:'1px solid #A7F3D0',flex:'1',minWidth:'100px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#059669'}}>{stats.online}</div>
+            <div style={{fontSize:'11px',color:'#059669'}}>🟢 Online</div>
           </div>
-          <div style={{background:'#DBEAFE',padding:'12px 16px',borderRadius:'10px',border:'1px solid #BFDBFE',flex:'1',minWidth:'120px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#2563EB'}}>{stats.week}</div>
-            <div style={{fontSize:'11px',color:'#2563EB'}}>Ten tydzień</div>
+          <div style={{background:'#DBEAFE',padding:'12px 16px',borderRadius:'10px',border:'1px solid #BFDBFE',flex:'1',minWidth:'100px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#2563EB'}}>{stats.today}</div>
+            <div style={{fontSize:'11px',color:'#2563EB'}}>Dziś aktywnych</div>
           </div>
-          <div style={{background:'#FEE2E2',padding:'12px 16px',borderRadius:'10px',border:'1px solid #FECACA',flex:'1',minWidth:'120px',textAlign:'center'}}>
+          <div style={{background:'#FEE2E2',padding:'12px 16px',borderRadius:'10px',border:'1px solid #FECACA',flex:'1',minWidth:'100px',textAlign:'center'}}>
             <div style={{fontSize:'24px',fontWeight:'700',color:'#DC2626'}}>{stats.never}</div>
-            <div style={{fontSize:'11px',color:'#DC2626'}}>Nigdy nie zalogowani</div>
+            <div style={{fontSize:'11px',color:'#DC2626'}}>Nigdy</div>
           </div>
         </div>
 
         {/* Filtry */}
         <div style={{padding:'12px 20px',background:'white',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap'}}>
-          <div style={{display:'flex',gap:'6px'}}>
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
             {[
               { id: 'all', label: 'Wszyscy' },
+              { id: 'online', label: '🟢 Online' },
               { id: 'today', label: 'Dziś' },
               { id: 'week', label: 'Tydzień' },
               { id: 'never', label: 'Nigdy' }
@@ -5516,6 +5614,7 @@ const UserActivityPanel = ({ users, onClose }) => {
                 return (
                   <div
                     key={u.id}
+                    onClick={() => setSelectedUser(u)}
                     style={{
                       display:'flex',
                       alignItems:'center',
@@ -5523,24 +5622,43 @@ const UserActivityPanel = ({ users, onClose }) => {
                       padding:'12px 16px',
                       background:'white',
                       border:'1px solid #E2E8F0',
-                      borderRadius:'10px'
-                    }}
-                  >
-                    <div style={{
-                      width:'40px',
-                      height:'40px',
                       borderRadius:'10px',
-                      background: status.bg,
-                      display:'flex',
-                      alignItems:'center',
-                      justifyContent:'center',
-                      fontSize:'20px'
-                    }}>
-                      {role.icon}
+                      cursor:'pointer',
+                      transition:'all 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseOut={e => e.currentTarget.style.background = 'white'}
+                  >
+                    <div style={{position:'relative'}}>
+                      <div style={{
+                        width:'40px',
+                        height:'40px',
+                        borderRadius:'10px',
+                        background: status.bg,
+                        display:'flex',
+                        alignItems:'center',
+                        justifyContent:'center',
+                        fontSize:'20px'
+                      }}>
+                        {role.icon}
+                      </div>
+                      <div style={{
+                        position:'absolute',
+                        bottom:'-2px',
+                        right:'-2px',
+                        fontSize:'12px'
+                      }}>
+                        {status.icon}
+                      </div>
                     </div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{u.name}</div>
                       <div style={{fontSize:'12px',color:'#64748B'}}>@{u.username} • {role.name}</div>
+                      {u.loginHistory?.length > 0 && (
+                        <div style={{fontSize:'10px',color:'#8B5CF6',marginTop:'2px'}}>
+                          📜 {u.loginHistory.length} logowań w historii
+                        </div>
+                      )}
                     </div>
                     <div style={{textAlign:'right'}}>
                       <div style={{
@@ -5552,14 +5670,14 @@ const UserActivityPanel = ({ users, onClose }) => {
                         fontSize:'11px',
                         fontWeight:'600'
                       }}>
-                        {status.label}
+                        {status.icon} {status.label}
                       </div>
                       <div style={{fontSize:'11px',color:'#64748B',marginTop:'4px'}}>
-                        {u.lastLogin ? getTimeSince(u.lastLogin) : 'Brak danych'}
+                        Ostatnia aktywność: {getTimeSince(u.lastActivity || u.lastLogin) || 'Brak'}
                       </div>
                       {u.lastLogin && (
                         <div style={{fontSize:'10px',color:'#94A3B8',marginTop:'2px'}}>
-                          {new Date(u.lastLogin).toLocaleString('pl-PL')}
+                          Logowanie: {new Date(u.lastLogin).toLocaleString('pl-PL')}
                         </div>
                       )}
                     </div>
@@ -5570,7 +5688,10 @@ const UserActivityPanel = ({ users, onClose }) => {
           )}
         </div>
 
-        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',textAlign:'right'}}>
+        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{fontSize:'11px',color:'#64748B'}}>
+            💡 Kliknij użytkownika aby zobaczyć historię logowań
+          </div>
           <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',cursor:'pointer',fontWeight:'600'}}>
             Zamknij
           </button>
@@ -19030,6 +19151,46 @@ const App = () => {
     return () => unsubscribe && unsubscribe();
   }, []);
 
+  // HEARTBEAT - aktualizacja aktywności użytkownika co 5 minut
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    // Funkcja aktualizująca aktywność
+    const updateActivity = async () => {
+      try {
+        const now = new Date().toISOString();
+        await updateUser(user.id, { lastActivity: now });
+        console.log('Aktywność zaktualizowana:', now);
+      } catch (err) {
+        console.error('Błąd aktualizacji aktywności:', err);
+      }
+    };
+    
+    // Aktualizuj od razu przy zalogowaniu
+    updateActivity();
+    
+    // Aktualizuj co 5 minut (300000 ms)
+    const heartbeatInterval = setInterval(updateActivity, 300000);
+    
+    // Aktualizuj też przy aktywności użytkownika (kliknięcie, pisanie)
+    let activityTimeout;
+    const handleUserActivity = () => {
+      clearTimeout(activityTimeout);
+      activityTimeout = setTimeout(updateActivity, 1000); // Debounce 1s
+    };
+    
+    // Nasłuchuj na aktywność
+    window.addEventListener('click', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearTimeout(activityTimeout);
+      window.removeEventListener('click', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+    };
+  }, [user?.id]);
+
   // Zamknij menu po kliknięciu poza nim
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -20164,8 +20325,12 @@ Zespół obsługi zamówień
       onLogin={setUser} 
       users={users} 
       loading={loading} 
-      onUpdateLastLogin={async (userId, loginTime) => {
-        await updateUser(userId, { lastLogin: loginTime });
+      onUpdateLastLogin={async (userId, loginTime, loginHistory) => {
+        await updateUser(userId, { 
+          lastLogin: loginTime,
+          lastActivity: loginTime,
+          loginHistory: loginHistory
+        });
       }}
     />;
   }
