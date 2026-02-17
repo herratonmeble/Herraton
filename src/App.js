@@ -18492,6 +18492,23 @@ const App = () => {
         usersLoaded = true;
         setLoading(false);
       }
+      
+      // Synchronizuj uprawnienia aktualnie zalogowanego użytkownika
+      const savedUser = localStorage.getItem('herratonUser');
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        const freshUserData = data.find(u => u.id === parsedUser.id);
+        if (freshUserData) {
+          // Sprawdź czy uprawnienia się zmieniły
+          const oldPerms = JSON.stringify(parsedUser.permissions || []);
+          const newPerms = JSON.stringify(freshUserData.permissions || []);
+          if (oldPerms !== newPerms) {
+            const updatedUser = { ...parsedUser, permissions: freshUserData.permissions };
+            setUser(updatedUser);
+            localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+          }
+        }
+      }
     });
     const unsubProducers = subscribeToProducers(setProducers);
     const unsubNotifs = subscribeToNotifications(setNotifications);
