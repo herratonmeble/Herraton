@@ -5370,7 +5370,7 @@ const MyProfilePanel = ({ user, onSave, onClose }) => {
 // PANEL AKTYWNOŚCI UŻYTKOWNIKÓW
 // ============================================
 
-const UserActivityPanel = ({ users, onClose }) => {
+const UserActivityPanel = ({ users, onClose, onForceLogoutAll }) => {
   const [filter, setFilter] = useState('all'); // all, online, today, week, never
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, name
   const [selectedUser, setSelectedUser] = useState(null); // Do pokazania historii logowań
@@ -5681,9 +5681,21 @@ const UserActivityPanel = ({ users, onClose }) => {
           )}
         </div>
 
-        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{fontSize:'11px',color:'#64748B'}}>
-            💡 Kliknij użytkownika aby zobaczyć historię logowań
+        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+          <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+            <button 
+              onClick={() => {
+                if (window.confirm('⚠️ Czy na pewno chcesz wylogować WSZYSTKICH użytkowników?\n\nWszyscy (łącznie z Tobą) będą musieli zalogować się ponownie.')) {
+                  onForceLogoutAll();
+                }
+              }} 
+              style={{padding:'10px 16px',borderRadius:'8px',border:'none',background:'#DC2626',color:'white',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
+            >
+              🚪 Wyloguj wszystkich
+            </button>
+            <div style={{fontSize:'11px',color:'#64748B'}}>
+              💡 Kliknij użytkownika aby zobaczyć historię
+            </div>
           </div>
           <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',cursor:'pointer',fontWeight:'600'}}>
             Zamknij
@@ -19260,6 +19272,21 @@ const App = () => {
           const parsedUser = JSON.parse(savedUser);
           const freshUserData = data.find(u => u.id === parsedUser.id);
           if (freshUserData) {
+            // Sprawdź czy admin wymusił wylogowanie
+            if (freshUserData.forceLogout && parsedUser.lastLogin) {
+              const forceLogoutTime = new Date(freshUserData.forceLogout).getTime();
+              const lastLoginTime = new Date(parsedUser.lastLogin).getTime();
+              
+              // Jeśli forceLogout jest nowsze niż ostatnie logowanie - wyloguj
+              if (forceLogoutTime > lastLoginTime) {
+                console.log('Wymuszono wylogowanie przez administratora');
+                localStorage.removeItem('herratonUser');
+                setUser(null);
+                alert('🔒 Administrator wylogował wszystkich użytkowników. Zaloguj się ponownie.');
+                return;
+              }
+            }
+            
             // Zawsze aktualizuj uprawnienia z Firebase (niezależnie czy się zmieniły)
             const updatedUser = { 
               ...parsedUser, 
@@ -21048,6 +21075,25 @@ Zespół obsługi zamówień
         <UserActivityPanel
           users={users}
           onClose={() => setShowUserActivityPanel(false)}
+          onForceLogoutAll={async () => {
+            try {
+              // Ustaw flagę forceLogout dla wszystkich użytkowników
+              const logoutTime = new Date().toISOString();
+              for (const u of users) {
+                await updateUser(u.id, { 
+                  forceLogout: logoutTime,
+                  lastActivity: null 
+                });
+              }
+              // Wyloguj też siebie
+              localStorage.removeItem('herratonUser');
+              setUser(null);
+              alert('✅ Wszyscy użytkownicy zostali wylogowani');
+            } catch (err) {
+              console.error('Błąd wylogowywania:', err);
+              alert('❌ Błąd podczas wylogowywania');
+            }
+          }}
         />
       )}
 
