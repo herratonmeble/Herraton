@@ -861,16 +861,25 @@ const playNotificationSound = () => {
 // EKRAN LOGOWANIA
 // ============================================
 
-const LoginScreen = ({ onLogin, users, loading }) => {
+const LoginScreen = ({ onLogin, users, loading, onUpdateLastLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
-      localStorage.setItem('herratonUser', JSON.stringify(user));
-      onLogin(user);
+      // Zapisz czas logowania
+      const loginTime = new Date().toISOString();
+      const updatedUser = { ...user, lastLogin: loginTime };
+      
+      localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+      onLogin(updatedUser);
+      
+      // Zaktualizuj w Firebase
+      if (onUpdateLastLogin) {
+        onUpdateLastLogin(user.id, loginTime);
+      }
     } else {
       setError('Nieprawidłowy login lub hasło');
     }
@@ -5073,6 +5082,17 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
                       {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
                       {u.phone && <div className="list-item-subtitle">📞 {u.phone}</div>}
                       {u.email && <div className="list-item-subtitle">✉️ {u.email}</div>}
+                      {/* Ostatnie logowanie */}
+                      {u.lastLogin && (
+                        <div className="list-item-subtitle" style={{color:'#3B82F6',fontSize:'11px',fontWeight:'500'}}>
+                          🟢 Ostatnie logowanie: {new Date(u.lastLogin).toLocaleString('pl-PL')}
+                        </div>
+                      )}
+                      {!u.lastLogin && (
+                        <div className="list-item-subtitle" style={{color:'#9CA3AF',fontSize:'11px'}}>
+                          ⚪ Nigdy się nie logował
+                        </div>
+                      )}
                       {/* Hasło - widoczne dla admina */}
                       {isAdmin && u.password && (
                         <div className="list-item-subtitle" style={{color:'#8B5CF6',fontFamily:'monospace'}}>
@@ -5323,6 +5343,235 @@ const MyProfilePanel = ({ user, onSave, onClose }) => {
             style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}
           >
             {saving ? '⏳ Zapisywanie...' : '💾 Zapisz zmiany'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// PANEL AKTYWNOŚCI UŻYTKOWNIKÓW
+// ============================================
+
+const UserActivityPanel = ({ users, onClose }) => {
+  const [filter, setFilter] = useState('all'); // all, today, week, never
+  const [sortBy, setSortBy] = useState('recent'); // recent, oldest, name
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const getTimeSince = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Przed chwilą';
+    if (minutes < 60) return `${minutes} min temu`;
+    if (hours < 24) return `${hours} godz. temu`;
+    if (days === 1) return 'Wczoraj';
+    if (days < 7) return `${days} dni temu`;
+    if (days < 30) return `${Math.floor(days / 7)} tyg. temu`;
+    return `${Math.floor(days / 30)} mies. temu`;
+  };
+
+  const getStatusColor = (lastLogin) => {
+    if (!lastLogin) return { bg: '#F3F4F6', color: '#9CA3AF', label: 'Nigdy' };
+    const date = new Date(lastLogin);
+    const diff = now - date;
+    const hours = diff / 3600000;
+    
+    if (hours < 1) return { bg: '#D1FAE5', color: '#059669', label: 'Online' };
+    if (hours < 24) return { bg: '#DBEAFE', color: '#2563EB', label: 'Dziś' };
+    if (hours < 168) return { bg: '#FEF3C7', color: '#D97706', label: 'Ten tydzień' };
+    return { bg: '#FEE2E2', color: '#DC2626', label: 'Dawno' };
+  };
+
+  let filteredUsers = [...users];
+  
+  // Filtrowanie
+  if (filter === 'today') {
+    filteredUsers = filteredUsers.filter(u => u.lastLogin && new Date(u.lastLogin) >= todayStart);
+  } else if (filter === 'week') {
+    filteredUsers = filteredUsers.filter(u => u.lastLogin && new Date(u.lastLogin) >= weekAgo);
+  } else if (filter === 'never') {
+    filteredUsers = filteredUsers.filter(u => !u.lastLogin);
+  }
+
+  // Sortowanie
+  if (sortBy === 'recent') {
+    filteredUsers.sort((a, b) => {
+      if (!a.lastLogin && !b.lastLogin) return 0;
+      if (!a.lastLogin) return 1;
+      if (!b.lastLogin) return -1;
+      return new Date(b.lastLogin) - new Date(a.lastLogin);
+    });
+  } else if (sortBy === 'oldest') {
+    filteredUsers.sort((a, b) => {
+      if (!a.lastLogin && !b.lastLogin) return 0;
+      if (!a.lastLogin) return -1;
+      if (!b.lastLogin) return 1;
+      return new Date(a.lastLogin) - new Date(b.lastLogin);
+    });
+  } else if (sortBy === 'name') {
+    filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  // Statystyki
+  const stats = {
+    total: users.length,
+    today: users.filter(u => u.lastLogin && new Date(u.lastLogin) >= todayStart).length,
+    week: users.filter(u => u.lastLogin && new Date(u.lastLogin) >= weekAgo).length,
+    never: users.filter(u => !u.lastLogin).length
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'800px',height:'85vh',display:'flex',flexDirection:'column',padding:0}}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#3B82F6,#1D4ED8)',color:'white',borderRadius:'12px 12px 0 0'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <h2 style={{margin:0,fontSize:'18px'}}>📊 Aktywność użytkowników</h2>
+            <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
+          </div>
+        </div>
+
+        {/* Statystyki */}
+        <div style={{padding:'16px 20px',background:'#F8FAFC',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',flexWrap:'wrap'}}>
+          <div style={{background:'white',padding:'12px 16px',borderRadius:'10px',border:'1px solid #E2E8F0',flex:'1',minWidth:'120px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#1E293B'}}>{stats.total}</div>
+            <div style={{fontSize:'11px',color:'#64748B'}}>Wszystkich</div>
+          </div>
+          <div style={{background:'#D1FAE5',padding:'12px 16px',borderRadius:'10px',border:'1px solid #A7F3D0',flex:'1',minWidth:'120px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#059669'}}>{stats.today}</div>
+            <div style={{fontSize:'11px',color:'#059669'}}>Dziś aktywnych</div>
+          </div>
+          <div style={{background:'#DBEAFE',padding:'12px 16px',borderRadius:'10px',border:'1px solid #BFDBFE',flex:'1',minWidth:'120px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#2563EB'}}>{stats.week}</div>
+            <div style={{fontSize:'11px',color:'#2563EB'}}>Ten tydzień</div>
+          </div>
+          <div style={{background:'#FEE2E2',padding:'12px 16px',borderRadius:'10px',border:'1px solid #FECACA',flex:'1',minWidth:'120px',textAlign:'center'}}>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#DC2626'}}>{stats.never}</div>
+            <div style={{fontSize:'11px',color:'#DC2626'}}>Nigdy nie zalogowani</div>
+          </div>
+        </div>
+
+        {/* Filtry */}
+        <div style={{padding:'12px 20px',background:'white',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:'6px'}}>
+            {[
+              { id: 'all', label: 'Wszyscy' },
+              { id: 'today', label: 'Dziś' },
+              { id: 'week', label: 'Tydzień' },
+              { id: 'never', label: 'Nigdy' }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                style={{
+                  padding:'6px 12px',
+                  borderRadius:'6px',
+                  border: filter === f.id ? 'none' : '1px solid #E2E8F0',
+                  background: filter === f.id ? '#3B82F6' : 'white',
+                  color: filter === f.id ? 'white' : '#64748B',
+                  cursor:'pointer',
+                  fontSize:'12px',
+                  fontWeight:'500'
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px'}}>
+            <span style={{fontSize:'12px',color:'#64748B'}}>Sortuj:</span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid #E2E8F0',fontSize:'12px'}}
+            >
+              <option value="recent">Ostatnio aktywni</option>
+              <option value="oldest">Najdawniej aktywni</option>
+              <option value="name">Alfabetycznie</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Lista użytkowników */}
+        <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
+          {filteredUsers.length === 0 ? (
+            <div style={{textAlign:'center',padding:'40px',color:'#64748B'}}>
+              <div style={{fontSize:'48px',marginBottom:'12px'}}>🔍</div>
+              <div>Brak użytkowników spełniających kryteria</div>
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+              {filteredUsers.map(u => {
+                const status = getStatusColor(u.lastLogin);
+                const role = getRole(u.role);
+                return (
+                  <div
+                    key={u.id}
+                    style={{
+                      display:'flex',
+                      alignItems:'center',
+                      gap:'12px',
+                      padding:'12px 16px',
+                      background:'white',
+                      border:'1px solid #E2E8F0',
+                      borderRadius:'10px'
+                    }}
+                  >
+                    <div style={{
+                      width:'40px',
+                      height:'40px',
+                      borderRadius:'10px',
+                      background: status.bg,
+                      display:'flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      fontSize:'20px'
+                    }}>
+                      {role.icon}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{u.name}</div>
+                      <div style={{fontSize:'12px',color:'#64748B'}}>@{u.username} • {role.name}</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{
+                        display:'inline-block',
+                        padding:'4px 10px',
+                        borderRadius:'12px',
+                        background: status.bg,
+                        color: status.color,
+                        fontSize:'11px',
+                        fontWeight:'600'
+                      }}>
+                        {status.label}
+                      </div>
+                      <div style={{fontSize:'11px',color:'#64748B',marginTop:'4px'}}>
+                        {u.lastLogin ? getTimeSince(u.lastLogin) : 'Brak danych'}
+                      </div>
+                      {u.lastLogin && (
+                        <div style={{fontSize:'10px',color:'#94A3B8',marginTop:'2px'}}>
+                          {new Date(u.lastLogin).toLocaleString('pl-PL')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',textAlign:'right'}}>
+          <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',cursor:'pointer',fontWeight:'600'}}>
+            Zamknij
           </button>
         </div>
       </div>
@@ -18698,6 +18947,7 @@ const App = () => {
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false); // Uprawnienia
   const [showMyProfilePanel, setShowMyProfilePanel] = useState(false); // Mój profil
+  const [showUserActivityPanel, setShowUserActivityPanel] = useState(false); // Aktywność użytkowników
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
@@ -19909,7 +20159,14 @@ Zespół obsługi zamówień
   }
 
   if (!user) {
-    return <LoginScreen onLogin={setUser} users={users} loading={loading} />;
+    return <LoginScreen 
+      onLogin={setUser} 
+      users={users} 
+      loading={loading} 
+      onUpdateLastLogin={async (userId, loginTime) => {
+        await updateUser(userId, { lastLogin: loginTime });
+      }}
+    />;
   }
 
   const unresolvedNotifs = visibleNotifications.filter(n => !n.resolved).length;
@@ -20035,6 +20292,11 @@ Zespół obsługi zamówień
                     {hasPermission(user, 'settings_permissions') && (
                       <button onClick={() => { setShowPermissionsPanel(true); setShowSettingsMenu(false); }}>
                         🔐 Uprawnienia
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_users') && (
+                      <button onClick={() => { setShowUserActivityPanel(true); setShowSettingsMenu(false); }}>
+                        📊 Aktywność użytkowników
                       </button>
                     )}
                     {hasPermission(user, 'settings_producers') && (
@@ -20619,6 +20881,14 @@ Zespół obsługi zamówień
             localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
           }}
           onClose={() => setShowMyProfilePanel(false)}
+        />
+      )}
+
+      {/* Panel Aktywności Użytkowników */}
+      {showUserActivityPanel && (
+        <UserActivityPanel
+          users={users}
+          onClose={() => setShowUserActivityPanel(false)}
         />
       )}
 
