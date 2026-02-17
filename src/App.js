@@ -708,6 +708,7 @@ const ALL_PERMISSIONS = [
   { id: 'settings_tutorial', name: 'Konfiguracja samouczka', category: 'Ustawienia', icon: '📚' },
   { id: 'settings_trash', name: 'Kosz (usunięte)', category: 'Ustawienia', icon: '🗑️' },
   { id: 'settings_permissions', name: 'Zarządzanie uprawnieniami', category: 'Ustawienia', icon: '🔐' },
+  { id: 'settings_activity', name: 'Aktywność użytkowników', category: 'Ustawienia', icon: '📊' },
   
   // FINANSE
   { id: 'finance_prices', name: 'Widoczność cen', category: 'Finanse', icon: '💵' },
@@ -20294,7 +20295,7 @@ Zespół obsługi zamówień
                         🔐 Uprawnienia
                       </button>
                     )}
-                    {hasPermission(user, 'settings_users') && (
+                    {hasPermission(user, 'settings_activity') && (
                       <button onClick={() => { setShowUserActivityPanel(true); setShowSettingsMenu(false); }}>
                         📊 Aktywność użytkowników
                       </button>
