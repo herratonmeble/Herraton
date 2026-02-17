@@ -19564,7 +19564,7 @@ Zespół obsługi zamówień
             </button>
 
             {/* Przycisk zadań */}
-            {(isAdmin || user?.role === 'worker') && (
+            {hasPermission(user, 'panel_tasks') && (
               <button 
                 className="btn-secondary" 
                 onClick={() => setShowTasksPanel(true)}
@@ -19574,18 +19574,20 @@ Zespół obsługi zamówień
               </button>
             )}
 
-            <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
-              📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
-            </button>
+            {hasPermission(user, 'panel_complaints') && (
+              <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
+                📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
+              </button>
+            )}
 
-            {(isAdmin || user?.role === 'worker') && (
+            {hasPermission(user, 'panel_leads') && (
               <button className="btn-secondary leads-btn" onClick={() => setShowLeadsPanel(true)}>
                 🎯 Zainteresowani ({leads.filter(l => !['zamowil', 'rezygnacja'].includes(l.status)).length})
               </button>
             )}
 
-            {/* Menu rozwijane Wysyłka - dla admina i pracownika */}
-            {(isAdmin || user?.role === 'worker') && (
+            {/* Menu rozwijane Wysyłka */}
+            {(hasPermission(user, 'shipping_samples') || hasPermission(user, 'shipping_mail')) && (
               <div className="settings-dropdown" ref={shippingMenuRef}>
                 <button 
                   className="btn-secondary shipping-btn" 
@@ -19595,19 +19597,23 @@ Zespół obsługi zamówień
                 </button>
                 {showShippingMenu && (
                   <div className="settings-menu">
-                    <button onClick={() => { setShowSamplesPanel(true); setShowShippingMenu(false); }}>
-                      🧪 Próbki ({samples.filter(s => s.status !== 'wyslane').length})
-                    </button>
-                    <button onClick={() => { setShowMailPanel(true); setShowShippingMenu(false); }}>
-                      ✉️ Poczta ({mailItems.filter(m => m.status !== 'wyslane').length})
-                    </button>
+                    {hasPermission(user, 'shipping_samples') && (
+                      <button onClick={() => { setShowSamplesPanel(true); setShowShippingMenu(false); }}>
+                        🧪 Próbki ({samples.filter(s => s.status !== 'wyslane').length})
+                      </button>
+                    )}
+                    {hasPermission(user, 'shipping_mail') && (
+                      <button onClick={() => { setShowMailPanel(true); setShowShippingMenu(false); }}>
+                        ✉️ Poczta ({mailItems.filter(m => m.status !== 'wyslane').length})
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Kosz - dla admina i pracownika */}
-            {(isAdmin || user?.role === 'worker') && (
+            {/* Kosz */}
+            {hasPermission(user, 'settings_trash') && (
               <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
                 🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
               </button>
