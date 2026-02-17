@@ -748,12 +748,13 @@ const DEFAULT_PERMISSIONS = {
 const hasPermission = (user, permissionId) => {
   if (!user) return false;
   
-  // Jeśli użytkownik ma własne uprawnienia - użyj ich
-  if (user.permissions && Array.isArray(user.permissions)) {
+  // Jeśli użytkownik ma własne uprawnienia (tablica) - użyj ich
+  // Nawet jeśli tablica jest pusta - to znaczy że celowo odebrano uprawnienia
+  if (user.permissions !== undefined && user.permissions !== null && Array.isArray(user.permissions)) {
     return user.permissions.includes(permissionId);
   }
   
-  // W przeciwnym razie użyj domyślnych dla roli
+  // Tylko jeśli permissions nie istnieje wcale - użyj domyślnych dla roli
   const rolePermissions = DEFAULT_PERMISSIONS[user.role] || [];
   return rolePermissions.includes(permissionId);
 };
@@ -18493,20 +18494,25 @@ const App = () => {
         setLoading(false);
       }
       
-      // Synchronizuj uprawnienia aktualnie zalogowanego użytkownika
+      // ZAWSZE synchronizuj uprawnienia aktualnie zalogowanego użytkownika z Firebase
       const savedUser = localStorage.getItem('herratonUser');
       if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        const freshUserData = data.find(u => u.id === parsedUser.id);
-        if (freshUserData) {
-          // Sprawdź czy uprawnienia się zmieniły
-          const oldPerms = JSON.stringify(parsedUser.permissions || []);
-          const newPerms = JSON.stringify(freshUserData.permissions || []);
-          if (oldPerms !== newPerms) {
-            const updatedUser = { ...parsedUser, permissions: freshUserData.permissions };
-            setUser(updatedUser);
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          const freshUserData = data.find(u => u.id === parsedUser.id);
+          if (freshUserData) {
+            // Zawsze aktualizuj uprawnienia z Firebase (niezależnie czy się zmieniły)
+            const updatedUser = { 
+              ...parsedUser, 
+              permissions: freshUserData.permissions || null,
+              role: freshUserData.role,
+              name: freshUserData.name
+            };
             localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+            setUser(updatedUser);
           }
+        } catch (e) {
+          console.error('Błąd synchronizacji uprawnień:', e);
         }
       }
     });
