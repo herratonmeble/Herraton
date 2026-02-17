@@ -674,6 +674,103 @@ const USER_ROLES = [
 ];
 
 // ============================================
+// SYSTEM UPRAWNIEŃ - DEFINICJA WSZYSTKICH FUNKCJI
+// ============================================
+
+const ALL_PERMISSIONS = [
+  // ZAMÓWIENIA
+  { id: 'orders_view', name: 'Przeglądanie zamówień', category: 'Zamówienia', icon: '👁️' },
+  { id: 'orders_add', name: 'Dodawanie zamówień', category: 'Zamówienia', icon: '➕' },
+  { id: 'orders_edit', name: 'Edycja zamówień', category: 'Zamówienia', icon: '✏️' },
+  { id: 'orders_delete', name: 'Usuwanie zamówień', category: 'Zamówienia', icon: '🗑️' },
+  { id: 'orders_status', name: 'Zmiana statusów', category: 'Zamówienia', icon: '🔄' },
+  { id: 'orders_export', name: 'Eksport do Excel', category: 'Zamówienia', icon: '📊' },
+  
+  // PANELE
+  { id: 'panel_complaints', name: 'Panel reklamacji', category: 'Panele', icon: '📋' },
+  { id: 'panel_leads', name: 'Panel zainteresowanych', category: 'Panele', icon: '🎯' },
+  { id: 'panel_chats', name: 'Czaty z klientami', category: 'Panele', icon: '💬' },
+  { id: 'panel_tasks', name: 'Panel zadań', category: 'Panele', icon: '✅' },
+  { id: 'panel_statistics', name: 'Statystyki', category: 'Panele', icon: '📈' },
+  { id: 'panel_calendar', name: 'Kalendarz', category: 'Panele', icon: '📅' },
+  { id: 'panel_messenger', name: 'Komunikator wewnętrzny', category: 'Panele', icon: '💭' },
+  
+  // WYSYŁKA
+  { id: 'shipping_samples', name: 'Próbki materiałów', category: 'Wysyłka', icon: '🧪' },
+  { id: 'shipping_mail', name: 'Poczta', category: 'Wysyłka', icon: '✉️' },
+  
+  // USTAWIENIA
+  { id: 'settings_users', name: 'Zarządzanie użytkownikami', category: 'Ustawienia', icon: '👥' },
+  { id: 'settings_producers', name: 'Zarządzanie producentami', category: 'Ustawienia', icon: '🏭' },
+  { id: 'settings_pricelists', name: 'Cenniki', category: 'Ustawienia', icon: '💰' },
+  { id: 'settings_settlements', name: 'Rozliczenia transportowe', category: 'Ustawienia', icon: '🧾' },
+  { id: 'settings_contacts', name: 'Kontakty', category: 'Ustawienia', icon: '📇' },
+  { id: 'settings_tutorial', name: 'Konfiguracja samouczka', category: 'Ustawienia', icon: '📚' },
+  { id: 'settings_trash', name: 'Kosz (usunięte)', category: 'Ustawienia', icon: '🗑️' },
+  { id: 'settings_permissions', name: 'Zarządzanie uprawnieniami', category: 'Ustawienia', icon: '🔐' },
+  
+  // FINANSE
+  { id: 'finance_prices', name: 'Widoczność cen', category: 'Finanse', icon: '💵' },
+  { id: 'finance_discounts', name: 'Udzielanie rabatów', category: 'Finanse', icon: '🏷️' },
+  { id: 'finance_payments', name: 'Oznaczanie płatności', category: 'Finanse', icon: '💳' },
+  
+  // DOKUMENTY
+  { id: 'docs_contracts', name: 'Generowanie umów', category: 'Dokumenty', icon: '📄' },
+  { id: 'docs_protocols', name: 'Protokoły odbioru', category: 'Dokumenty', icon: '✍️' },
+  { id: 'docs_print', name: 'Drukowanie', category: 'Dokumenty', icon: '🖨️' },
+];
+
+// Domyślne uprawnienia dla każdej roli
+const DEFAULT_PERMISSIONS = {
+  admin: ALL_PERMISSIONS.map(p => p.id), // Admin ma wszystko
+  worker: [
+    'orders_view', 'orders_add', 'orders_edit', 'orders_status', 'orders_export',
+    'panel_complaints', 'panel_leads', 'panel_chats', 'panel_tasks', 'panel_statistics', 'panel_calendar', 'panel_messenger',
+    'shipping_samples', 'shipping_mail',
+    'settings_contacts', 'settings_trash',
+    'finance_prices', 'finance_discounts', 'finance_payments',
+    'docs_contracts', 'docs_protocols', 'docs_print'
+  ],
+  driver: [
+    'orders_view', 'orders_status',
+    'panel_tasks',
+    'finance_discounts', 'finance_payments',
+    'docs_protocols'
+  ],
+  contractor: [
+    'orders_view', 'orders_add',
+    'panel_statistics',
+    'finance_prices'
+  ]
+};
+
+// Funkcja sprawdzająca uprawnienie
+const hasPermission = (user, permissionId) => {
+  if (!user) return false;
+  
+  // Jeśli użytkownik ma własne uprawnienia - użyj ich
+  if (user.permissions && Array.isArray(user.permissions)) {
+    return user.permissions.includes(permissionId);
+  }
+  
+  // W przeciwnym razie użyj domyślnych dla roli
+  const rolePermissions = DEFAULT_PERMISSIONS[user.role] || [];
+  return rolePermissions.includes(permissionId);
+};
+
+// Grupowanie uprawnień po kategoriach
+const getPermissionsByCategory = () => {
+  const categories = {};
+  ALL_PERMISSIONS.forEach(p => {
+    if (!categories[p.category]) {
+      categories[p.category] = [];
+    }
+    categories[p.category].push(p);
+  });
+  return categories;
+};
+
+// ============================================
 // FUNKCJE POMOCNICZE
 // ============================================
 
@@ -5006,6 +5103,170 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// PANEL ZARZĄDZANIA UPRAWNIENIAMI
+// ============================================
+
+const PermissionsPanel = ({ users, onSave, onClose }) => {
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userPermissions, setUserPermissions] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const editableUsers = users.filter(u => ['admin', 'worker'].includes(u.role));
+  const filteredUsers = editableUsers.filter(u => 
+    u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.username?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectUser = (user) => {
+    setSelectedUser(user);
+    if (user.permissions && Array.isArray(user.permissions)) {
+      setUserPermissions([...user.permissions]);
+    } else {
+      setUserPermissions([...(DEFAULT_PERMISSIONS[user.role] || [])]);
+    }
+  };
+
+  const togglePermission = (permId) => {
+    if (userPermissions.includes(permId)) {
+      setUserPermissions(userPermissions.filter(p => p !== permId));
+    } else {
+      setUserPermissions([...userPermissions, permId]);
+    }
+  };
+
+  const toggleCategory = (category) => {
+    const categoryPerms = ALL_PERMISSIONS.filter(p => p.category === category).map(p => p.id);
+    const allChecked = categoryPerms.every(p => userPermissions.includes(p));
+    if (allChecked) {
+      setUserPermissions(userPermissions.filter(p => !categoryPerms.includes(p)));
+    } else {
+      const newPerms = [...userPermissions];
+      categoryPerms.forEach(p => { if (!newPerms.includes(p)) newPerms.push(p); });
+      setUserPermissions(newPerms);
+    }
+  };
+
+  const resetToDefault = () => {
+    if (selectedUser) setUserPermissions([...(DEFAULT_PERMISSIONS[selectedUser.role] || [])]);
+  };
+
+  const selectAll = () => setUserPermissions(ALL_PERMISSIONS.map(p => p.id));
+  const deselectAll = () => setUserPermissions([]);
+
+  const handleSave = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      await onSave(selectedUser.id, userPermissions);
+      setSelectedUser({ ...selectedUser, permissions: userPermissions });
+    } catch (err) {
+      console.error('Błąd zapisywania uprawnień:', err);
+      alert('Błąd zapisywania');
+    }
+    setSaving(false);
+  };
+
+  const permissionsByCategory = getPermissionsByCategory();
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'1100px',height:'90vh',display:'flex',flexDirection:'column',padding:0}}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#1E293B,#334155)',color:'white',borderRadius:'12px 12px 0 0'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <h2 style={{margin:0,fontSize:'18px'}}>🔐 Zarządzanie uprawnieniami</h2>
+            <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
+          </div>
+        </div>
+
+        <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+          <div style={{width:'280px',borderRight:'1px solid #E2E8F0',display:'flex',flexDirection:'column',background:'#F8FAFC'}}>
+            <div style={{padding:'12px'}}>
+              <input type="text" placeholder="🔍 Szukaj użytkownika..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'13px',boxSizing:'border-box'}} />
+            </div>
+            <div style={{flex:1,overflow:'auto'}}>
+              {filteredUsers.map(u => (
+                <div key={u.id} onClick={() => selectUser(u)} style={{padding:'12px 16px',cursor:'pointer',background: selectedUser?.id === u.id ? '#EDE9FE' : 'white',borderBottom:'1px solid #E2E8F0',borderLeft: selectedUser?.id === u.id ? '3px solid #8B5CF6' : '3px solid transparent'}}>
+                  <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{getRole(u.role).icon} {u.name}</div>
+                  <div style={{fontSize:'12px',color:'#64748B',marginTop:'2px'}}>@{u.username} • {getRole(u.role).name}</div>
+                  {u.permissions && <div style={{fontSize:'10px',color:'#8B5CF6',marginTop:'4px'}}>✨ Własne uprawnienia ({u.permissions.length})</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            {selectedUser ? (
+              <>
+                <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'white'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontSize:'18px',fontWeight:'700',color:'#1E293B'}}>{getRole(selectedUser.role).icon} {selectedUser.name}</div>
+                      <div style={{fontSize:'13px',color:'#64748B',marginTop:'2px'}}>Rola: {getRole(selectedUser.role).name} • {userPermissions.length} z {ALL_PERMISSIONS.length} uprawnień</div>
+                    </div>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <button onClick={selectAll} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #10B981',background:'white',color:'#10B981',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>✓ Wszystko</button>
+                      <button onClick={deselectAll} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #EF4444',background:'white',color:'#EF4444',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>✗ Nic</button>
+                      <button onClick={resetToDefault} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #64748B',background:'white',color:'#64748B',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>↺ Domyślne</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
+                  {Object.entries(permissionsByCategory).map(([category, perms]) => {
+                    const categoryPerms = perms.map(p => p.id);
+                    const checkedCount = categoryPerms.filter(p => userPermissions.includes(p)).length;
+                    const allChecked = checkedCount === categoryPerms.length;
+                    const someChecked = checkedCount > 0 && checkedCount < categoryPerms.length;
+
+                    return (
+                      <div key={category} style={{marginBottom:'20px'}}>
+                        <div onClick={() => toggleCategory(category)} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#F1F5F9',borderRadius:'8px',cursor:'pointer',marginBottom:'8px'}}>
+                          <div style={{width:'20px',height:'20px',borderRadius:'4px',border: allChecked || someChecked ? 'none' : '2px solid #CBD5E1',background: allChecked ? '#8B5CF6' : someChecked ? '#C4B5FD' : 'white',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px'}}>
+                            {allChecked && '✓'}{someChecked && '−'}
+                          </div>
+                          <span style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{category}</span>
+                          <span style={{fontSize:'12px',color:'#64748B'}}>({checkedCount}/{categoryPerms.length})</span>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(250px, 1fr))',gap:'8px',paddingLeft:'12px'}}>
+                          {perms.map(perm => {
+                            const isChecked = userPermissions.includes(perm.id);
+                            return (
+                              <div key={perm.id} onClick={() => togglePermission(perm.id)} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background: isChecked ? '#F5F3FF' : 'white',border: `1px solid ${isChecked ? '#C4B5FD' : '#E2E8F0'}`,borderRadius:'8px',cursor:'pointer'}}>
+                                <div style={{width:'18px',height:'18px',borderRadius:'4px',border: isChecked ? 'none' : '2px solid #CBD5E1',background: isChecked ? '#8B5CF6' : 'white',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'11px',flexShrink:0}}>{isChecked && '✓'}</div>
+                                <span style={{fontSize:'20px'}}>{perm.icon}</span>
+                                <span style={{fontSize:'13px',color: isChecked ? '#5B21B6' : '#374151'}}>{perm.name}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'flex-end',gap:'12px'}}>
+                  <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}>Anuluj</button>
+                  <button onClick={handleSave} disabled={saving} style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}>{saving ? '⏳ Zapisywanie...' : '💾 Zapisz uprawnienia'}</button>
+                </div>
+              </>
+            ) : (
+              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#94A3B8'}}>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontSize:'64px',marginBottom:'16px'}}>👈</div>
+                  <div style={{fontSize:'16px'}}>Wybierz użytkownika z listy</div>
+                  <div style={{fontSize:'13px',marginTop:'8px'}}>aby edytować jego uprawnienia</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -18081,6 +18342,7 @@ const App = () => {
   const [showSamplesPanel, setShowSamplesPanel] = useState(false); // Próbki
   const [showMailPanel, setShowMailPanel] = useState(false); // Poczta
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
+  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false); // Uprawnienia
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
@@ -19374,6 +19636,9 @@ Zespół obsługi zamówień
                     <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
                       👥 Użytkownicy
                     </button>
+                    <button onClick={() => { setShowPermissionsPanel(true); setShowSettingsMenu(false); }}>
+                      🔐 Uprawnienia
+                    </button>
                     <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
                       🏭 Producenci
                     </button>
@@ -19951,6 +20216,22 @@ Zespół obsługi zamówień
             await deletePriceList(id);
           }}
           onClose={() => setShowPriceListManager(false)}
+        />
+      )}
+
+      {/* Panel uprawnień */}
+      {showPermissionsPanel && (
+        <PermissionsPanel
+          users={users}
+          onSave={async (userId, permissions) => {
+            await updateUser(userId, { permissions });
+            if (user?.id === userId) {
+              const updatedUser = { ...user, permissions };
+              setUser(updatedUser);
+              localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+            }
+          }}
+          onClose={() => setShowPermissionsPanel(false)}
         />
       )}
 
