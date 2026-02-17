@@ -1021,7 +1021,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 // MODAL SZCZEGÓŁÓW ZAMÓWIENIA - Z POWIĘKSZANIEM ZDJĘĆ
 // ============================================
 
-const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor, selectedProductIndex, onUpdateOrder }) => {
+const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor, selectedProductIndex, onUpdateOrder, currentUser }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [showDeliveryEmailModal, setShowDeliveryEmailModal] = useState(false);
@@ -1036,6 +1036,12 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const [editingDiscount, setEditingDiscount] = useState(null); // { productIndex, rabat } lub { global: true, rabat }
   const [discountEditAmount, setDiscountEditAmount] = useState('');
   const [discountEditReason, setDiscountEditReason] = useState('');
+  
+  // Uprawnienia
+  const canEditPrices = hasPermission(currentUser, 'finance_prices');
+  const canGiveDiscounts = hasPermission(currentUser, 'finance_discounts');
+  const canPrint = hasPermission(currentUser, 'docs_print');
+  const canGenerateContracts = hasPermission(currentUser, 'docs_contracts');
   
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
@@ -7321,7 +7327,11 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const days = getDaysUntilPickup(pickupDate);
 
   // Sprawdź czy użytkownik może usunąć zamówienie
-  const canDelete = isAdmin || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
+  const canDelete = hasPermission(currentUser, 'orders_delete') || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
+  // Sprawdź czy może edytować
+  const canEdit = hasPermission(currentUser, 'orders_edit') || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
+  // Sprawdź czy może zmieniać statusy
+  const canChangeStatus = hasPermission(currentUser, 'orders_status');
   // Nie pokazuj pilności dla zamówień w transporcie, dostarczonych, odebranych lub gotowych do odbioru
   const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane', 'gotowe_do_odbioru'].includes(order.status);
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
@@ -7495,6 +7505,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                       }}
                       className="status-select small"
                       style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}
+                      disabled={!canChangeStatus}
                     >
                       {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
                     </select>
@@ -7545,6 +7556,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                 onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
                 className="status-select small"
                 style={{ background: status?.bgColor, color: status?.color }}
+                disabled={!canChangeStatus}
               >
                 {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
               </select>
@@ -7657,7 +7669,9 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         <div className="order-card-footer order-date">
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
           <div className="order-actions order-buttons">
-            <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
+            {canEdit && (
+              <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
+            )}
             {/* Przycisk email - obsługa wielu producentów */}
             {uniqueProducers.length > 0 && !isContractor && (
               <div className="email-btn-wrapper" style={{ position: 'relative' }}>
@@ -19578,13 +19592,15 @@ Zespół obsługi zamówień
             </button>
 
             {/* Przycisk czatów klientów */}
-            <button 
-              className="btn-secondary" 
-              onClick={() => setShowClientChats(true)}
-              style={{background: clientChats.filter(c => c.unreadByStaff && (!c.assignedTo || c.assignedTo === user?.id)).length > 0 ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : undefined, color: clientChats.filter(c => c.unreadByStaff).length > 0 ? 'white' : undefined}}
-            >
-              💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
-            </button>
+            {hasPermission(user, 'panel_chats') && (
+              <button 
+                className="btn-secondary" 
+                onClick={() => setShowClientChats(true)}
+                style={{background: clientChats.filter(c => c.unreadByStaff && (!c.assignedTo || c.assignedTo === user?.id)).length > 0 ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : undefined, color: clientChats.filter(c => c.unreadByStaff).length > 0 ? 'white' : undefined}}
+              >
+                💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
+              </button>
+            )}
 
             {/* Przycisk zadań */}
             {hasPermission(user, 'panel_tasks') && (
@@ -19642,8 +19658,11 @@ Zespół obsługi zamówień
               </button>
             )}
 
-            {/* Menu rozwijane Ustawienia - dla admina */}
-            {isAdmin && (
+            {/* Menu rozwijane Ustawienia - dla wszystkich z uprawnieniami */}
+            {(hasPermission(user, 'panel_statistics') || hasPermission(user, 'settings_settlements') || 
+              hasPermission(user, 'settings_contacts') || hasPermission(user, 'settings_users') || 
+              hasPermission(user, 'settings_permissions') || hasPermission(user, 'settings_producers') || 
+              hasPermission(user, 'settings_pricelists') || hasPermission(user, 'orders_export')) && (
               <div className="settings-dropdown" ref={settingsMenuRef}>
                 <button 
                   className="btn-secondary settings-btn" 
@@ -19653,41 +19672,61 @@ Zespół obsługi zamówień
                 </button>
                 {showSettingsMenu && (
                   <div className="settings-menu">
-                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
-                      📊 Statystyki
-                    </button>
-                    <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
-                      💰 Rozliczenia transportowe
-                    </button>
-                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
-                      📇 Kontakty
-                    </button>
-                    <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
-                      👥 Użytkownicy
-                    </button>
-                    <button onClick={() => { setShowPermissionsPanel(true); setShowSettingsMenu(false); }}>
-                      🔐 Uprawnienia
-                    </button>
-                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
-                      🏭 Producenci
-                    </button>
-                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
-                      📋 Cenniki produktów
-                    </button>
-                    <button onClick={() => { setShowSettingsModal(true); setShowSettingsMenu(false); }}>
-                      🔧 Konfiguracja
-                    </button>
+                    {hasPermission(user, 'panel_statistics') && (
+                      <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
+                        📊 Statystyki
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_settlements') && (
+                      <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
+                        💰 Rozliczenia transportowe
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_contacts') && (
+                      <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
+                        📇 Kontakty
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_users') && (
+                      <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
+                        👥 Użytkownicy
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_permissions') && (
+                      <button onClick={() => { setShowPermissionsPanel(true); setShowSettingsMenu(false); }}>
+                        🔐 Uprawnienia
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_producers') && (
+                      <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
+                        🏭 Producenci
+                      </button>
+                    )}
+                    {hasPermission(user, 'settings_pricelists') && (
+                      <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
+                        📋 Cenniki produktów
+                      </button>
+                    )}
+                    {hasPermission(user, 'orders_export') && (
+                      <>
+                        <div className="settings-menu-divider"></div>
+                        <button onClick={() => { exportToExcel(filteredOrders); setShowSettingsMenu(false); }}>
+                          📥 Export Excel
+                        </button>
+                        <button onClick={() => { autoSyncToGoogleSheets(filteredOrders); setShowSettingsMenu(false); }}>
+                          🔄 Sync Google Sheets
+                        </button>
+                      </>
+                    )}
+                    {hasPermission(user, 'settings_tutorial') && (
+                      <>
+                        <div className="settings-menu-divider"></div>
+                        <button onClick={() => { setShowTutorialConfig(true); setShowSettingsMenu(false); }}>
+                          🎓 Konfiguracja samouczka
+                        </button>
+                      </>
+                    )}
                     <div className="settings-menu-divider"></div>
-                    <button onClick={() => { exportToExcel(filteredOrders); setShowSettingsMenu(false); }}>
-                      📥 Export Excel
-                    </button>
-                    <button onClick={() => { autoSyncToGoogleSheets(filteredOrders); setShowSettingsMenu(false); }}>
-                      🔄 Sync Google Sheets
-                    </button>
-                    <div className="settings-menu-divider"></div>
-                    <button onClick={() => { setShowTutorialConfig(true); setShowSettingsMenu(false); }}>
-                      🎓 Konfiguracja samouczka
-                    </button>
                     <button onClick={() => { 
                       localStorage.removeItem(`herratonTutorialSeen_${user?.id}`);
                       setShowTutorial(true);
@@ -19695,49 +19734,6 @@ Zespół obsługi zamówień
                       setShowSettingsMenu(false);
                     }}>
                       ▶️ Uruchom samouczek
-                    </button>
-                    <button onClick={() => { 
-                      window.open('/instrukcja.pdf', '_blank');
-                      setShowSettingsMenu(false);
-                    }}>
-                      📖 Instrukcja PDF
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Menu dla pracownika */}
-            {user?.role === 'worker' && (
-              <div className="settings-dropdown" ref={settingsMenuRef}>
-                <button 
-                  className="btn-secondary settings-btn" 
-                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                >
-                  ⚙️ Ustawienia {showSettingsMenu ? '▲' : '▼'}
-                </button>
-                {showSettingsMenu && (
-                  <div className="settings-menu">
-                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
-                      📊 Statystyki
-                    </button>
-                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
-                      📇 Kontakty
-                    </button>
-                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
-                      🏭 Producenci
-                    </button>
-                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
-                      📋 Cenniki produktów
-                    </button>
-                    <div className="settings-menu-divider"></div>
-                    <button onClick={() => { 
-                      localStorage.removeItem(`herratonTutorialSeen_${user?.id}`);
-                      setShowTutorial(true);
-                      setTutorialStep(0);
-                      setShowSettingsMenu(false);
-                    }}>
-                      🎓 Uruchom samouczek
                     </button>
                     <button onClick={() => { 
                       window.open('/instrukcja.pdf', '_blank');
@@ -19783,7 +19779,7 @@ Zespół obsługi zamówień
 
       <main className="main">
         {/* Kompaktowy slider harmonogramu spotkań */}
-        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
+        {hasPermission(user, 'panel_calendar') && (() => {
           const now = new Date();
           const upcomingMeetings = meetings
             .filter(m => new Date(m.dateTime) >= now)
@@ -19857,7 +19853,7 @@ Zespół obsługi zamówień
         })()}
 
         {/* Kompaktowy slider planowanych wyjazdów kierowców */}
-        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
+        {hasPermission(user, 'panel_calendar') && (() => {
           const driversWithTrips = users
             .filter(u => u.role === 'driver' && u.plannedTrips && u.plannedTrips.length > 0)
             .map(driver => {
@@ -19939,9 +19935,11 @@ Zespół obsługi zamówień
 
         <div className="top-bar">
           <div className="top-left">
-            <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
-              ➕ Nowe zamówienie
-            </button>
+            {hasPermission(user, 'orders_add') && (
+              <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
+                ➕ Nowe zamówienie
+              </button>
+            )}
             <input
               className="search-input search-box"
               placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
@@ -20404,6 +20402,7 @@ Zespół obsługi zamówień
             onDelete={handleDeleteOrder}
             isContractor={isContractor}
             onUpdateOrder={updateOrder}
+            currentUser={user}
           />
         );
       })()}
@@ -20549,25 +20548,27 @@ Zespół obsługi zamówień
       )}
 
       {/* MESSENGER */}
-      <Messenger
-        currentUser={user}
-        users={users}
-        messages={messages}
-        orders={orders}
-        onSendMessage={handleSendMessage}
-        onMarkAsRead={handleMarkMessageAsRead}
-        isOpen={showMessenger}
-        onClose={(open) => setShowMessenger(open)}
-        selectedChat={selectedChat}
-        setSelectedChat={setSelectedChat}
-        onViewOrder={(order) => {
-          setShowMessenger(false);
-          setViewingOrder(order);
-        }}
-      />
+      {hasPermission(user, 'panel_messenger') && (
+        <Messenger
+          currentUser={user}
+          users={users}
+          messages={messages}
+          orders={orders}
+          onSendMessage={handleSendMessage}
+          onMarkAsRead={handleMarkMessageAsRead}
+          isOpen={showMessenger}
+          onClose={(open) => setShowMessenger(open)}
+          selectedChat={selectedChat}
+          setSelectedChat={setSelectedChat}
+          onViewOrder={(order) => {
+            setShowMessenger(false);
+            setViewingOrder(order);
+          }}
+        />
+      )}
 
       {/* POPUP NOWEJ WIADOMOŚCI */}
-      {newMessagePopup && !showMessenger && (
+      {hasPermission(user, 'panel_messenger') && newMessagePopup && !showMessenger && (
         <div className="message-popup" onClick={() => { setNewMessagePopup(null); setShowMessenger(true); }}>
           <div className="message-popup-icon">💬</div>
           <div className="message-popup-content">
