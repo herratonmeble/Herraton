@@ -5374,13 +5374,6 @@ const UserActivityPanel = ({ users, onClose }) => {
   const [filter, setFilter] = useState('all'); // all, online, today, week, never
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, name
   const [selectedUser, setSelectedUser] = useState(null); // Do pokazania historii logowań
-  const [, forceUpdate] = useState(0); // Do odświeżania co minutę
-
-  // Odświeżaj widok co minutę żeby aktualizować statusy online
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate(n => n + 1), 60000);
-    return () => clearInterval(interval);
-  }, []);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -5609,7 +5602,7 @@ const UserActivityPanel = ({ users, onClose }) => {
           ) : (
             <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
               {filteredUsers.map(u => {
-                const status = getStatusColor(u.lastLogin);
+                const status = getStatusColor(u);
                 const role = getRole(u.role);
                 return (
                   <div
