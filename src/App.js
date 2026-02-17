@@ -1037,11 +1037,15 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const [discountEditAmount, setDiscountEditAmount] = useState('');
   const [discountEditReason, setDiscountEditReason] = useState('');
   
-  // Uprawnienia
-  const canEditPrices = hasPermission(currentUser, 'finance_prices');
-  const canGiveDiscounts = hasPermission(currentUser, 'finance_discounts');
-  const canPrint = hasPermission(currentUser, 'docs_print');
-  const canGenerateContracts = hasPermission(currentUser, 'docs_contracts');
+  // Uprawnienia - currentUser może być undefined
+  // eslint-disable-next-line no-unused-vars
+  const canEditPrices = currentUser ? hasPermission(currentUser, 'finance_prices') : false;
+  // eslint-disable-next-line no-unused-vars
+  const canGiveDiscounts = currentUser ? hasPermission(currentUser, 'finance_discounts') : false;
+  // eslint-disable-next-line no-unused-vars
+  const canPrint = currentUser ? hasPermission(currentUser, 'docs_print') : false;
+  // eslint-disable-next-line no-unused-vars
+  const canGenerateContracts = currentUser ? hasPermission(currentUser, 'docs_contracts') : false;
   
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
