@@ -5072,6 +5072,25 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
                       <div className="list-item-subtitle">@{u.username} • {role.name}</div>
                       {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
                       {u.phone && <div className="list-item-subtitle">📞 {u.phone}</div>}
+                      {u.email && <div className="list-item-subtitle">✉️ {u.email}</div>}
+                      {/* Hasło - widoczne dla admina */}
+                      {isAdmin && u.password && (
+                        <div className="list-item-subtitle" style={{color:'#8B5CF6',fontFamily:'monospace'}}>
+                          🔐 Hasło: {u.password}
+                        </div>
+                      )}
+                      {/* Data ostatniej zmiany hasła */}
+                      {u.lastPasswordChange && (
+                        <div className="list-item-subtitle" style={{color:'#059669',fontSize:'11px'}}>
+                          🕐 Hasło zmienione: {new Date(u.lastPasswordChange).toLocaleString('pl-PL')}
+                        </div>
+                      )}
+                      {/* Data ostatniej aktualizacji profilu */}
+                      {u.lastProfileUpdate && (
+                        <div className="list-item-subtitle" style={{color:'#64748B',fontSize:'11px'}}>
+                          📝 Profil zaktualizowany: {new Date(u.lastProfileUpdate).toLocaleString('pl-PL')}
+                        </div>
+                      )}
                       {/* Dodatkowe dane firmy kontrahenta */}
                       {u.role === 'contractor' && (u.nip || u.companyAddress || u.companyEmail) && (
                         <div className="contractor-details">
@@ -5114,6 +5133,197 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// PANEL MÓJ PROFIL - ZMIANA HASŁA I DANYCH
+// ============================================
+
+const MyProfilePanel = ({ user, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleSave = async () => {
+    setError('');
+    setSuccess('');
+
+    // Walidacja hasła
+    if (formData.password) {
+      if (formData.password.length < 4) {
+        setError('Hasło musi mieć minimum 4 znaki');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Hasła nie są identyczne');
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const updateData = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        lastProfileUpdate: new Date().toISOString()
+      };
+
+      // Dodaj hasło tylko jeśli zostało zmienione
+      if (formData.password) {
+        updateData.password = formData.password;
+        updateData.lastPasswordChange = new Date().toISOString();
+      }
+
+      await onSave(user.id, updateData);
+      setSuccess('Dane zostały zapisane!');
+      setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+      
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Błąd zapisywania profilu:', err);
+      setError('Błąd podczas zapisywania');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'500px'}}>
+        <div className="modal-header" style={{background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',borderRadius:'12px 12px 0 0',padding:'20px'}}>
+          <h2 style={{margin:0,fontSize:'18px'}}>👤 Mój profil</h2>
+          <button className="btn-close" onClick={onClose} style={{color:'white'}}>×</button>
+        </div>
+        
+        <div className="modal-body" style={{padding:'24px'}}>
+          {/* Info o użytkowniku */}
+          <div style={{background:'#F8FAFC',padding:'16px',borderRadius:'12px',marginBottom:'24px',textAlign:'center'}}>
+            <div style={{fontSize:'48px',marginBottom:'8px'}}>
+              {user?.role === 'admin' ? '👑' : user?.role === 'worker' ? '👤' : user?.role === 'driver' ? '🚚' : '🏢'}
+            </div>
+            <div style={{fontWeight:'700',fontSize:'18px',color:'#1E293B'}}>{user?.name}</div>
+            <div style={{fontSize:'13px',color:'#64748B'}}>@{user?.username} • {getRole(user?.role).name}</div>
+          </div>
+
+          {/* Formularz */}
+          <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+            <div>
+              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
+                Imię i nazwisko
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+              />
+            </div>
+
+            <div>
+              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
+                Telefon
+              </label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={e => setFormData({...formData, phone: e.target.value})}
+                placeholder="+48 123 456 789"
+                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+              />
+            </div>
+
+            <div>
+              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+                placeholder="email@example.com"
+                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+              />
+            </div>
+
+            <div style={{borderTop:'1px solid #E2E8F0',paddingTop:'16px',marginTop:'8px'}}>
+              <h4 style={{margin:'0 0 16px',fontSize:'14px',color:'#374151'}}>🔐 Zmiana hasła</h4>
+              
+              <div style={{marginBottom:'12px'}}>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
+                  Nowe hasło (zostaw puste jeśli nie chcesz zmieniać)
+                </label>
+                <div style={{position:'relative'}}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    placeholder="••••••••"
+                    style={{width:'100%',padding:'12px',paddingRight:'45px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px'}}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
+                  Potwierdź nowe hasło
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                  placeholder="••••••••"
+                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Komunikaty */}
+          {error && (
+            <div style={{marginTop:'16px',padding:'12px',background:'#FEF2F2',border:'1px solid #FEE2E2',borderRadius:'8px',color:'#DC2626',fontSize:'13px'}}>
+              ⚠️ {error}
+            </div>
+          )}
+          {success && (
+            <div style={{marginTop:'16px',padding:'12px',background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'8px',color:'#16A34A',fontSize:'13px'}}>
+              ✅ {success}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{padding:'16px 24px',borderTop:'1px solid #E2E8F0',display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+          <button 
+            onClick={onClose}
+            style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
+          >
+            Anuluj
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}
+          >
+            {saving ? '⏳ Zapisywanie...' : '💾 Zapisz zmiany'}
+          </button>
         </div>
       </div>
     </div>
@@ -7780,6 +7990,9 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   
   // Menu rozwijane kierowcy
   const [showDriverMenu, setShowDriverMenu] = useState(false);
+  
+  // Modal profilu kierowcy
+  const [showDriverProfileModal, setShowDriverProfileModal] = useState(false);
 
   // Planowane wyjazdy z profilu użytkownika
   const plannedTrips = user.plannedTrips || [];
@@ -9644,6 +9857,9 @@ ${t.team}`;
                   <button onClick={() => { setShowSettlementsModal(true); setShowDriverMenu(false); }}>
                     💰 Moje rozliczenia
                   </button>
+                  <button onClick={() => { setShowDriverProfileModal(true); setShowDriverMenu(false); }}>
+                    👤 Mój profil
+                  </button>
                 </div>
               )}
             </div>
@@ -10967,6 +11183,125 @@ ${t.team}`;
           onClose={() => setShowSettlementsModal(false)}
         />
       )}
+
+      {/* Modal Mój Profil - kierowca */}
+      {showDriverProfileModal && (
+        <DriverProfileModal
+          user={user}
+          onSave={onUpdateUser}
+          onClose={() => setShowDriverProfileModal(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Komponent modala profilu kierowcy
+const DriverProfileModal = ({ user, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleSave = async () => {
+    setError('');
+    setSuccess('');
+
+    if (formData.password) {
+      if (formData.password.length < 4) {
+        setError('Hasło musi mieć minimum 4 znaki');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Hasła nie są identyczne');
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const updateData = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        lastProfileUpdate: new Date().toISOString()
+      };
+
+      if (formData.password) {
+        updateData.password = formData.password;
+        updateData.lastPasswordChange = new Date().toISOString();
+      }
+
+      await onSave(user.id, updateData);
+      setSuccess('Dane zostały zapisane!');
+      setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Błąd zapisywania profilu:', err);
+      setError('Błąd podczas zapisywania');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'450px'}}>
+        <div className="modal-header" style={{background:'linear-gradient(135deg,#F59E0B,#D97706)',color:'white'}}>
+          <h2>👤 Mój profil</h2>
+          <button className="btn-close" onClick={onClose} style={{color:'white'}}>×</button>
+        </div>
+        
+        <div className="modal-body" style={{padding:'20px'}}>
+          <div style={{background:'#FEF3C7',padding:'16px',borderRadius:'12px',marginBottom:'20px',textAlign:'center'}}>
+            <div style={{fontSize:'40px',marginBottom:'8px'}}>🚚</div>
+            <div style={{fontWeight:'700',fontSize:'16px',color:'#92400E'}}>{user?.name}</div>
+            <div style={{fontSize:'12px',color:'#B45309'}}>@{user?.username} • Kierowca</div>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+            <div>
+              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Imię i nazwisko</label>
+              <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Telefon</label>
+              <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+48 123 456 789" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Email</label>
+              <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="email@example.com" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
+            </div>
+
+            <div style={{borderTop:'1px solid #E2E8F0',paddingTop:'14px',marginTop:'6px'}}>
+              <h4 style={{margin:'0 0 12px',fontSize:'13px',color:'#374151'}}>🔐 Zmiana hasła</h4>
+              <div style={{marginBottom:'10px',position:'relative'}}>
+                <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Nowe hasło</label>
+                <input type={showPassword ? 'text' : 'password'} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" style={{width:'100%',padding:'10px',paddingRight:'40px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{position:'absolute',right:'10px',top:'26px',background:'none',border:'none',cursor:'pointer'}}>{showPassword ? '🙈' : '👁️'}</button>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Potwierdź hasło</label>
+                <input type={showPassword ? 'text' : 'password'} value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} placeholder="••••••••" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
+              </div>
+            </div>
+          </div>
+
+          {error && <div style={{marginTop:'14px',padding:'10px',background:'#FEF2F2',border:'1px solid #FEE2E2',borderRadius:'8px',color:'#DC2626',fontSize:'12px'}}>⚠️ {error}</div>}
+          {success && <div style={{marginTop:'14px',padding:'10px',background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'8px',color:'#16A34A',fontSize:'12px'}}>✅ {success}</div>}
+        </div>
+
+        <div className="modal-footer" style={{padding:'14px 20px',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px',justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'8px 16px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}>Anuluj</button>
+          <button onClick={handleSave} disabled={saving} style={{padding:'8px 20px',borderRadius:'8px',border:'none',background:'#F59E0B',color:'white',cursor:'pointer',fontWeight:'600'}}>{saving ? '⏳...' : '💾 Zapisz'}</button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -18362,6 +18697,7 @@ const App = () => {
   const [showMailPanel, setShowMailPanel] = useState(false); // Poczta
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false); // Uprawnienia
+  const [showMyProfilePanel, setShowMyProfilePanel] = useState(false); // Mój profil
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
@@ -19745,6 +20081,10 @@ Zespół obsługi zamówień
                     }}>
                       📖 Instrukcja PDF
                     </button>
+                    <div className="settings-menu-divider"></div>
+                    <button onClick={() => { setShowMyProfilePanel(true); setShowSettingsMenu(false); }}>
+                      👤 Mój profil
+                    </button>
                   </div>
                 )}
               </div>
@@ -19758,6 +20098,7 @@ Zespół obsługi zamówień
                 </button>
                 <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Moje statystyki</button>
                 <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
+                <button className="btn-secondary" onClick={() => setShowMyProfilePanel(true)}>👤 Mój profil</button>
               </>
             )}
 
@@ -20263,6 +20604,21 @@ Zespół obsługi zamówień
             }
           }}
           onClose={() => setShowPermissionsPanel(false)}
+        />
+      )}
+
+      {/* Panel Mój Profil */}
+      {showMyProfilePanel && (
+        <MyProfilePanel
+          user={user}
+          onSave={async (userId, data) => {
+            await updateUser(userId, data);
+            // Aktualizuj lokalnego użytkownika
+            const updatedUser = { ...user, ...data };
+            setUser(updatedUser);
+            localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
+          }}
+          onClose={() => setShowMyProfilePanel(false)}
         />
       )}
 
