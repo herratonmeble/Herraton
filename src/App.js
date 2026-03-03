@@ -15871,6 +15871,10 @@ const PublicOrderForm = () => {
   // Aktualny produkt (dla wygody)
   const currentProduct = products[activeProductIndex] || products[0];
   
+  // Numer zamówienia
+  const [orderNumberMode, setOrderNumberMode] = useState('auto'); // 'auto' lub 'manual'
+  const [manualOrderNumber, setManualOrderNumber] = useState('');
+  
   // Płatności
   const [paymentData, setPaymentData] = useState({
     totalPrice: '',
@@ -16164,6 +16168,11 @@ const PublicOrderForm = () => {
 
   // Walidacja formularza
   const validateForm = () => {
+    // Walidacja numeru zamówienia (jeśli ręczny)
+    if (orderNumberMode === 'manual' && !manualOrderNumber.trim()) {
+      return 'Podaj numer zamówienia lub wybierz tryb automatyczny';
+    }
+    
     if (!clientData.name.trim()) return 'Podaj imię i nazwisko';
     if (!clientData.phone.trim()) return 'Podaj numer telefonu';
     if (!clientData.email.trim()) return 'Podaj adres email';
@@ -16211,19 +16220,26 @@ const PublicOrderForm = () => {
       // Generuj token do śledzenia
       const token = 'ORD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       
-      // Generuj automatyczny numer zamówienia (pobierz ostatni i dodaj 1)
-      let nrWlasny = '1';
-      try {
-        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
-        const lastOrderSnap = await getDocs(ordersQuery);
-        if (!lastOrderSnap.empty) {
-          const lastOrder = lastOrderSnap.docs[0].data();
-          const lastNr = parseInt(lastOrder.nrWlasny) || 0;
-          nrWlasny = String(lastNr + 1);
+      // Numer zamówienia - ręczny lub automatyczny
+      let nrWlasny;
+      if (orderNumberMode === 'manual' && manualOrderNumber.trim()) {
+        // Użyj ręcznie wpisanego numeru
+        nrWlasny = manualOrderNumber.trim();
+      } else {
+        // Generuj automatyczny numer zamówienia (pobierz ostatni i dodaj 1)
+        nrWlasny = '1';
+        try {
+          const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
+          const lastOrderSnap = await getDocs(ordersQuery);
+          if (!lastOrderSnap.empty) {
+            const lastOrder = lastOrderSnap.docs[0].data();
+            const lastNr = parseInt(lastOrder.nrWlasny) || 0;
+            nrWlasny = String(lastNr + 1);
+          }
+        } catch (e) {
+          // Jeśli błąd - użyj timestamp jako nr
+          nrWlasny = String(Date.now()).slice(-6);
         }
-      } catch (e) {
-        // Jeśli błąd - użyj timestamp jako nr
-        nrWlasny = String(Date.now()).slice(-6);
       }
       
       const paidAmount = parseFloat(paymentData.paidAmount) || 0;
@@ -16452,6 +16468,8 @@ const PublicOrderForm = () => {
               onClick={() => {
                 setStep('captcha');
                 generateCaptcha();
+                setOrderNumberMode('auto');
+                setManualOrderNumber('');
                 setClientData({ name:'',phone:'',email:'',country:'PL',address:'',city:'',postCode:'' });
                 setProducts([{ ...emptyProduct }]);
                 setActiveProductIndex(0);
@@ -16493,6 +16511,74 @@ const PublicOrderForm = () => {
 
         {/* Formularz */}
         <div style={{background:'white',borderRadius:'20px',padding:'24px',boxShadow:'0 10px 40px rgba(0,0,0,0.2)'}}>
+          
+          {/* NUMER ZAMÓWIENIA */}
+          <div style={{marginBottom:'24px',background:'#F8FAFC',borderRadius:'12px',padding:'16px',border:'1px solid #E2E8F0'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
+              <label style={{fontSize:'13px',fontWeight:'600',color:'#1E293B',display:'flex',alignItems:'center',gap:'6px'}}>
+                🔢 Numer zamówienia
+              </label>
+              <div style={{display:'flex',gap:'6px'}}>
+                <button
+                  type="button"
+                  onClick={() => setOrderNumberMode('auto')}
+                  style={{
+                    padding:'6px 12px',
+                    borderRadius:'6px',
+                    border: orderNumberMode === 'auto' ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                    background: orderNumberMode === 'auto' ? '#F5F3FF' : 'white',
+                    color: orderNumberMode === 'auto' ? '#8B5CF6' : '#6B7280',
+                    fontSize:'12px',
+                    fontWeight:'600',
+                    cursor:'pointer'
+                  }}
+                >
+                  🔄 Auto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderNumberMode('manual')}
+                  style={{
+                    padding:'6px 12px',
+                    borderRadius:'6px',
+                    border: orderNumberMode === 'manual' ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                    background: orderNumberMode === 'manual' ? '#F5F3FF' : 'white',
+                    color: orderNumberMode === 'manual' ? '#8B5CF6' : '#6B7280',
+                    fontSize:'12px',
+                    fontWeight:'600',
+                    cursor:'pointer'
+                  }}
+                >
+                  ✏️ Ręcznie
+                </button>
+              </div>
+            </div>
+            
+            {orderNumberMode === 'auto' ? (
+              <div style={{background:'#E0E7FF',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
+                <span style={{color:'#4338CA',fontSize:'13px'}}>
+                  📋 Numer zostanie nadany automatycznie po wysłaniu zamówienia
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={manualOrderNumber}
+                onChange={e => setManualOrderNumber(e.target.value)}
+                placeholder="Wpisz numer zamówienia (np. 123, ZAM/2024/001)"
+                style={{
+                  width:'100%',
+                  padding:'12px',
+                  borderRadius:'8px',
+                  border:'2px solid #8B5CF6',
+                  fontSize:'14px',
+                  fontWeight:'600',
+                  boxSizing:'border-box',
+                  textAlign:'center'
+                }}
+              />
+            )}
+          </div>
           
           {/* SEKCJA 1: Dane klienta */}
           <div style={{marginBottom:'24px'}}>
