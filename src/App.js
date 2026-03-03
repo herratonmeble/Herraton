@@ -578,45 +578,48 @@ const FurnitureVisualization = ({ wymiary, compact = false }) => {
     );
   }
   
-  // NAROŻNIK U
+  // NAROŻNIK U - widok z góry, otwarty do przodu
   if (typ === 'u_shape') {
-    const leftH = parseInt(wymiary.lewaStrona) || 150;
+    const leftW = parseInt(wymiary.lewaStrona) || 150;
     const midW = parseInt(wymiary.srodek) || 200;
-    const rightH = parseInt(wymiary.prawaStrona) || 150;
-    const seatDepth = 80; // Stała głębokość siedziska dla wizualizacji
+    const rightW = parseInt(wymiary.prawaStrona) || 150;
+    const seatDepth = 90;
     
-    const maxH = Math.max(leftH, rightH);
-    const totalW = midW + 2 * seatDepth;
-    const scale = Math.min((size - 20) / Math.max(totalW, maxH), 0.6);
+    const totalWidth = leftW + midW + rightW;
+    const scale = Math.min((size - 40) / Math.max(totalWidth, seatDepth * 2), 0.55);
     
-    const sW = seatDepth * scale;
+    const lW = leftW * scale;
     const mW = midW * scale;
-    const lH = leftH * scale;
-    const rH = rightH * scale;
+    const rW = rightW * scale;
+    const sD = seatDepth * scale;
     
-    const startX = 40;
+    const startX = (size + 40 - (lW + mW + rW)) / 2;
     const startY = 30;
     
     return (
       <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
         <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-          <svg width={size + 60} height={size + 40} viewBox={`0 0 ${size + 60} ${size + 40}`}>
-            {/* Lewa strona */}
-            <rect x={startX} y={startY} width={sW} height={lH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-            {/* Środek (dół) */}
-            <rect x={startX} y={startY + lH - sW} width={mW + 2*sW} height={sW} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-            {/* Prawa strona */}
-            <rect x={startX + sW + mW} y={startY + lH - rH} width={sW} height={rH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+          <svg width={size + 40} height={size - 20} viewBox={`0 0 ${size + 40} ${size - 20}`}>
+            {/* Tylna ściana */}
+            <rect x={startX} y={startY} width={lW + mW + rW} height={sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            {/* Lewa boczna */}
+            <rect x={startX} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            {/* Prawa boczna */}
+            <rect x={startX + lW + mW + rW - sD * 0.4} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            {/* Siedziska */}
+            <rect x={startX + sD * 0.4} y={startY + sD * 0.4} width={lW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+            <rect x={startX + lW} y={startY + sD * 0.4} width={mW} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+            <rect x={startX + lW + mW} y={startY + sD * 0.4} width={rW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
             
             {/* Wymiary */}
-            <text x={startX - 8} y={startY + lH/2} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600" transform={`rotate(-90, ${startX - 8}, ${startY + lH/2})`}>L:{leftH}</text>
-            <text x={startX + sW + mW/2} y={startY + lH + 15} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">Ś:{midW}</text>
-            <text x={startX + 2*sW + mW + 8} y={startY + lH - rH/2} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600" transform={`rotate(90, ${startX + 2*sW + mW + 8}, ${startY + lH - rH/2})`}>P:{rightH}</text>
+            <text x={startX + lW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{leftW}</text>
+            <text x={startX + lW + mW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{midW}</text>
+            <text x={startX + lW + mW + rW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{rightW}</text>
           </svg>
         </div>
         <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
           <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>⬛ Narożnik U</span>
-          <span style={{color:'#374151'}}>L: <strong>{leftH}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightH}</strong> cm</span>
+          <span style={{color:'#374151'}}>L: <strong>{leftW}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightW}</strong> cm</span>
         </div>
       </div>
     );
@@ -15773,9 +15776,40 @@ const PublicChat = () => {
 // ============================================
 
 const PublicOrderForm = () => {
-  const [step, setStep] = useState('form'); // 'form', 'preview', 'success'
+  const [step, setStep] = useState('captcha'); // 'captcha', 'form', 'preview', 'success'
   const [submitting, setSubmitting] = useState(false);
   const [orderToken, setOrderToken] = useState(null);
+  
+  // CAPTCHA
+  const [captchaNumbers, setCaptchaNumbers] = useState({ a: 0, b: 0 });
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
+  
+  // Generuj nowe liczby dla CAPTCHA
+  const generateCaptcha = () => {
+    const a = Math.floor(Math.random() * 10) + 1;
+    const b = Math.floor(Math.random() * 10) + 1;
+    setCaptchaNumbers({ a, b });
+    setCaptchaAnswer('');
+    setCaptchaError('');
+  };
+  
+  // Sprawdź CAPTCHA przy starcie
+  useState(() => {
+    generateCaptcha();
+  }, []);
+  
+  // Weryfikuj CAPTCHA
+  const verifyCaptcha = () => {
+    const correctAnswer = captchaNumbers.a + captchaNumbers.b;
+    if (parseInt(captchaAnswer) === correctAnswer) {
+      setStep('form');
+      setCaptchaError('');
+    } else {
+      setCaptchaError('Nieprawidłowa odpowiedź. Spróbuj ponownie.');
+      generateCaptcha();
+    }
+  };
   
   // Dane klienta
   const [clientData, setClientData] = useState({
@@ -15916,53 +15950,64 @@ const PublicOrderForm = () => {
       );
     }
     
-    // NAROŻNIK U
+    // NAROŻNIK U - widok z góry, otwarty do przodu (jak narożnik L)
     if (type === 'u_shape') {
-      const leftH = parseInt(data.uLeftWidth) || 150;
+      const leftW = parseInt(data.uLeftWidth) || 150;
       const midW = parseInt(data.uMiddleWidth) || 200;
-      const rightH = parseInt(data.uRightWidth) || 150;
-      const seatDepth = 80; // Stała głębokość siedziska dla wizualizacji
+      const rightW = parseInt(data.uRightWidth) || 150;
+      const seatDepth = 90; // Głębokość siedziska (stała)
       
-      const maxH = Math.max(leftH, rightH);
-      const totalW = midW + 2 * seatDepth;
-      const scale = Math.min((size - 20) / Math.max(totalW, maxH), 0.7);
+      const totalWidth = leftW + midW + rightW;
+      const scale = Math.min((size - 40) / Math.max(totalWidth, seatDepth * 2), 0.65);
       
-      const sW = seatDepth * scale; // szerokość siedziska (bocznego)
-      const mW = midW * scale; // szerokość środka
-      const lH = leftH * scale; // wysokość lewej
-      const rH = rightH * scale; // wysokość prawej
+      const lW = leftW * scale;
+      const mW = midW * scale;
+      const rW = rightW * scale;
+      const sD = seatDepth * scale;
       
-      const startX = 40;
-      const startY = 30;
+      const startX = (size + 60 - (lW + mW + rW)) / 2;
+      const startY = 35;
       
       return (
         <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
           <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-            <svg width={size + 60} height={size + 40} viewBox={`0 0 ${size + 60} ${size + 40}`}>
-              {/* Kształt U - 3 prostokąty */}
-              {/* Lewa strona */}
-              <rect x={startX} y={startY} width={sW} height={lH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-              {/* Środek (dół) */}
-              <rect x={startX} y={startY + lH - sW} width={mW + 2*sW} height={sW} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-              {/* Prawa strona */}
-              <rect x={startX + sW + mW} y={startY + lH - rH} width={sW} height={rH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            <svg width={size + 60} height={size} viewBox={`0 0 ${size + 60} ${size}`}>
+              {/* Kształt U - widok z góry, otwarty do przodu */}
+              {/* Tylna ściana (góra) */}
+              <rect x={startX} y={startY} width={lW + mW + rW} height={sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              {/* Lewa boczna */}
+              <rect x={startX} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              {/* Prawa boczna */}
+              <rect x={startX + lW + mW + rW - sD * 0.4} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              
+              {/* Siedzisko lewe */}
+              <rect x={startX + sD * 0.4} y={startY + sD * 0.4} width={lW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+              {/* Siedzisko środek */}
+              <rect x={startX + lW} y={startY + sD * 0.4} width={mW} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+              {/* Siedzisko prawe */}
+              <rect x={startX + lW + mW} y={startY + sD * 0.4} width={rW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
               
               {/* Wymiary - Lewa */}
-              <line x1={startX - 8} y1={startY} x2={startX - 8} y2={startY + lH} stroke="#374151" strokeWidth="1"/>
-              <text x={startX - 12} y={startY + lH/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(-90, ${startX - 12}, ${startY + lH/2})`}>{leftH}</text>
+              <line x1={startX} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + lW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{leftW}</text>
               
               {/* Wymiary - Środek */}
-              <line x1={startX + sW} y1={startY + lH + 12} x2={startX + sW + mW} y2={startY + lH + 12} stroke="#374151" strokeWidth="1"/>
-              <text x={startX + sW + mW/2} y={startY + lH + 25} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{midW}</text>
+              <line x1={startX + lW} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW + mW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + lW + mW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{midW}</text>
               
               {/* Wymiary - Prawa */}
-              <line x1={startX + 2*sW + mW + 8} y1={startY + lH - rH} x2={startX + 2*sW + mW + 8} y2={startY + lH} stroke="#374151" strokeWidth="1"/>
-              <text x={startX + 2*sW + mW + 12} y={startY + lH - rH/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${startX + 2*sW + mW + 12}, ${startY + lH - rH/2})`}>{rightH}</text>
+              <line x1={startX + lW + mW} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW + mW + rW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + lW + mW + rW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{rightW}</text>
+              
+              {/* Etykiety */}
+              <text x={startX + lW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">L</text>
+              <text x={startX + lW + mW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">Ś</text>
+              <text x={startX + lW + mW + rW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">P</text>
             </svg>
           </div>
           <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
             <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>⬛ Narożnik U</span>
-            <span style={{color:'#374151'}}>L: <strong>{leftH}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightH}</strong> cm</span>
+            <span style={{color:'#374151'}}>L: <strong>{leftW}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightW}</strong> cm</span>
           </div>
         </div>
       );
@@ -16197,6 +16242,87 @@ const PublicOrderForm = () => {
     setSubmitting(false);
   };
 
+  // EKRAN CAPTCHA
+  if (step === 'captcha') {
+    return (
+      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1E293B 0%,#334155 100%)',padding:'20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{width:'100%',maxWidth:'400px',background:'white',borderRadius:'20px',padding:'40px',textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
+          <div style={{fontSize:'60px',marginBottom:'16px'}}>🔐</div>
+          <h1 style={{color:'#1E293B',margin:'0 0 8px',fontSize:'24px'}}>Weryfikacja</h1>
+          <p style={{color:'#6B7280',marginBottom:'24px',fontSize:'14px'}}>
+            Rozwiąż proste działanie matematyczne, aby kontynuować
+          </p>
+          
+          <div style={{background:'#F5F3FF',borderRadius:'16px',padding:'24px',marginBottom:'20px'}}>
+            <div style={{fontSize:'36px',fontWeight:'700',color:'#5B21B6',marginBottom:'16px'}}>
+              {captchaNumbers.a} + {captchaNumbers.b} = ?
+            </div>
+            <input
+              type="number"
+              value={captchaAnswer}
+              onChange={e => setCaptchaAnswer(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && verifyCaptcha()}
+              placeholder="Twoja odpowiedź"
+              style={{
+                width:'100%',
+                padding:'14px',
+                borderRadius:'10px',
+                border:'2px solid #C4B5FD',
+                fontSize:'18px',
+                textAlign:'center',
+                fontWeight:'600',
+                boxSizing:'border-box'
+              }}
+              autoFocus
+            />
+          </div>
+          
+          {captchaError && (
+            <div style={{background:'#FEE2E2',color:'#DC2626',padding:'12px',borderRadius:'10px',marginBottom:'16px',fontSize:'14px'}}>
+              ❌ {captchaError}
+            </div>
+          )}
+          
+          <button
+            onClick={verifyCaptcha}
+            style={{
+              width:'100%',
+              padding:'14px',
+              borderRadius:'12px',
+              border:'none',
+              background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',
+              color:'white',
+              fontSize:'16px',
+              fontWeight:'600',
+              cursor:'pointer',
+              marginBottom:'12px'
+            }}
+          >
+            ✓ Sprawdź i kontynuuj
+          </button>
+          
+          <button
+            onClick={generateCaptcha}
+            style={{
+              background:'transparent',
+              border:'none',
+              color:'#6B7280',
+              fontSize:'13px',
+              cursor:'pointer',
+              textDecoration:'underline'
+            }}
+          >
+            🔄 Nowe działanie
+          </button>
+          
+          <p style={{marginTop:'24px',fontSize:'11px',color:'#9CA3AF'}}>
+            🛋️ Herraton Meble - Panel zamówień
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // EKRAN SUKCESU
   if (step === 'success') {
     return (
@@ -16226,9 +16352,10 @@ const PublicOrderForm = () => {
             </a>
             <button
               onClick={() => {
-                setStep('form');
+                setStep('captcha');
+                generateCaptcha();
                 setClientData({ name:'',phone:'',email:'',country:'PL',address:'',city:'',postCode:'' });
-                setProductData({ type:'standard',description:'',quantity:1,customWidth:'',customDepth:'',customArmrest:'',customChaise:'',cornerSide:'left',photos:[] });
+                setProductData({ type:'standard',furnitureType:'corner',description:'',quantity:1,customWidth:'',customDepth:'',customArmrest:'',customChaise:'',cornerSide:'left',sofaWidth:'',sofaDepth:'',uLeftWidth:'',uMiddleWidth:'',uRightWidth:'',uDepth:'' });
                 setPaymentData({ totalPrice:'',currency:'PLN',paidAmount:'',paymentMethod:'przelew' });
                 setNotes('');
               }}
