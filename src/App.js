@@ -15825,27 +15825,51 @@ const PublicOrderForm = () => {
     postCode: ''
   });
   
-  // Dane produktu
-  const [productData, setProductData] = useState({
-    type: 'standard', // 'standard' lub 'custom' (meble na wymiar)
-    furnitureType: 'corner', // 'corner' (narożnik L), 'sofa', 'u_shape' (narożnik U)
+  // Domyślny pusty produkt
+  const emptyProduct = {
+    type: 'standard',
+    furnitureType: 'corner',
     description: '',
     quantity: 1,
-    // Narożnik L
     customWidth: '',
     customDepth: '',
     customArmrest: '',
     customChaise: '',
     cornerSide: 'left',
-    // Sofa
     sofaWidth: '',
     sofaDepth: '',
-    // Narożnik U
     uLeftWidth: '',
     uMiddleWidth: '',
     uRightWidth: '',
     uDepth: ''
-  });
+  };
+  
+  // Lista produktów (zamówienie łączone)
+  const [products, setProducts] = useState([{ ...emptyProduct }]);
+  
+  // Aktywny produkt do edycji
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
+  
+  // Funkcje zarządzania produktami
+  const addProduct = () => {
+    setProducts(prev => [...prev, { ...emptyProduct }]);
+    setActiveProductIndex(products.length);
+  };
+  
+  const removeProduct = (index) => {
+    if (products.length === 1) return;
+    setProducts(prev => prev.filter((_, i) => i !== index));
+    if (activeProductIndex >= index && activeProductIndex > 0) {
+      setActiveProductIndex(activeProductIndex - 1);
+    }
+  };
+  
+  const updateProduct = (index, updates) => {
+    setProducts(prev => prev.map((p, i) => i === index ? { ...p, ...updates } : p));
+  };
+  
+  // Aktualny produkt (dla wygody)
+  const currentProduct = products[activeProductIndex] || products[0];
   
   // Płatności
   const [paymentData, setPaymentData] = useState({
@@ -15922,34 +15946,34 @@ const PublicOrderForm = () => {
     { id: 'raty', name: '📅 Raty' }
   ];
 
-  // Funkcja generująca opis na podstawie wymiarów
-  const generateDimensionDescription = () => {
-    if (productData.type !== 'custom') return '';
+  // Funkcja generująca opis na podstawie wymiarów dla danego produktu
+  const generateDimensionDescription = (product) => {
+    if (product.type !== 'custom') return '';
     
     let desc = '';
     
-    if (productData.furnitureType === 'corner') {
+    if (product.furnitureType === 'corner') {
       const parts = [];
-      if (productData.customWidth) parts.push(`szerokość: ${productData.customWidth}cm`);
-      if (productData.customDepth) parts.push(`głębokość: ${productData.customDepth}cm`);
-      if (productData.customArmrest) parts.push(`szezlong: ${productData.customArmrest}cm`);
-      if (productData.customChaise) parts.push(`podłokietnik: ${productData.customChaise}cm`);
-      const side = productData.cornerSide === 'left' ? 'lewy' : 'prawy';
+      if (product.customWidth) parts.push(`szerokość: ${product.customWidth}cm`);
+      if (product.customDepth) parts.push(`głębokość: ${product.customDepth}cm`);
+      if (product.customArmrest) parts.push(`szezlong: ${product.customArmrest}cm`);
+      if (product.customChaise) parts.push(`podłokietnik: ${product.customChaise}cm`);
+      const side = product.cornerSide === 'left' ? 'lewy' : 'prawy';
       if (parts.length > 0) {
         desc = `Narożnik (L) ${side}, ${parts.join(', ')}`;
       }
-    } else if (productData.furnitureType === 'sofa') {
+    } else if (product.furnitureType === 'sofa') {
       const parts = [];
-      if (productData.sofaWidth) parts.push(`szerokość: ${productData.sofaWidth}cm`);
-      if (productData.sofaDepth) parts.push(`głębokość: ${productData.sofaDepth}cm`);
+      if (product.sofaWidth) parts.push(`szerokość: ${product.sofaWidth}cm`);
+      if (product.sofaDepth) parts.push(`głębokość: ${product.sofaDepth}cm`);
       if (parts.length > 0) {
         desc = `Sofa, ${parts.join(', ')}`;
       }
-    } else if (productData.furnitureType === 'u_shape') {
+    } else if (product.furnitureType === 'u_shape') {
       const parts = [];
-      if (productData.uLeftWidth) parts.push(`lewa: ${productData.uLeftWidth}cm`);
-      if (productData.uMiddleWidth) parts.push(`środek: ${productData.uMiddleWidth}cm`);
-      if (productData.uRightWidth) parts.push(`prawa: ${productData.uRightWidth}cm`);
+      if (product.uLeftWidth) parts.push(`lewa: ${product.uLeftWidth}cm`);
+      if (product.uMiddleWidth) parts.push(`środek: ${product.uMiddleWidth}cm`);
+      if (product.uRightWidth) parts.push(`prawa: ${product.uRightWidth}cm`);
       if (parts.length > 0) {
         desc = `Narożnik (U), ${parts.join(', ')}`;
       }
@@ -15958,34 +15982,34 @@ const PublicOrderForm = () => {
     return desc;
   };
 
-  // Automatyczna aktualizacja opisu przy zmianie wymiarów
+  // Automatyczna aktualizacja opisu przy zmianie wymiarów aktywnego produktu
   React.useEffect(() => {
-    if (productData.type === 'custom') {
-      const dimensionDesc = generateDimensionDescription();
+    const product = products[activeProductIndex];
+    if (product && product.type === 'custom') {
+      const dimensionDesc = generateDimensionDescription(product);
       if (dimensionDesc) {
-        // Zachowaj istniejący opis użytkownika jeśli nie jest automatyczny
-        const currentDesc = productData.description;
+        const currentDesc = product.description;
         
-        // Jeśli opis jest pusty lub zaczyna się od automatycznego tekstu - zastąp
         if (!currentDesc || currentDesc.startsWith('Narożnik') || currentDesc.startsWith('Sofa')) {
-          setProductData(prev => ({ ...prev, description: dimensionDesc }));
+          updateProduct(activeProductIndex, { description: dimensionDesc });
         }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    productData.type,
-    productData.furnitureType,
-    productData.customWidth,
-    productData.customDepth,
-    productData.customArmrest,
-    productData.customChaise,
-    productData.cornerSide,
-    productData.sofaWidth,
-    productData.sofaDepth,
-    productData.uLeftWidth,
-    productData.uMiddleWidth,
-    productData.uRightWidth
+    activeProductIndex,
+    products[activeProductIndex]?.type,
+    products[activeProductIndex]?.furnitureType,
+    products[activeProductIndex]?.customWidth,
+    products[activeProductIndex]?.customDepth,
+    products[activeProductIndex]?.customArmrest,
+    products[activeProductIndex]?.customChaise,
+    products[activeProductIndex]?.cornerSide,
+    products[activeProductIndex]?.sofaWidth,
+    products[activeProductIndex]?.sofaDepth,
+    products[activeProductIndex]?.uLeftWidth,
+    products[activeProductIndex]?.uMiddleWidth,
+    products[activeProductIndex]?.uRightWidth
   ]);
 
   // Komponent wizualizacji - uniwersalny dla różnych typów mebli
@@ -16143,20 +16167,27 @@ const PublicOrderForm = () => {
     if (!clientData.name.trim()) return 'Podaj imię i nazwisko';
     if (!clientData.phone.trim()) return 'Podaj numer telefonu';
     if (!clientData.email.trim()) return 'Podaj adres email';
-    if (!productData.description.trim()) return 'Podaj opis produktu';
     if (!paymentData.totalPrice) return 'Podaj cenę całkowitą';
     
-    if (productData.type === 'custom') {
-      if (productData.furnitureType === 'corner') {
-        if (!productData.customWidth) return 'Podaj szerokość narożnika';
-        if (!productData.customDepth) return 'Podaj głębokość narożnika';
-      } else if (productData.furnitureType === 'sofa') {
-        if (!productData.sofaWidth) return 'Podaj szerokość sofy';
-        if (!productData.sofaDepth) return 'Podaj głębokość sofy';
-      } else if (productData.furnitureType === 'u_shape') {
-        if (!productData.uLeftWidth) return 'Podaj szerokość lewej strony';
-        if (!productData.uMiddleWidth) return 'Podaj szerokość środka';
-        if (!productData.uRightWidth) return 'Podaj szerokość prawej strony';
+    // Walidacja każdego produktu
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      const productNum = products.length > 1 ? ` (Produkt ${i + 1})` : '';
+      
+      if (!product.description.trim()) return `Podaj opis produktu${productNum}`;
+      
+      if (product.type === 'custom') {
+        if (product.furnitureType === 'corner') {
+          if (!product.customWidth) return `Podaj szerokość narożnika${productNum}`;
+          if (!product.customDepth) return `Podaj głębokość narożnika${productNum}`;
+        } else if (product.furnitureType === 'sofa') {
+          if (!product.sofaWidth) return `Podaj szerokość sofy${productNum}`;
+          if (!product.sofaDepth) return `Podaj głębokość sofy${productNum}`;
+        } else if (product.furnitureType === 'u_shape') {
+          if (!product.uLeftWidth) return `Podaj szerokość lewej strony${productNum}`;
+          if (!product.uMiddleWidth) return `Podaj szerokość środka${productNum}`;
+          if (!product.uRightWidth) return `Podaj szerokość prawej strony${productNum}`;
+        }
       }
     }
     
@@ -16198,37 +16229,55 @@ const PublicOrderForm = () => {
       const paidAmount = parseFloat(paymentData.paidAmount) || 0;
       const totalPrice = parseFloat(paymentData.totalPrice) || 0;
       
-      // Przygotuj dane wymiarów zależnie od typu mebla
-      const getWymiaryData = () => {
-        if (productData.type !== 'custom') return null;
+      // Funkcja generująca dane wymiarów dla produktu
+      const getWymiaryData = (product) => {
+        if (product.type !== 'custom') return null;
         
-        if (productData.furnitureType === 'sofa') {
+        if (product.furnitureType === 'sofa') {
           return {
             typ: 'sofa',
-            szerokosc: parseInt(productData.sofaWidth) || 0,
-            glebokosc: parseInt(productData.sofaDepth) || 0
+            szerokosc: parseInt(product.sofaWidth) || 0,
+            glebokosc: parseInt(product.sofaDepth) || 0
           };
-        } else if (productData.furnitureType === 'u_shape') {
+        } else if (product.furnitureType === 'u_shape') {
           return {
             typ: 'u_shape',
-            lewaStrona: parseInt(productData.uLeftWidth) || 0,
-            srodek: parseInt(productData.uMiddleWidth) || 0,
-            prawaStrona: parseInt(productData.uRightWidth) || 0
+            lewaStrona: parseInt(product.uLeftWidth) || 0,
+            srodek: parseInt(product.uMiddleWidth) || 0,
+            prawaStrona: parseInt(product.uRightWidth) || 0
           };
         } else {
-          // corner (narożnik L)
           return {
             typ: 'corner',
-            szerokosc: parseInt(productData.customWidth) || 0,
-            glebokosc: parseInt(productData.customDepth) || 0,
-            szezlong: parseInt(productData.customArmrest) || 0,
-            podlokietnik: parseInt(productData.customChaise) || 0,
-            strona: productData.cornerSide
+            szerokosc: parseInt(product.customWidth) || 0,
+            glebokosc: parseInt(product.customDepth) || 0,
+            szezlong: parseInt(product.customArmrest) || 0,
+            podlokietnik: parseInt(product.customChaise) || 0,
+            strona: product.cornerSide
           };
         }
       };
       
-      const wymiaryData = getWymiaryData();
+      // Przygotuj listę produktów
+      const produktyDoZapisu = products.map((product, index) => {
+        const wymiaryData = getWymiaryData(product);
+        return {
+          towar: product.description,
+          ilosc: product.quantity,
+          nrPodzamowienia: String(index + 1),
+          status: 'nowe',
+          ...(product.type === 'custom' && {
+            mebleNaWymiar: true,
+            typMebla: product.furnitureType,
+            wymiary: wymiaryData
+          })
+        };
+      });
+      
+      // Główny opis zamówienia (połączone opisy produktów)
+      const mainDescription = products.map((p, i) => 
+        products.length > 1 ? `${i + 1}. ${p.description}` : p.description
+      ).join('\n');
       
       const orderData = {
         // Numer zamówienia
@@ -16246,35 +16295,17 @@ const PublicOrderForm = () => {
         },
         kraj: clientData.country,
         
-        // Produkt
-        towar: productData.description,
-        produkty: [{
-          towar: productData.description,
-          ilosc: productData.quantity,
-          nrPodzamowienia: '1',
-          status: 'nowe',
-          cenaKlienta: totalPrice,
-          // Meble na wymiar
-          ...(productData.type === 'custom' && {
-            mebleNaWymiar: true,
-            typMebla: productData.furnitureType,
-            wymiary: wymiaryData
-          })
-        }],
-        
-        // Meble na wymiar - dane główne (do łatwego dostępu w panelu)
-        ...(productData.type === 'custom' && {
-          mebleNaWymiar: true,
-          typMebla: productData.furnitureType,
-          wymiary: wymiaryData
-        }),
+        // Produkty
+        towar: mainDescription,
+        produkty: produktyDoZapisu,
+        iloscProduktow: products.length,
         
         // Płatności
         platnosci: {
           cenaCalkowita: totalPrice,
           waluta: paymentData.currency,
           zaliczka: paidAmount,
-          zaplacono: paidAmount, // Dodane - to pole jest używane w panelu
+          zaplacono: paidAmount,
           sposobPlatnosci: paymentData.paymentMethod,
           statusPlatnosci: paidAmount >= totalPrice ? 'oplacone' : 
                           paidAmount > 0 ? 'zaliczka' : 'nieoplacone'
@@ -16422,7 +16453,8 @@ const PublicOrderForm = () => {
                 setStep('captcha');
                 generateCaptcha();
                 setClientData({ name:'',phone:'',email:'',country:'PL',address:'',city:'',postCode:'' });
-                setProductData({ type:'standard',furnitureType:'corner',description:'',quantity:1,customWidth:'',customDepth:'',customArmrest:'',customChaise:'',cornerSide:'left',sofaWidth:'',sofaDepth:'',uLeftWidth:'',uMiddleWidth:'',uRightWidth:'',uDepth:'' });
+                setProducts([{ ...emptyProduct }]);
+                setActiveProductIndex(0);
                 setPaymentData({ totalPrice:'',currency:'PLN',paidAmount:'',paymentMethod:'przelew' });
                 setNotes('');
               }}
@@ -16555,34 +16587,122 @@ const PublicOrderForm = () => {
           <div style={{marginBottom:'24px'}}>
             <h3 style={{margin:'0 0 6px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
               <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>2</span>
-              Produkt
+              Produkty
+              {products.length > 1 && <span style={{fontSize:'12px',color:'#6B7280',fontWeight:'400'}}>({products.length} produktów)</span>}
             </h3>
             <p style={{margin:'0 0 16px',fontSize:'12px',color:'#6B7280',paddingLeft:'32px'}}>
               💡 <em>Stronę narożnika określamy stojąc przodem do narożnika</em>
             </p>
             
+            {/* Zakładki produktów */}
+            {products.length > 1 && (
+              <div style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap'}}>
+                {products.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveProductIndex(idx)}
+                    style={{
+                      padding:'8px 16px',
+                      borderRadius:'8px',
+                      border: activeProductIndex === idx ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                      background: activeProductIndex === idx ? '#8B5CF6' : 'white',
+                      color: activeProductIndex === idx ? 'white' : '#374151',
+                      fontWeight:'600',
+                      fontSize:'13px',
+                      cursor:'pointer',
+                      display:'flex',
+                      alignItems:'center',
+                      gap:'6px'
+                    }}
+                  >
+                    📦 Produkt {idx + 1}
+                    {products.length > 1 && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); removeProduct(idx); }}
+                        style={{
+                          marginLeft:'4px',
+                          width:'18px',
+                          height:'18px',
+                          borderRadius:'50%',
+                          background: activeProductIndex === idx ? 'rgba(255,255,255,0.3)' : '#FEE2E2',
+                          color: activeProductIndex === idx ? 'white' : '#DC2626',
+                          display:'flex',
+                          alignItems:'center',
+                          justifyContent:'center',
+                          fontSize:'12px',
+                          cursor:'pointer'
+                        }}
+                      >
+                        ×
+                      </span>
+                    )}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={addProduct}
+                  style={{
+                    padding:'8px 16px',
+                    borderRadius:'8px',
+                    border:'2px dashed #10B981',
+                    background:'#F0FDF4',
+                    color:'#059669',
+                    fontWeight:'600',
+                    fontSize:'13px',
+                    cursor:'pointer'
+                  }}
+                >
+                  ➕ Dodaj produkt
+                </button>
+              </div>
+            )}
+            
+            {/* Pojedynczy produkt lub przycisk dodaj */}
+            {products.length === 1 && (
+              <div style={{marginBottom:'16px'}}>
+                <button
+                  type="button"
+                  onClick={addProduct}
+                  style={{
+                    width:'100%',
+                    padding:'10px',
+                    borderRadius:'10px',
+                    border:'2px dashed #10B981',
+                    background:'#F0FDF4',
+                    color:'#059669',
+                    fontWeight:'600',
+                    fontSize:'13px',
+                    cursor:'pointer'
+                  }}
+                >
+                  ➕ Zamówienie łączone - dodaj kolejny produkt
+                </button>
+              </div>
+            )}
+            
             {/* Typ produktu */}
             <div style={{display:'flex',gap:'10px',marginBottom:'16px'}}>
               <button
                 type="button"
-                onClick={() => setProductData({...productData, type: 'standard'})}
+                onClick={() => updateProduct(activeProductIndex, { type: 'standard' })}
                 style={{
                   flex:1,padding:'12px',borderRadius:'10px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                  border: productData.type === 'standard' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
-                  background: productData.type === 'standard' ? '#F5F3FF' : 'white',
-                  color: productData.type === 'standard' ? '#8B5CF6' : '#6B7280'
+                  border: currentProduct.type === 'standard' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
+                  background: currentProduct.type === 'standard' ? '#F5F3FF' : 'white',
+                  color: currentProduct.type === 'standard' ? '#8B5CF6' : '#6B7280'
                 }}
               >
                 🛋️ Produkt standardowy
               </button>
               <button
                 type="button"
-                onClick={() => setProductData({...productData, type: 'custom'})}
+                onClick={() => updateProduct(activeProductIndex, { type: 'custom' })}
                 style={{
                   flex:1,padding:'12px',borderRadius:'10px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                  border: productData.type === 'custom' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
-                  background: productData.type === 'custom' ? '#F5F3FF' : 'white',
-                  color: productData.type === 'custom' ? '#8B5CF6' : '#6B7280'
+                  border: currentProduct.type === 'custom' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
+                  background: currentProduct.type === 'custom' ? '#F5F3FF' : 'white',
+                  color: currentProduct.type === 'custom' ? '#8B5CF6' : '#6B7280'
                 }}
               >
                 📐 Meble na wymiar
@@ -16590,10 +16710,12 @@ const PublicOrderForm = () => {
             </div>
             
             <div>
-              <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Opis produktu *</label>
+              <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>
+                Opis produktu {products.length > 1 ? `#${activeProductIndex + 1}` : ''} *
+              </label>
               <textarea
-                value={productData.description}
-                onChange={e => setProductData({...productData, description: e.target.value})}
+                value={currentProduct.description}
+                onChange={e => updateProduct(activeProductIndex, { description: e.target.value })}
                 placeholder="Opisz zamówiony produkt (nazwa, kolor, materiał, itp.)"
                 rows={3}
                 style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',resize:'vertical',boxSizing:'border-box'}}
@@ -16601,7 +16723,7 @@ const PublicOrderForm = () => {
             </div>
             
             {/* Meble na wymiar */}
-            {productData.type === 'custom' && (
+            {currentProduct.type === 'custom' && (
               <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',marginTop:'16px',border:'1px solid #C4B5FD'}}>
                 
                 {/* Wybór typu mebla */}
@@ -16612,12 +16734,12 @@ const PublicOrderForm = () => {
                       <button
                         key={ft.id}
                         type="button"
-                        onClick={() => setProductData({...productData, furnitureType: ft.id})}
+                        onClick={() => updateProduct(activeProductIndex, { furnitureType: ft.id })}
                         style={{
                           flex:'1',minWidth:'100px',padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'12px',
-                          border: productData.furnitureType === ft.id ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
-                          background: productData.furnitureType === ft.id ? '#8B5CF6' : 'white',
-                          color: productData.furnitureType === ft.id ? 'white' : '#374151'
+                          border: currentProduct.furnitureType === ft.id ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                          background: currentProduct.furnitureType === ft.id ? '#8B5CF6' : 'white',
+                          color: currentProduct.furnitureType === ft.id ? 'white' : '#374151'
                         }}
                       >
                         {ft.name}
@@ -16627,7 +16749,7 @@ const PublicOrderForm = () => {
                 </div>
                 
                 {/* NAROŻNIK L */}
-                {productData.furnitureType === 'corner' && (
+                {currentProduct.furnitureType === 'corner' && (
                   <>
                     <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
                       🔲 Wymiary narożnika (L)
@@ -16638,8 +16760,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
                         <input
                           type="number"
-                          value={productData.customWidth}
-                          onChange={e => setProductData({...productData, customWidth: e.target.value})}
+                          value={currentProduct.customWidth}
+                          onChange={e => updateProduct(activeProductIndex, { customWidth: e.target.value })}
                           placeholder="np. 250"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16648,8 +16770,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
                         <input
                           type="number"
-                          value={productData.customDepth}
-                          onChange={e => setProductData({...productData, customDepth: e.target.value})}
+                          value={currentProduct.customDepth}
+                          onChange={e => updateProduct(activeProductIndex, { customDepth: e.target.value })}
                           placeholder="np. 150"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16658,8 +16780,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szezlong (cm)</label>
                         <input
                           type="number"
-                          value={productData.customArmrest}
-                          onChange={e => setProductData({...productData, customArmrest: e.target.value})}
+                          value={currentProduct.customArmrest}
+                          onChange={e => updateProduct(activeProductIndex, { customArmrest: e.target.value })}
                           placeholder="opcjonalne"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16668,8 +16790,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Podłokietnik (cm)</label>
                         <input
                           type="number"
-                          value={productData.customChaise}
-                          onChange={e => setProductData({...productData, customChaise: e.target.value})}
+                          value={currentProduct.customChaise}
+                          onChange={e => updateProduct(activeProductIndex, { customChaise: e.target.value })}
                           placeholder="opcjonalne"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16681,24 +16803,24 @@ const PublicOrderForm = () => {
                       <div style={{display:'flex',gap:'10px'}}>
                         <button
                           type="button"
-                          onClick={() => setProductData({...productData, cornerSide: 'left'})}
+                          onClick={() => updateProduct(activeProductIndex, { cornerSide: 'left' })}
                           style={{
                             flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                            border: productData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
-                            background: productData.cornerSide === 'left' ? '#8B5CF6' : 'white',
-                            color: productData.cornerSide === 'left' ? 'white' : '#374151'
+                            border: currentProduct.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                            background: currentProduct.cornerSide === 'left' ? '#8B5CF6' : 'white',
+                            color: currentProduct.cornerSide === 'left' ? 'white' : '#374151'
                           }}
                         >
                           ⬅️ Lewy
                         </button>
                         <button
                           type="button"
-                          onClick={() => setProductData({...productData, cornerSide: 'right'})}
+                          onClick={() => updateProduct(activeProductIndex, { cornerSide: 'right' })}
                           style={{
                             flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                            border: productData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
-                            background: productData.cornerSide === 'right' ? '#8B5CF6' : 'white',
-                            color: productData.cornerSide === 'right' ? 'white' : '#374151'
+                            border: currentProduct.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                            background: currentProduct.cornerSide === 'right' ? '#8B5CF6' : 'white',
+                            color: currentProduct.cornerSide === 'right' ? 'white' : '#374151'
                           }}
                         >
                           ➡️ Prawy
@@ -16707,14 +16829,14 @@ const PublicOrderForm = () => {
                     </div>
                     
                     {/* Podgląd wizualizacji L */}
-                    {productData.customWidth && productData.customDepth && (
-                      <FurnitureViz type="corner" data={productData} compact={true} />
+                    {currentProduct.customWidth && currentProduct.customDepth && (
+                      <FurnitureViz type="corner" data={currentProduct} compact={true} />
                     )}
                   </>
                 )}
                 
                 {/* SOFA */}
-                {productData.furnitureType === 'sofa' && (
+                {currentProduct.furnitureType === 'sofa' && (
                   <>
                     <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
                       🛋️ Wymiary sofy
@@ -16725,8 +16847,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
                         <input
                           type="number"
-                          value={productData.sofaWidth}
-                          onChange={e => setProductData({...productData, sofaWidth: e.target.value})}
+                          value={currentProduct.sofaWidth}
+                          onChange={e => updateProduct(activeProductIndex, { sofaWidth: e.target.value })}
                           placeholder="np. 200"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16735,8 +16857,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
                         <input
                           type="number"
-                          value={productData.sofaDepth}
-                          onChange={e => setProductData({...productData, sofaDepth: e.target.value})}
+                          value={currentProduct.sofaDepth}
+                          onChange={e => updateProduct(activeProductIndex, { sofaDepth: e.target.value })}
                           placeholder="np. 90"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16744,14 +16866,14 @@ const PublicOrderForm = () => {
                     </div>
                     
                     {/* Podgląd wizualizacji sofy */}
-                    {productData.sofaWidth && productData.sofaDepth && (
-                      <FurnitureViz type="sofa" data={productData} compact={true} />
+                    {currentProduct.sofaWidth && currentProduct.sofaDepth && (
+                      <FurnitureViz type="sofa" data={currentProduct} compact={true} />
                     )}
                   </>
                 )}
                 
                 {/* NAROŻNIK U */}
-                {productData.furnitureType === 'u_shape' && (
+                {currentProduct.furnitureType === 'u_shape' && (
                   <>
                     <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
                       ⬛ Wymiary narożnika (U)
@@ -16762,8 +16884,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Lewa strona (cm) *</label>
                         <input
                           type="number"
-                          value={productData.uLeftWidth}
-                          onChange={e => setProductData({...productData, uLeftWidth: e.target.value})}
+                          value={currentProduct.uLeftWidth}
+                          onChange={e => updateProduct(activeProductIndex, { uLeftWidth: e.target.value })}
                           placeholder="np. 150"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16772,8 +16894,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Środek (cm) *</label>
                         <input
                           type="number"
-                          value={productData.uMiddleWidth}
-                          onChange={e => setProductData({...productData, uMiddleWidth: e.target.value})}
+                          value={currentProduct.uMiddleWidth}
+                          onChange={e => updateProduct(activeProductIndex, { uMiddleWidth: e.target.value })}
                           placeholder="np. 200"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16782,8 +16904,8 @@ const PublicOrderForm = () => {
                         <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Prawa strona (cm) *</label>
                         <input
                           type="number"
-                          value={productData.uRightWidth}
-                          onChange={e => setProductData({...productData, uRightWidth: e.target.value})}
+                          value={currentProduct.uRightWidth}
+                          onChange={e => updateProduct(activeProductIndex, { uRightWidth: e.target.value })}
                           placeholder="np. 150"
                           style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
                         />
@@ -16791,8 +16913,8 @@ const PublicOrderForm = () => {
                     </div>
                     
                     {/* Podgląd wizualizacji U */}
-                    {productData.uLeftWidth && productData.uMiddleWidth && productData.uRightWidth && (
-                      <FurnitureViz type="u_shape" data={productData} compact={true} />
+                    {currentProduct.uLeftWidth && currentProduct.uMiddleWidth && currentProduct.uRightWidth && (
+                      <FurnitureViz type="u_shape" data={currentProduct} compact={true} />
                     )}
                   </>
                 )}
