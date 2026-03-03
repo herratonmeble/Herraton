@@ -3093,6 +3093,9 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
   const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [showEmailModal, setShowEmailModal] = useState(null); // {type: 'producer'|'confirmation', productIndex?: number}
   const [producerEmailType, setProducerEmailType] = useState('inquiry'); // inquiry | order
+  
+  // Tryb numeru zamówienia - auto lub manual
+  const [orderNumberMode, setOrderNumberMode] = useState(order?.nrWlasny ? 'manual' : 'auto');
 
   // Generuj numer podzamówienia
   const generateSubOrderNumber = (baseNr, index) => {
@@ -3560,6 +3563,27 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
     
     // Synchronizuj pola towar i zaladunek dla kompatybilności wstecznej
     const formToSave = { ...form };
+    
+    // Jeśli tryb auto i brak numeru - wygeneruj automatycznie
+    if (orderNumberMode === 'auto' || !formToSave.nrWlasny) {
+      // Pobierz ostatni numer z zamówień
+      try {
+        const { collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
+        const lastOrderSnap = await getDocs(ordersQuery);
+        if (!lastOrderSnap.empty) {
+          const lastOrder = lastOrderSnap.docs[0].data();
+          const lastNr = parseInt(lastOrder.nrWlasny) || 0;
+          formToSave.nrWlasny = String(lastNr + 1);
+        } else {
+          formToSave.nrWlasny = '1';
+        }
+      } catch (e) {
+        formToSave.nrWlasny = String(Date.now()).slice(-6);
+      }
+    }
+    
     if (formToSave.produkty && formToSave.produkty.length > 0) {
       // Połącz opisy wszystkich produktów (BEZ nazw producentów - to info wewnętrzne)
       formToSave.towar = formToSave.produkty.map((p, idx) => {
@@ -3619,7 +3643,57 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                   </div>
                   <div className="form-group">
                     <label>🔢 NR ZAMÓWIENIA</label>
-                    <input value={form.nrWlasny} onChange={e => setForm({ ...form, nrWlasny: e.target.value })} placeholder="Auto" />
+                    <div style={{display:'flex',gap:'6px',marginBottom:'6px'}}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderNumberMode('auto');
+                          setForm({ ...form, nrWlasny: '' });
+                        }}
+                        style={{
+                          flex:1,
+                          padding:'6px 10px',
+                          borderRadius:'6px',
+                          border: orderNumberMode === 'auto' ? '2px solid #8B5CF6' : '1px solid #D1D5DB',
+                          background: orderNumberMode === 'auto' ? '#F5F3FF' : 'white',
+                          color: orderNumberMode === 'auto' ? '#8B5CF6' : '#6B7280',
+                          fontSize:'12px',
+                          fontWeight:'600',
+                          cursor:'pointer'
+                        }}
+                      >
+                        🔄 Auto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrderNumberMode('manual')}
+                        style={{
+                          flex:1,
+                          padding:'6px 10px',
+                          borderRadius:'6px',
+                          border: orderNumberMode === 'manual' ? '2px solid #8B5CF6' : '1px solid #D1D5DB',
+                          background: orderNumberMode === 'manual' ? '#F5F3FF' : 'white',
+                          color: orderNumberMode === 'manual' ? '#8B5CF6' : '#6B7280',
+                          fontSize:'12px',
+                          fontWeight:'600',
+                          cursor:'pointer'
+                        }}
+                      >
+                        ✏️ Ręcznie
+                      </button>
+                    </div>
+                    {orderNumberMode === 'auto' ? (
+                      <div style={{background:'#E0E7FF',borderRadius:'6px',padding:'10px',textAlign:'center',fontSize:'12px',color:'#4338CA'}}>
+                        📋 Numer automatyczny
+                      </div>
+                    ) : (
+                      <input 
+                        value={form.nrWlasny} 
+                        onChange={e => setForm({ ...form, nrWlasny: e.target.value })} 
+                        placeholder="Wpisz numer..." 
+                        style={{fontWeight:'600'}}
+                      />
+                    )}
                   </div>
                   <div className="form-group">
                     <label>📅 DATA ZLECENIA</label>
@@ -15871,10 +15945,6 @@ const PublicOrderForm = () => {
   // Aktualny produkt (dla wygody)
   const currentProduct = products[activeProductIndex] || products[0];
   
-  // Numer zamówienia
-  const [orderNumberMode, setOrderNumberMode] = useState('auto'); // 'auto' lub 'manual'
-  const [manualOrderNumber, setManualOrderNumber] = useState('');
-  
   // Płatności
   const [paymentData, setPaymentData] = useState({
     totalPrice: '',
@@ -16168,11 +16238,6 @@ const PublicOrderForm = () => {
 
   // Walidacja formularza
   const validateForm = () => {
-    // Walidacja numeru zamówienia (jeśli ręczny)
-    if (orderNumberMode === 'manual' && !manualOrderNumber.trim()) {
-      return 'Podaj numer zamówienia lub wybierz tryb automatyczny';
-    }
-    
     if (!clientData.name.trim()) return 'Podaj imię i nazwisko';
     if (!clientData.phone.trim()) return 'Podaj numer telefonu';
     if (!clientData.email.trim()) return 'Podaj adres email';
@@ -16220,26 +16285,19 @@ const PublicOrderForm = () => {
       // Generuj token do śledzenia
       const token = 'ORD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       
-      // Numer zamówienia - ręczny lub automatyczny
-      let nrWlasny;
-      if (orderNumberMode === 'manual' && manualOrderNumber.trim()) {
-        // Użyj ręcznie wpisanego numeru
-        nrWlasny = manualOrderNumber.trim();
-      } else {
-        // Generuj automatyczny numer zamówienia (pobierz ostatni i dodaj 1)
-        nrWlasny = '1';
-        try {
-          const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
-          const lastOrderSnap = await getDocs(ordersQuery);
-          if (!lastOrderSnap.empty) {
-            const lastOrder = lastOrderSnap.docs[0].data();
-            const lastNr = parseInt(lastOrder.nrWlasny) || 0;
-            nrWlasny = String(lastNr + 1);
-          }
-        } catch (e) {
-          // Jeśli błąd - użyj timestamp jako nr
-          nrWlasny = String(Date.now()).slice(-6);
+      // Generuj automatyczny numer zamówienia (pobierz ostatni i dodaj 1)
+      let nrWlasny = '1';
+      try {
+        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
+        const lastOrderSnap = await getDocs(ordersQuery);
+        if (!lastOrderSnap.empty) {
+          const lastOrder = lastOrderSnap.docs[0].data();
+          const lastNr = parseInt(lastOrder.nrWlasny) || 0;
+          nrWlasny = String(lastNr + 1);
         }
+      } catch (e) {
+        // Jeśli błąd - użyj timestamp jako nr
+        nrWlasny = String(Date.now()).slice(-6);
       }
       
       const paidAmount = parseFloat(paymentData.paidAmount) || 0;
@@ -16468,8 +16526,6 @@ const PublicOrderForm = () => {
               onClick={() => {
                 setStep('captcha');
                 generateCaptcha();
-                setOrderNumberMode('auto');
-                setManualOrderNumber('');
                 setClientData({ name:'',phone:'',email:'',country:'PL',address:'',city:'',postCode:'' });
                 setProducts([{ ...emptyProduct }]);
                 setActiveProductIndex(0);
@@ -16511,74 +16567,6 @@ const PublicOrderForm = () => {
 
         {/* Formularz */}
         <div style={{background:'white',borderRadius:'20px',padding:'24px',boxShadow:'0 10px 40px rgba(0,0,0,0.2)'}}>
-          
-          {/* NUMER ZAMÓWIENIA */}
-          <div style={{marginBottom:'24px',background:'#F8FAFC',borderRadius:'12px',padding:'16px',border:'1px solid #E2E8F0'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
-              <label style={{fontSize:'13px',fontWeight:'600',color:'#1E293B',display:'flex',alignItems:'center',gap:'6px'}}>
-                🔢 Numer zamówienia
-              </label>
-              <div style={{display:'flex',gap:'6px'}}>
-                <button
-                  type="button"
-                  onClick={() => setOrderNumberMode('auto')}
-                  style={{
-                    padding:'6px 12px',
-                    borderRadius:'6px',
-                    border: orderNumberMode === 'auto' ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
-                    background: orderNumberMode === 'auto' ? '#F5F3FF' : 'white',
-                    color: orderNumberMode === 'auto' ? '#8B5CF6' : '#6B7280',
-                    fontSize:'12px',
-                    fontWeight:'600',
-                    cursor:'pointer'
-                  }}
-                >
-                  🔄 Auto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderNumberMode('manual')}
-                  style={{
-                    padding:'6px 12px',
-                    borderRadius:'6px',
-                    border: orderNumberMode === 'manual' ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
-                    background: orderNumberMode === 'manual' ? '#F5F3FF' : 'white',
-                    color: orderNumberMode === 'manual' ? '#8B5CF6' : '#6B7280',
-                    fontSize:'12px',
-                    fontWeight:'600',
-                    cursor:'pointer'
-                  }}
-                >
-                  ✏️ Ręcznie
-                </button>
-              </div>
-            </div>
-            
-            {orderNumberMode === 'auto' ? (
-              <div style={{background:'#E0E7FF',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
-                <span style={{color:'#4338CA',fontSize:'13px'}}>
-                  📋 Numer zostanie nadany automatycznie po wysłaniu zamówienia
-                </span>
-              </div>
-            ) : (
-              <input
-                type="text"
-                value={manualOrderNumber}
-                onChange={e => setManualOrderNumber(e.target.value)}
-                placeholder="Wpisz numer zamówienia (np. 123, ZAM/2024/001)"
-                style={{
-                  width:'100%',
-                  padding:'12px',
-                  borderRadius:'8px',
-                  border:'2px solid #8B5CF6',
-                  fontSize:'14px',
-                  fontWeight:'600',
-                  boxSizing:'border-box',
-                  textAlign:'center'
-                }}
-              />
-            )}
-          </div>
           
           {/* SEKCJA 1: Dane klienta */}
           <div style={{marginBottom:'24px'}}>
