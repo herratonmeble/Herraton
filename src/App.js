@@ -15922,6 +15922,72 @@ const PublicOrderForm = () => {
     { id: 'raty', name: '📅 Raty' }
   ];
 
+  // Funkcja generująca opis na podstawie wymiarów
+  const generateDimensionDescription = () => {
+    if (productData.type !== 'custom') return '';
+    
+    let desc = '';
+    
+    if (productData.furnitureType === 'corner') {
+      const parts = [];
+      if (productData.customWidth) parts.push(`szerokość: ${productData.customWidth}cm`);
+      if (productData.customDepth) parts.push(`głębokość: ${productData.customDepth}cm`);
+      if (productData.customArmrest) parts.push(`szezlong: ${productData.customArmrest}cm`);
+      if (productData.customChaise) parts.push(`podłokietnik: ${productData.customChaise}cm`);
+      const side = productData.cornerSide === 'left' ? 'lewy' : 'prawy';
+      if (parts.length > 0) {
+        desc = `Narożnik (L) ${side}, ${parts.join(', ')}`;
+      }
+    } else if (productData.furnitureType === 'sofa') {
+      const parts = [];
+      if (productData.sofaWidth) parts.push(`szerokość: ${productData.sofaWidth}cm`);
+      if (productData.sofaDepth) parts.push(`głębokość: ${productData.sofaDepth}cm`);
+      if (parts.length > 0) {
+        desc = `Sofa, ${parts.join(', ')}`;
+      }
+    } else if (productData.furnitureType === 'u_shape') {
+      const parts = [];
+      if (productData.uLeftWidth) parts.push(`lewa: ${productData.uLeftWidth}cm`);
+      if (productData.uMiddleWidth) parts.push(`środek: ${productData.uMiddleWidth}cm`);
+      if (productData.uRightWidth) parts.push(`prawa: ${productData.uRightWidth}cm`);
+      if (parts.length > 0) {
+        desc = `Narożnik (U), ${parts.join(', ')}`;
+      }
+    }
+    
+    return desc;
+  };
+
+  // Automatyczna aktualizacja opisu przy zmianie wymiarów
+  React.useEffect(() => {
+    if (productData.type === 'custom') {
+      const dimensionDesc = generateDimensionDescription();
+      if (dimensionDesc) {
+        // Zachowaj istniejący opis użytkownika (po przecinku lub nowej linii) jeśli istnieje
+        const currentDesc = productData.description;
+        const hasUserText = currentDesc && !currentDesc.startsWith('Narożnik') && !currentDesc.startsWith('Sofa');
+        
+        // Jeśli opis jest pusty lub zaczyna się od automatycznego tekstu - zastąp
+        if (!currentDesc || currentDesc.startsWith('Narożnik') || currentDesc.startsWith('Sofa')) {
+          setProductData(prev => ({ ...prev, description: dimensionDesc }));
+        }
+      }
+    }
+  }, [
+    productData.type,
+    productData.furnitureType,
+    productData.customWidth,
+    productData.customDepth,
+    productData.customArmrest,
+    productData.customChaise,
+    productData.cornerSide,
+    productData.sofaWidth,
+    productData.sofaDepth,
+    productData.uLeftWidth,
+    productData.uMiddleWidth,
+    productData.uRightWidth
+  ]);
+
   // Komponent wizualizacji - uniwersalny dla różnych typów mebli
   const FurnitureViz = ({ type, data, compact = false }) => {
     const size = compact ? 160 : 220;
