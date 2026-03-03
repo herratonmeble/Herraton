@@ -578,48 +578,51 @@ const FurnitureVisualization = ({ wymiary, compact = false }) => {
     );
   }
   
-  // NAROŻNIK U - widok z góry, otwarty do przodu
+  // NAROŻNIK U - widok z góry z bokami wystającymi do przodu
   if (typ === 'u_shape') {
-    const leftW = parseInt(wymiary.lewaStrona) || 150;
-    const midW = parseInt(wymiary.srodek) || 200;
-    const rightW = parseInt(wymiary.prawaStrona) || 150;
-    const seatDepth = 90;
+    const leftSide = parseInt(wymiary.lewaStrona) || 150;
+    const middle = parseInt(wymiary.srodek) || 200;
+    const rightSide = parseInt(wymiary.prawaStrona) || 150;
     
-    const totalWidth = leftW + midW + rightW;
-    const scale = Math.min((size - 40) / Math.max(totalWidth, seatDepth * 2), 0.55);
+    // Proporcjonalne skalowanie
+    const sw = 35; // Szerokość siedziska (stała)
+    const scaleY = 80 / Math.max(leftSide, rightSide, 100);
+    const scaleX = 100 / Math.max(middle, 150);
     
-    const lW = leftW * scale;
-    const mW = midW * scale;
-    const rW = rightW * scale;
-    const sD = seatDepth * scale;
+    const mW = Math.max(middle * scaleX, 50);
+    const lH = Math.max(leftSide * scaleY, 25);
+    const rH = Math.max(rightSide * scaleY, 25);
     
-    const startX = (size + 40 - (lW + mW + rW)) / 2;
-    const startY = 30;
+    const totalW = mW + 2 * sw;
+    const totalH = Math.max(lH, rH) + sw + 30;
+    const startX = (size + 40 - totalW) / 2;
+    const startY = 25;
     
     return (
       <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
         <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-          <svg width={size + 40} height={size - 20} viewBox={`0 0 ${size + 40} ${size - 20}`}>
-            {/* Tylna ściana */}
-            <rect x={startX} y={startY} width={lW + mW + rW} height={sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-            {/* Lewa boczna */}
-            <rect x={startX} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-            {/* Prawa boczna */}
-            <rect x={startX + lW + mW + rW - sD * 0.4} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-            {/* Siedziska */}
-            <rect x={startX + sD * 0.4} y={startY + sD * 0.4} width={lW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
-            <rect x={startX + lW} y={startY + sD * 0.4} width={mW} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
-            <rect x={startX + lW + mW} y={startY + sD * 0.4} width={rW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+          <svg width={size + 40} height={totalH} viewBox={`0 0 ${size + 40} ${totalH}`}>
+            {/* Tył (środek) */}
+            <rect x={startX} y={startY} width={totalW} height={sw} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2" rx="2"/>
+            {/* Lewy bok */}
+            <rect x={startX} y={startY + sw - 2} width={sw} height={lH + 2} fill="#7C3AED" stroke="#6D28D9" strokeWidth="2" rx="2"/>
+            {/* Prawy bok */}
+            <rect x={startX + totalW - sw} y={startY + sw - 2} width={sw} height={rH + 2} fill="#7C3AED" stroke="#6D28D9" strokeWidth="2" rx="2"/>
             
             {/* Wymiary */}
-            <text x={startX + lW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{leftW}</text>
-            <text x={startX + lW + mW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{midW}</text>
-            <text x={startX + lW + mW + rW/2} y={startY + sD + sD * 0.4 + 14} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">{rightW}</text>
+            <text x={startX + sw + mW/2} y={startY - 6} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="700">{middle}</text>
+            <text x={startX - 4} y={startY + sw + lH/2 + 3} textAnchor="end" fontSize="9" fill="#1E293B" fontWeight="700">{leftSide}</text>
+            <text x={startX + totalW + 4} y={startY + sw + rH/2 + 3} textAnchor="start" fontSize="9" fill="#1E293B" fontWeight="700">{rightSide}</text>
+            
+            {/* Etykiety */}
+            <text x={startX + sw/2} y={startY + sw + lH/2 + 4} textAnchor="middle" fontSize="9" fill="white" fontWeight="700">L</text>
+            <text x={startX + sw + mW/2} y={startY + sw/2 + 4} textAnchor="middle" fontSize="9" fill="white" fontWeight="700">Ś</text>
+            <text x={startX + totalW - sw/2} y={startY + sw + rH/2 + 4} textAnchor="middle" fontSize="9" fill="white" fontWeight="700">P</text>
           </svg>
         </div>
         <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
           <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>⬛ Narożnik U</span>
-          <span style={{color:'#374151'}}>L: <strong>{leftW}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightW}</strong> cm</span>
+          <span style={{color:'#374151'}}>L: <strong>{leftSide}</strong> | Ś: <strong>{middle}</strong> | P: <strong>{rightSide}</strong> cm</span>
         </div>
       </div>
     );
@@ -15950,64 +15953,62 @@ const PublicOrderForm = () => {
       );
     }
     
-    // NAROŻNIK U - widok z góry, otwarty do przodu (jak narożnik L)
+    // NAROŻNIK U - widok z góry z bokami wystającymi do przodu
     if (type === 'u_shape') {
-      const leftW = parseInt(data.uLeftWidth) || 150;
-      const midW = parseInt(data.uMiddleWidth) || 200;
-      const rightW = parseInt(data.uRightWidth) || 150;
-      const seatDepth = 90; // Głębokość siedziska (stała)
+      const leftSide = parseInt(data.uLeftWidth) || 150;  // Długość lewego boku
+      const middle = parseInt(data.uMiddleWidth) || 200;   // Szerokość środka (tył)
+      const rightSide = parseInt(data.uRightWidth) || 150; // Długość prawego boku
       
-      const totalWidth = leftW + midW + rightW;
-      const scale = Math.min((size - 40) / Math.max(totalWidth, seatDepth * 2), 0.65);
+      // Proporcjonalne skalowanie
+      const seatWidth = 50; // Stała szerokość siedziska w px
+      const maxSide = Math.max(leftSide, rightSide, 100);
+      const scaleY = 120 / maxSide; // Skaluj wysokość boków
+      const scaleX = 140 / Math.max(middle, 150); // Skaluj szerokość środka
       
-      const lW = leftW * scale;
-      const mW = midW * scale;
-      const rW = rightW * scale;
-      const sD = seatDepth * scale;
+      const sw = seatWidth; // Szerokość siedziska (stała)
+      const mW = Math.max(middle * scaleX, 60); // Szerokość środka (min 60px)
+      const lH = Math.max(leftSide * scaleY, 30); // Wysokość lewego boku (min 30px)
+      const rH = Math.max(rightSide * scaleY, 30); // Wysokość prawego boku (min 30px)
       
-      const startX = (size + 60 - (lW + mW + rW)) / 2;
-      const startY = 35;
+      const totalW = mW + 2 * sw;
+      const totalH = Math.max(lH, rH) + sw + 40;
+      const startX = (size + 60 - totalW) / 2;
+      const startY = 30;
       
       return (
         <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
           <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-            <svg width={size + 60} height={size} viewBox={`0 0 ${size + 60} ${size}`}>
-              {/* Kształt U - widok z góry, otwarty do przodu */}
-              {/* Tylna ściana (góra) */}
-              <rect x={startX} y={startY} width={lW + mW + rW} height={sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-              {/* Lewa boczna */}
-              <rect x={startX} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
-              {/* Prawa boczna */}
-              <rect x={startX + lW + mW + rW - sD * 0.4} y={startY} width={sD * 0.4} height={sD + sD * 0.4} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            <svg width={size + 60} height={totalH} viewBox={`0 0 ${size + 60} ${totalH}`}>
+              {/* Tył (górna część - środek) */}
+              <rect x={startX} y={startY} width={totalW} height={sw} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2" rx="2"/>
               
-              {/* Siedzisko lewe */}
-              <rect x={startX + sD * 0.4} y={startY + sD * 0.4} width={lW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
-              {/* Siedzisko środek */}
-              <rect x={startX + lW} y={startY + sD * 0.4} width={mW} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
-              {/* Siedzisko prawe */}
-              <rect x={startX + lW + mW} y={startY + sD * 0.4} width={rW - sD * 0.4} height={sD} fill="#A78BFA" stroke="#6D28D9" strokeWidth="1"/>
+              {/* Lewy bok (wystaje w dół) */}
+              <rect x={startX} y={startY + sw - 2} width={sw} height={lH + 2} fill="#7C3AED" stroke="#6D28D9" strokeWidth="2" rx="2"/>
               
-              {/* Wymiary - Lewa */}
-              <line x1={startX} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
-              <text x={startX + lW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{leftW}</text>
+              {/* Prawy bok (wystaje w dół) */}
+              <rect x={startX + totalW - sw} y={startY + sw - 2} width={sw} height={rH + 2} fill="#7C3AED" stroke="#6D28D9" strokeWidth="2" rx="2"/>
               
-              {/* Wymiary - Środek */}
-              <line x1={startX + lW} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW + mW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
-              <text x={startX + lW + mW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{midW}</text>
+              {/* Wymiar - Środek (góra) */}
+              <line x1={startX + sw} y1={startY - 6} x2={startX + sw + mW} y2={startY - 6} stroke="#374151" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow)"/>
+              <text x={startX + sw + mW/2} y={startY - 12} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{middle}</text>
               
-              {/* Wymiary - Prawa */}
-              <line x1={startX + lW + mW} y1={startY + sD + sD * 0.4 + 10} x2={startX + lW + mW + rW} y2={startY + sD + sD * 0.4 + 10} stroke="#374151" strokeWidth="1"/>
-              <text x={startX + lW + mW + rW/2} y={startY + sD + sD * 0.4 + 24} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{rightW}</text>
+              {/* Wymiar - Lewy bok (z boku) */}
+              <line x1={startX - 6} y1={startY + sw} x2={startX - 6} y2={startY + sw + lH} stroke="#374151" strokeWidth="1"/>
+              <text x={startX - 10} y={startY + sw + lH/2 + 4} textAnchor="end" fontSize="10" fill="#1E293B" fontWeight="700">{leftSide}</text>
+              
+              {/* Wymiar - Prawy bok (z boku) */}
+              <line x1={startX + totalW + 6} y1={startY + sw} x2={startX + totalW + 6} y2={startY + sw + rH} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + totalW + 10} y={startY + sw + rH/2 + 4} textAnchor="start" fontSize="10" fill="#1E293B" fontWeight="700">{rightSide}</text>
               
               {/* Etykiety */}
-              <text x={startX + lW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">L</text>
-              <text x={startX + lW + mW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">Ś</text>
-              <text x={startX + lW + mW + rW/2} y={startY + sD * 0.4 + sD/2 + 4} textAnchor="middle" fontSize="9" fill="#5B21B6" fontWeight="600">P</text>
+              <text x={startX + sw/2} y={startY + sw + lH/2 + 4} textAnchor="middle" fontSize="11" fill="white" fontWeight="700">L</text>
+              <text x={startX + sw + mW/2} y={startY + sw/2 + 4} textAnchor="middle" fontSize="11" fill="white" fontWeight="700">Ś</text>
+              <text x={startX + totalW - sw/2} y={startY + sw + rH/2 + 4} textAnchor="middle" fontSize="11" fill="white" fontWeight="700">P</text>
             </svg>
           </div>
           <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
             <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>⬛ Narożnik U</span>
-            <span style={{color:'#374151'}}>L: <strong>{leftW}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightW}</strong> cm</span>
+            <span style={{color:'#374151'}}>L: <strong>{leftSide}</strong> | Ś: <strong>{middle}</strong> | P: <strong>{rightSide}</strong> cm</span>
           </div>
         </div>
       );
