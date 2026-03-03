@@ -3099,9 +3099,10 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
 
   // Generuj numer podzamówienia
   const generateSubOrderNumber = (baseNr, index) => {
+    if (!baseNr) return ''; // Jeśli brak numeru głównego, zostaw puste
     if (index === 0) return baseNr;
     const suffix = String.fromCharCode(65 + index - 1); // A, B, C...
-    return `${baseNr}-${suffix}`;
+    return `${baseNr}${suffix}`;
   };
 
   // Dodaj nowy produkt
@@ -3689,7 +3690,19 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                     ) : (
                       <input 
                         value={form.nrWlasny} 
-                        onChange={e => setForm({ ...form, nrWlasny: e.target.value })} 
+                        onChange={e => {
+                          const newNr = e.target.value;
+                          // Aktualizuj główny numer i numery podzamówień (jeśli nie były ręcznie zmienione)
+                          const updatedProdukty = form.produkty?.map((p, idx) => {
+                            // Sprawdź czy numer podzamówienia był domyślny (zawiera stary numer)
+                            const oldDefault = generateSubOrderNumber(form.nrWlasny, idx);
+                            if (!p.nrPodzamowienia || p.nrPodzamowienia === oldDefault) {
+                              return { ...p, nrPodzamowienia: generateSubOrderNumber(newNr, idx) };
+                            }
+                            return p;
+                          });
+                          setForm({ ...form, nrWlasny: newNr, produkty: updatedProdukty });
+                        }} 
                         placeholder="Wpisz numer..." 
                         style={{fontWeight:'600'}}
                       />
@@ -3760,6 +3773,24 @@ const OrderModal = ({ order, onSave, onClose, producers, drivers, currentUser, o
                         <button type="button" className="btn-remove-small" onClick={() => removeProduct(activeProductIndex)}>🗑️</button>
                       )}
                     </div>
+                    
+                    {/* Nr podzamówienia - tylko dla produktów > 1 lub gdy chcemy zmienić */}
+                    {form.produkty.length > 1 && (
+                      <div className="form-group full" style={{marginBottom:'12px'}}>
+                        <label style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                          🔢 NR PODZAMÓWIENIA
+                          <span style={{fontSize:'11px',color:'#6B7280',fontWeight:'400'}}>
+                            (domyślnie: {form.nrWlasny || 'auto'}{activeProductIndex > 0 ? String.fromCharCode(65 + activeProductIndex - 1) : ''})
+                          </span>
+                        </label>
+                        <input 
+                          value={form.produkty[activeProductIndex].nrPodzamowienia || ''} 
+                          onChange={e => updateProduct(activeProductIndex, 'nrPodzamowienia', e.target.value)} 
+                          placeholder={`${form.nrWlasny || 'auto'}${activeProductIndex > 0 ? String.fromCharCode(65 + activeProductIndex - 1) : ''}`}
+                          style={{fontWeight:'600'}}
+                        />
+                      </div>
+                    )}
                     
                     {/* Opis towaru */}
                     <div className="form-group full">
