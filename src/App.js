@@ -580,40 +580,43 @@ const FurnitureVisualization = ({ wymiary, compact = false }) => {
   
   // NAROŻNIK U
   if (typ === 'u_shape') {
-    const leftW = parseInt(wymiary.lewaStrona) || 150;
+    const leftH = parseInt(wymiary.lewaStrona) || 150;
     const midW = parseInt(wymiary.srodek) || 200;
-    const rightW = parseInt(wymiary.prawaStrona) || 150;
-    const d = parseInt(wymiary.glebokosc) || 90;
-    const totalW = leftW + midW + rightW;
-    const scale = Math.min((size - 40) / Math.max(totalW, leftW + d), 0.6);
+    const rightH = parseInt(wymiary.prawaStrona) || 150;
+    const seatDepth = 80; // Stała głębokość siedziska dla wizualizacji
+    
+    const maxH = Math.max(leftH, rightH);
+    const totalW = midW + 2 * seatDepth;
+    const scale = Math.min((size - 20) / Math.max(totalW, maxH), 0.6);
+    
+    const sW = seatDepth * scale;
+    const mW = midW * scale;
+    const lH = leftH * scale;
+    const rH = rightH * scale;
+    
+    const startX = 40;
+    const startY = 30;
     
     return (
       <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
         <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-          <svg width={size + 80} height={size + 20} viewBox={`0 0 ${size + 80} ${size + 20}`}>
-            <path 
-              d={`M 35 35 
-                  L 35 ${35 + leftW * scale} 
-                  L ${35 + d * scale} ${35 + leftW * scale} 
-                  L ${35 + d * scale} ${35 + d * scale} 
-                  L ${35 + d * scale + midW * scale} ${35 + d * scale} 
-                  L ${35 + d * scale + midW * scale} ${35 + rightW * scale} 
-                  L ${35 + 2 * d * scale + midW * scale} ${35 + rightW * scale} 
-                  L ${35 + 2 * d * scale + midW * scale} 35 
-                  Z`}
-              fill="#8B5CF6"
-              stroke="#6D28D9"
-              strokeWidth="2"
-            />
-            <text x={35 + d * scale / 2} y={45 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">L:{leftW}</text>
-            <text x={35 + d * scale + midW * scale / 2} y="28" textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">Ś:{midW}</text>
-            <text x={35 + 1.5 * d * scale + midW * scale} y={45 + rightW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">P:{rightW}</text>
+          <svg width={size + 60} height={size + 40} viewBox={`0 0 ${size + 60} ${size + 40}`}>
+            {/* Lewa strona */}
+            <rect x={startX} y={startY} width={sW} height={lH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            {/* Środek (dół) */}
+            <rect x={startX} y={startY + lH - sW} width={mW + 2*sW} height={sW} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            {/* Prawa strona */}
+            <rect x={startX + sW + mW} y={startY + lH - rH} width={sW} height={rH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+            
+            {/* Wymiary */}
+            <text x={startX - 8} y={startY + lH/2} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600" transform={`rotate(-90, ${startX - 8}, ${startY + lH/2})`}>L:{leftH}</text>
+            <text x={startX + sW + mW/2} y={startY + lH + 15} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">Ś:{midW}</text>
+            <text x={startX + 2*sW + mW + 8} y={startY + lH - rH/2} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600" transform={`rotate(90, ${startX + 2*sW + mW + 8}, ${startY + lH - rH/2})`}>P:{rightH}</text>
           </svg>
         </div>
         <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
           <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>⬛ Narożnik U</span>
-          <span style={{color:'#374151'}}>L:<strong>{leftW}</strong> Ś:<strong>{midW}</strong> P:<strong>{rightW}</strong> cm</span>
-          <span style={{color:'#64748B'}}>głęb. <strong>{d}</strong>cm</span>
+          <span style={{color:'#374151'}}>L: <strong>{leftH}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightH}</strong> cm</span>
         </div>
       </div>
     );
@@ -15915,46 +15918,51 @@ const PublicOrderForm = () => {
     
     // NAROŻNIK U
     if (type === 'u_shape') {
-      const leftW = parseInt(data.uLeftWidth) || 150;
+      const leftH = parseInt(data.uLeftWidth) || 150;
       const midW = parseInt(data.uMiddleWidth) || 200;
-      const rightW = parseInt(data.uRightWidth) || 150;
-      const d = parseInt(data.uDepth) || 90;
-      const totalW = leftW + midW + rightW;
-      const scale = Math.min((size - 40) / Math.max(totalW, leftW + d), 0.8);
+      const rightH = parseInt(data.uRightWidth) || 150;
+      const seatDepth = 80; // Stała głębokość siedziska dla wizualizacji
+      
+      const maxH = Math.max(leftH, rightH);
+      const totalW = midW + 2 * seatDepth;
+      const scale = Math.min((size - 20) / Math.max(totalW, maxH), 0.7);
+      
+      const sW = seatDepth * scale; // szerokość siedziska (bocznego)
+      const mW = midW * scale; // szerokość środka
+      const lH = leftH * scale; // wysokość lewej
+      const rH = rightH * scale; // wysokość prawej
+      
+      const startX = 40;
+      const startY = 30;
       
       return (
         <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
           <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
-            <svg width={size + 80} height={size + 20} viewBox={`0 0 ${size + 80} ${size + 20}`}>
-              {/* Kształt U */}
-              <path 
-                d={`M 35 35 
-                    L 35 ${35 + leftW * scale} 
-                    L ${35 + d * scale} ${35 + leftW * scale} 
-                    L ${35 + d * scale} ${35 + d * scale} 
-                    L ${35 + d * scale + midW * scale} ${35 + d * scale} 
-                    L ${35 + d * scale + midW * scale} ${35 + leftW * scale} 
-                    L ${35 + 2 * d * scale + midW * scale} ${35 + leftW * scale} 
-                    L ${35 + 2 * d * scale + midW * scale} 35 
-                    L ${35 + d * scale + midW * scale} 35 
-                    L ${35 + d * scale + midW * scale} ${35 + (leftW - rightW) * scale} 
-                    L ${35 + d * scale} ${35 + (leftW - rightW) * scale}
-                    L ${35 + d * scale} 35
-                    Z`}
-                fill="#8B5CF6"
-                stroke="#6D28D9"
-                strokeWidth="2"
-              />
-              {/* Wymiary */}
-              <text x={35 + d * scale / 2} y={50 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↕{leftW}cm</text>
-              <text x={35 + d * scale + midW * scale / 2} y={25} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↔{midW}cm</text>
-              <text x={35 + 1.5 * d * scale + midW * scale} y={50 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↕{rightW}cm</text>
+            <svg width={size + 60} height={size + 40} viewBox={`0 0 ${size + 60} ${size + 40}`}>
+              {/* Kształt U - 3 prostokąty */}
+              {/* Lewa strona */}
+              <rect x={startX} y={startY} width={sW} height={lH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              {/* Środek (dół) */}
+              <rect x={startX} y={startY + lH - sW} width={mW + 2*sW} height={sW} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              {/* Prawa strona */}
+              <rect x={startX + sW + mW} y={startY + lH - rH} width={sW} height={rH} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2"/>
+              
+              {/* Wymiary - Lewa */}
+              <line x1={startX - 8} y1={startY} x2={startX - 8} y2={startY + lH} stroke="#374151" strokeWidth="1"/>
+              <text x={startX - 12} y={startY + lH/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(-90, ${startX - 12}, ${startY + lH/2})`}>{leftH}</text>
+              
+              {/* Wymiary - Środek */}
+              <line x1={startX + sW} y1={startY + lH + 12} x2={startX + sW + mW} y2={startY + lH + 12} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + sW + mW/2} y={startY + lH + 25} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{midW}</text>
+              
+              {/* Wymiary - Prawa */}
+              <line x1={startX + 2*sW + mW + 8} y1={startY + lH - rH} x2={startX + 2*sW + mW + 8} y2={startY + lH} stroke="#374151" strokeWidth="1"/>
+              <text x={startX + 2*sW + mW + 12} y={startY + lH - rH/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${startX + 2*sW + mW + 12}, ${startY + lH - rH/2})`}>{rightH}</text>
             </svg>
           </div>
           <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
             <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>⬛ Narożnik U</span>
-            <span style={{color:'#374151'}}>L:<strong>{leftW}</strong> Ś:<strong>{midW}</strong> P:<strong>{rightW}</strong> cm</span>
-            <span style={{color:'#64748B'}}>głęb. <strong>{d}</strong>cm</span>
+            <span style={{color:'#374151'}}>L: <strong>{leftH}</strong> | Ś: <strong>{midW}</strong> | P: <strong>{rightH}</strong> cm</span>
           </div>
         </div>
       );
@@ -16037,7 +16045,6 @@ const PublicOrderForm = () => {
         if (!productData.uLeftWidth) return 'Podaj szerokość lewej strony';
         if (!productData.uMiddleWidth) return 'Podaj szerokość środka';
         if (!productData.uRightWidth) return 'Podaj szerokość prawej strony';
-        if (!productData.uDepth) return 'Podaj głębokość';
       }
     }
     
@@ -16094,8 +16101,7 @@ const PublicOrderForm = () => {
             typ: 'u_shape',
             lewaStrona: parseInt(productData.uLeftWidth) || 0,
             srodek: parseInt(productData.uMiddleWidth) || 0,
-            prawaStrona: parseInt(productData.uRightWidth) || 0,
-            glebokosc: parseInt(productData.uDepth) || 0
+            prawaStrona: parseInt(productData.uRightWidth) || 0
           };
         } else {
           // corner (narożnik L)
@@ -16575,19 +16581,8 @@ const PublicOrderForm = () => {
                       </div>
                     </div>
                     
-                    <div style={{marginBottom:'12px'}}>
-                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość siedziska (cm) *</label>
-                      <input
-                        type="number"
-                        value={productData.uDepth}
-                        onChange={e => setProductData({...productData, uDepth: e.target.value})}
-                        placeholder="np. 90"
-                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
-                      />
-                    </div>
-                    
                     {/* Podgląd wizualizacji U */}
-                    {productData.uLeftWidth && productData.uMiddleWidth && productData.uRightWidth && productData.uDepth && (
+                    {productData.uLeftWidth && productData.uMiddleWidth && productData.uRightWidth && (
                       <FurnitureViz type="u_shape" data={productData} compact={true} />
                     )}
                   </>
