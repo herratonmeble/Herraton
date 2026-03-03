@@ -548,12 +548,83 @@ const createWFirmaInvoice = async (orderData, invoiceType = 'normal') => {
 const FurnitureVisualization = ({ wymiary, compact = false }) => {
   if (!wymiary) return null;
   
+  const size = compact ? 140 : 200;
+  const typ = wymiary.typ || 'corner';
+  
+  // SOFA
+  if (typ === 'sofa') {
+    const w = parseInt(wymiary.szerokosc) || 200;
+    const d = parseInt(wymiary.glebokosc) || 90;
+    const scale = Math.min((size - 40) / Math.max(w, d), 1);
+    const scaledW = w * scale;
+    const scaledD = d * scale;
+    
+    return (
+      <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+          <svg width={size + 40} height={size - 20} viewBox={`0 0 ${size + 40} ${size - 20}`}>
+            <rect x="35" y="35" width={scaledW} height={scaledD} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2" rx="4"/>
+            <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+            <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{w} cm</text>
+            <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+            <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{d} cm</text>
+          </svg>
+        </div>
+        <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
+          <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>🛋️ Sofa</span>
+          <span style={{color:'#374151'}}><strong>{w}</strong>×<strong>{d}</strong> cm</span>
+        </div>
+      </div>
+    );
+  }
+  
+  // NAROŻNIK U
+  if (typ === 'u_shape') {
+    const leftW = parseInt(wymiary.lewaStrona) || 150;
+    const midW = parseInt(wymiary.srodek) || 200;
+    const rightW = parseInt(wymiary.prawaStrona) || 150;
+    const d = parseInt(wymiary.glebokosc) || 90;
+    const totalW = leftW + midW + rightW;
+    const scale = Math.min((size - 40) / Math.max(totalW, leftW + d), 0.6);
+    
+    return (
+      <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+          <svg width={size + 80} height={size + 20} viewBox={`0 0 ${size + 80} ${size + 20}`}>
+            <path 
+              d={`M 35 35 
+                  L 35 ${35 + leftW * scale} 
+                  L ${35 + d * scale} ${35 + leftW * scale} 
+                  L ${35 + d * scale} ${35 + d * scale} 
+                  L ${35 + d * scale + midW * scale} ${35 + d * scale} 
+                  L ${35 + d * scale + midW * scale} ${35 + rightW * scale} 
+                  L ${35 + 2 * d * scale + midW * scale} ${35 + rightW * scale} 
+                  L ${35 + 2 * d * scale + midW * scale} 35 
+                  Z`}
+              fill="#8B5CF6"
+              stroke="#6D28D9"
+              strokeWidth="2"
+            />
+            <text x={35 + d * scale / 2} y={45 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">L:{leftW}</text>
+            <text x={35 + d * scale + midW * scale / 2} y="28" textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">Ś:{midW}</text>
+            <text x={35 + 1.5 * d * scale + midW * scale} y={45 + rightW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">P:{rightW}</text>
+          </svg>
+        </div>
+        <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
+          <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>⬛ Narożnik U</span>
+          <span style={{color:'#374151'}}>L:<strong>{leftW}</strong> Ś:<strong>{midW}</strong> P:<strong>{rightW}</strong> cm</span>
+          <span style={{color:'#64748B'}}>głęb. <strong>{d}</strong>cm</span>
+        </div>
+      </div>
+    );
+  }
+  
+  // NAROŻNIK L (domyślny)
   const w = parseInt(wymiary.szerokosc) || 250;
   const d = parseInt(wymiary.glebokosc) || 150;
   const arm = parseInt(wymiary.szezlong) || 0;
   const ch = parseInt(wymiary.podlokietnik) || 0;
   const side = wymiary.strona || 'left';
-  const size = compact ? 140 : 200;
   const padding = 50;
   const scale = Math.min((size - padding) / Math.max(w, d), 1);
   const scaledW = w * scale;
@@ -596,7 +667,7 @@ const FurnitureVisualization = ({ wymiary, compact = false }) => {
       </div>
       <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
         <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>
-          {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
+          🔲 Narożnik {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
         </span>
         <span style={{color:'#374151'}}><strong>{w}</strong>×<strong>{d}</strong> cm</span>
         {arm > 0 && <span style={{color:'#F59E0B'}}>szezl. <strong>{arm}</strong>cm</span>}
@@ -15717,16 +15788,23 @@ const PublicOrderForm = () => {
   // Dane produktu
   const [productData, setProductData] = useState({
     type: 'standard', // 'standard' lub 'custom' (meble na wymiar)
+    furnitureType: 'corner', // 'corner' (narożnik L), 'sofa', 'u_shape' (narożnik U)
     description: '',
     quantity: 1,
-    // Meble na wymiar
+    // Narożnik L
     customWidth: '',
     customDepth: '',
     customArmrest: '',
     customChaise: '',
     cornerSide: 'left',
-    // Zdjęcia
-    photos: []
+    // Sofa
+    sofaWidth: '',
+    sofaDepth: '',
+    // Narożnik U
+    uLeftWidth: '',
+    uMiddleWidth: '',
+    uRightWidth: '',
+    uDepth: ''
   });
   
   // Płatności
@@ -15739,7 +15817,6 @@ const PublicOrderForm = () => {
   
   // Dodatkowe
   const [notes, setNotes] = useState('');
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const countries = [
     { code: 'PL', name: '🇵🇱 Polska' },
@@ -15750,8 +15827,52 @@ const PublicOrderForm = () => {
     { code: 'BE', name: '🇧🇪 Belgia' },
     { code: 'AT', name: '🇦🇹 Austria' },
     { code: 'CZ', name: '🇨🇿 Czechy' },
+    { code: 'SK', name: '🇸🇰 Słowacja' },
     { code: 'CH', name: '🇨🇭 Szwajcaria' },
+    { code: 'IT', name: '🇮🇹 Włochy' },
+    { code: 'ES', name: '🇪🇸 Hiszpania' },
+    { code: 'PT', name: '🇵🇹 Portugalia' },
+    { code: 'SE', name: '🇸🇪 Szwecja' },
+    { code: 'NO', name: '🇳🇴 Norwegia' },
+    { code: 'DK', name: '🇩🇰 Dania' },
+    { code: 'FI', name: '🇫🇮 Finlandia' },
+    { code: 'IE', name: '🇮🇪 Irlandia' },
+    { code: 'LU', name: '🇱🇺 Luksemburg' },
+    { code: 'HU', name: '🇭🇺 Węgry' },
+    { code: 'RO', name: '🇷🇴 Rumunia' },
+    { code: 'BG', name: '🇧🇬 Bułgaria' },
+    { code: 'GR', name: '🇬🇷 Grecja' },
+    { code: 'HR', name: '🇭🇷 Chorwacja' },
+    { code: 'SI', name: '🇸🇮 Słowenia' },
+    { code: 'LT', name: '🇱🇹 Litwa' },
+    { code: 'LV', name: '🇱🇻 Łotwa' },
+    { code: 'EE', name: '🇪🇪 Estonia' },
+    { code: 'UA', name: '🇺🇦 Ukraina' },
+    { code: 'US', name: '🇺🇸 USA' },
+    { code: 'CA', name: '🇨🇦 Kanada' },
+    { code: 'AU', name: '🇦🇺 Australia' },
     { code: 'OTHER', name: '🌍 Inny' }
+  ];
+
+  const currencies = [
+    { code: 'PLN', name: 'PLN (zł)', symbol: 'zł' },
+    { code: 'EUR', name: 'EUR (€)', symbol: '€' },
+    { code: 'GBP', name: 'GBP (£)', symbol: '£' },
+    { code: 'USD', name: 'USD ($)', symbol: '$' },
+    { code: 'CHF', name: 'CHF', symbol: 'CHF' },
+    { code: 'CZK', name: 'CZK (Kč)', symbol: 'Kč' },
+    { code: 'SEK', name: 'SEK (kr)', symbol: 'kr' },
+    { code: 'NOK', name: 'NOK (kr)', symbol: 'kr' },
+    { code: 'DKK', name: 'DKK (kr)', symbol: 'kr' },
+    { code: 'HUF', name: 'HUF (Ft)', symbol: 'Ft' },
+    { code: 'RON', name: 'RON (lei)', symbol: 'lei' },
+    { code: 'UAH', name: 'UAH (₴)', symbol: '₴' }
+  ];
+
+  const furnitureTypes = [
+    { id: 'corner', name: '🔲 Narożnik (L)', icon: '🔲' },
+    { id: 'sofa', name: '🛋️ Sofa', icon: '🛋️' },
+    { id: 'u_shape', name: '⬛ Narożnik (U)', icon: '⬛' }
   ];
 
   const paymentMethods = [
@@ -15761,13 +15882,90 @@ const PublicOrderForm = () => {
     { id: 'raty', name: '📅 Raty' }
   ];
 
-  // Komponent wizualizacji narożnika
-  const CornerVisualization = ({ width, depth, armrest, chaise, side, compact = false }) => {
-    const w = parseInt(width) || 250;
-    const d = parseInt(depth) || 150;
-    const arm = parseInt(armrest) || 0;
-    const ch = parseInt(chaise) || 0;
+  // Komponent wizualizacji - uniwersalny dla różnych typów mebli
+  const FurnitureViz = ({ type, data, compact = false }) => {
     const size = compact ? 160 : 220;
+    
+    // SOFA
+    if (type === 'sofa') {
+      const w = parseInt(data.sofaWidth) || 200;
+      const d = parseInt(data.sofaDepth) || 90;
+      const scale = Math.min((size - 40) / Math.max(w, d), 1);
+      const scaledW = w * scale;
+      const scaledD = d * scale;
+      
+      return (
+        <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
+          <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+            <svg width={size + 40} height={size - 20} viewBox={`0 0 ${size + 40} ${size - 20}`}>
+              <rect x="35" y="35" width={scaledW} height={scaledD} fill="#8B5CF6" stroke="#6D28D9" strokeWidth="2" rx="4"/>
+              <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+              <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{w} cm</text>
+              <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+              <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{d} cm</text>
+            </svg>
+          </div>
+          <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
+            <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>🛋️ Sofa</span>
+            <span style={{color:'#374151'}}><strong>{w}</strong>×<strong>{d}</strong> cm</span>
+          </div>
+        </div>
+      );
+    }
+    
+    // NAROŻNIK U
+    if (type === 'u_shape') {
+      const leftW = parseInt(data.uLeftWidth) || 150;
+      const midW = parseInt(data.uMiddleWidth) || 200;
+      const rightW = parseInt(data.uRightWidth) || 150;
+      const d = parseInt(data.uDepth) || 90;
+      const totalW = leftW + midW + rightW;
+      const scale = Math.min((size - 40) / Math.max(totalW, leftW + d), 0.8);
+      
+      return (
+        <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
+          <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+            <svg width={size + 80} height={size + 20} viewBox={`0 0 ${size + 80} ${size + 20}`}>
+              {/* Kształt U */}
+              <path 
+                d={`M 35 35 
+                    L 35 ${35 + leftW * scale} 
+                    L ${35 + d * scale} ${35 + leftW * scale} 
+                    L ${35 + d * scale} ${35 + d * scale} 
+                    L ${35 + d * scale + midW * scale} ${35 + d * scale} 
+                    L ${35 + d * scale + midW * scale} ${35 + leftW * scale} 
+                    L ${35 + 2 * d * scale + midW * scale} ${35 + leftW * scale} 
+                    L ${35 + 2 * d * scale + midW * scale} 35 
+                    L ${35 + d * scale + midW * scale} 35 
+                    L ${35 + d * scale + midW * scale} ${35 + (leftW - rightW) * scale} 
+                    L ${35 + d * scale} ${35 + (leftW - rightW) * scale}
+                    L ${35 + d * scale} 35
+                    Z`}
+                fill="#8B5CF6"
+                stroke="#6D28D9"
+                strokeWidth="2"
+              />
+              {/* Wymiary */}
+              <text x={35 + d * scale / 2} y={50 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↕{leftW}cm</text>
+              <text x={35 + d * scale + midW * scale / 2} y={25} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↔{midW}cm</text>
+              <text x={35 + 1.5 * d * scale + midW * scale} y={50 + leftW * scale} textAnchor="middle" fontSize="9" fill="#1E293B" fontWeight="600">↕{rightW}cm</text>
+            </svg>
+          </div>
+          <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
+            <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>⬛ Narożnik U</span>
+            <span style={{color:'#374151'}}>L:<strong>{leftW}</strong> Ś:<strong>{midW}</strong> P:<strong>{rightW}</strong> cm</span>
+            <span style={{color:'#64748B'}}>głęb. <strong>{d}</strong>cm</span>
+          </div>
+        </div>
+      );
+    }
+    
+    // NAROŻNIK L (domyślny)
+    const w = parseInt(data.customWidth) || 250;
+    const d = parseInt(data.customDepth) || 150;
+    const arm = parseInt(data.customArmrest) || 0;
+    const ch = parseInt(data.customChaise) || 0;
+    const side = data.cornerSide || 'left';
     const padding = 50;
     const scale = Math.min((size - padding) / Math.max(w, d), 1);
     const scaledW = w * scale;
@@ -15788,15 +15986,9 @@ const PublicOrderForm = () => {
                   strokeWidth="2"
                 />
                 <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
-                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{w} cm</text>
                 <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
-                <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{depth} cm</text>
-                {armrest && (
-                  <text x={35 + scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">szezl. {armrest}cm</text>
-                )}
-                {chaise && (
-                  <text x={55 + scaledW} y={35 + scaledCh/2 + 4} textAnchor="start" fontSize="9" fill="#10B981" fontWeight="600">podr. {chaise}cm</text>
-                )}
+                <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{d} cm</text>
               </>
             ) : (
               <>
@@ -15807,73 +15999,23 @@ const PublicOrderForm = () => {
                   strokeWidth="2"
                 />
                 <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
-                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{w} cm</text>
                 <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
-                <text x={55 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${55 + scaledW}, ${35 + scaledD/2})`}>{depth} cm</text>
-                {armrest && (
-                  <text x={35 + scaledW - scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">szezl. {armrest}cm</text>
-                )}
-                {chaise && (
-                  <text x="10" y={35 + scaledCh/2 + 4} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600" transform={`rotate(-90, 10, ${35 + scaledCh/2})`}>podr. {chaise}cm</text>
-                )}
+                <text x={55 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${55 + scaledW}, ${35 + scaledD/2})`}>{d} cm</text>
               </>
             )}
           </svg>
         </div>
         <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
           <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>
-            {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
+            🔲 Narożnik {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
           </span>
-          <span style={{color:'#374151'}}><strong>{width}</strong>×<strong>{depth}</strong> cm</span>
-          {armrest && <span style={{color:'#F59E0B'}}>szezl. <strong>{armrest}</strong>cm</span>}
-          {chaise && <span style={{color:'#10B981'}}>podr. <strong>{chaise}</strong>cm</span>}
+          <span style={{color:'#374151'}}><strong>{w}</strong>×<strong>{d}</strong> cm</span>
+          {arm > 0 && <span style={{color:'#F59E0B'}}>szezl. <strong>{arm}</strong>cm</span>}
+          {ch > 0 && <span style={{color:'#10B981'}}>podr. <strong>{ch}</strong>cm</span>}
         </div>
       </div>
     );
-  };
-
-  // Upload zdjęcia
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-    
-    setUploadingPhoto(true);
-    
-    for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Plik ' + file.name + ' jest za duży (max 5MB)');
-        continue;
-      }
-      
-      try {
-        const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-        const { storage } = await import('./firebase');
-        
-        const fileName = `order_photos/${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, fileName);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        
-        setProductData(prev => ({
-          ...prev,
-          photos: [...prev.photos, url]
-        }));
-      } catch (err) {
-        console.error('Błąd uploadu:', err);
-        alert('Błąd podczas wysyłania zdjęcia');
-      }
-    }
-    
-    setUploadingPhoto(false);
-    e.target.value = '';
-  };
-
-  // Usuń zdjęcie
-  const removePhoto = (index) => {
-    setProductData(prev => ({
-      ...prev,
-      photos: prev.photos.filter((_, i) => i !== index)
-    }));
   };
 
   // Walidacja formularza
@@ -15885,8 +16027,18 @@ const PublicOrderForm = () => {
     if (!paymentData.totalPrice) return 'Podaj cenę całkowitą';
     
     if (productData.type === 'custom') {
-      if (!productData.customWidth) return 'Podaj szerokość mebla';
-      if (!productData.customDepth) return 'Podaj głębokość mebla';
+      if (productData.furnitureType === 'corner') {
+        if (!productData.customWidth) return 'Podaj szerokość narożnika';
+        if (!productData.customDepth) return 'Podaj głębokość narożnika';
+      } else if (productData.furnitureType === 'sofa') {
+        if (!productData.sofaWidth) return 'Podaj szerokość sofy';
+        if (!productData.sofaDepth) return 'Podaj głębokość sofy';
+      } else if (productData.furnitureType === 'u_shape') {
+        if (!productData.uLeftWidth) return 'Podaj szerokość lewej strony';
+        if (!productData.uMiddleWidth) return 'Podaj szerokość środka';
+        if (!productData.uRightWidth) return 'Podaj szerokość prawej strony';
+        if (!productData.uDepth) return 'Podaj głębokość';
+      }
     }
     
     return null;
@@ -15927,6 +16079,39 @@ const PublicOrderForm = () => {
       const paidAmount = parseFloat(paymentData.paidAmount) || 0;
       const totalPrice = parseFloat(paymentData.totalPrice) || 0;
       
+      // Przygotuj dane wymiarów zależnie od typu mebla
+      const getWymiaryData = () => {
+        if (productData.type !== 'custom') return null;
+        
+        if (productData.furnitureType === 'sofa') {
+          return {
+            typ: 'sofa',
+            szerokosc: parseInt(productData.sofaWidth) || 0,
+            glebokosc: parseInt(productData.sofaDepth) || 0
+          };
+        } else if (productData.furnitureType === 'u_shape') {
+          return {
+            typ: 'u_shape',
+            lewaStrona: parseInt(productData.uLeftWidth) || 0,
+            srodek: parseInt(productData.uMiddleWidth) || 0,
+            prawaStrona: parseInt(productData.uRightWidth) || 0,
+            glebokosc: parseInt(productData.uDepth) || 0
+          };
+        } else {
+          // corner (narożnik L)
+          return {
+            typ: 'corner',
+            szerokosc: parseInt(productData.customWidth) || 0,
+            glebokosc: parseInt(productData.customDepth) || 0,
+            szezlong: parseInt(productData.customArmrest) || 0,
+            podlokietnik: parseInt(productData.customChaise) || 0,
+            strona: productData.cornerSide
+          };
+        }
+      };
+      
+      const wymiaryData = getWymiaryData();
+      
       const orderData = {
         // Numer zamówienia
         nrWlasny: nrWlasny,
@@ -15950,31 +16135,20 @@ const PublicOrderForm = () => {
           ilosc: productData.quantity,
           nrPodzamowienia: '1',
           status: 'nowe',
-          zdjecia: productData.photos,
           cenaKlienta: totalPrice,
           // Meble na wymiar
           ...(productData.type === 'custom' && {
             mebleNaWymiar: true,
-            wymiary: {
-              szerokosc: parseInt(productData.customWidth) || 0,
-              glebokosc: parseInt(productData.customDepth) || 0,
-              szezlong: parseInt(productData.customArmrest) || 0,
-              podlokietnik: parseInt(productData.customChaise) || 0,
-              strona: productData.cornerSide
-            }
+            typMebla: productData.furnitureType,
+            wymiary: wymiaryData
           })
         }],
         
         // Meble na wymiar - dane główne (do łatwego dostępu w panelu)
         ...(productData.type === 'custom' && {
           mebleNaWymiar: true,
-          wymiary: {
-            szerokosc: parseInt(productData.customWidth) || 0,
-            glebokosc: parseInt(productData.customDepth) || 0,
-            szezlong: parseInt(productData.customArmrest) || 0,
-            podlokietnik: parseInt(productData.customChaise) || 0,
-            strona: productData.cornerSide
-          }
+          typMebla: productData.furnitureType,
+          wymiary: wymiaryData
         }),
         
         // Płatności
@@ -16211,138 +16385,215 @@ const PublicOrderForm = () => {
               />
             </div>
             
-            {/* Meble na wymiar - wymiary */}
+            {/* Meble na wymiar */}
             {productData.type === 'custom' && (
               <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',marginTop:'16px',border:'1px solid #C4B5FD'}}>
-                <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
-                  📐 Wymiary narożnika
-                </div>
                 
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
-                    <input
-                      type="number"
-                      value={productData.customWidth}
-                      onChange={e => setProductData({...productData, customWidth: e.target.value})}
-                      placeholder="np. 250"
-                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
-                    <input
-                      type="number"
-                      value={productData.customDepth}
-                      onChange={e => setProductData({...productData, customDepth: e.target.value})}
-                      placeholder="np. 150"
-                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szezlong (cm)</label>
-                    <input
-                      type="number"
-                      value={productData.customArmrest}
-                      onChange={e => setProductData({...productData, customArmrest: e.target.value})}
-                      placeholder="opcjonalne"
-                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Podłokietnik (cm)</label>
-                    <input
-                      type="number"
-                      value={productData.customChaise}
-                      onChange={e => setProductData({...productData, customChaise: e.target.value})}
-                      placeholder="opcjonalne"
-                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
-                    />
+                {/* Wybór typu mebla */}
+                <div style={{marginBottom:'16px'}}>
+                  <label style={{display:'block',fontSize:'12px',color:'#5B21B6',marginBottom:'8px',fontWeight:'600'}}>Wybierz typ mebla</label>
+                  <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                    {furnitureTypes.map(ft => (
+                      <button
+                        key={ft.id}
+                        type="button"
+                        onClick={() => setProductData({...productData, furnitureType: ft.id})}
+                        style={{
+                          flex:'1',minWidth:'100px',padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'12px',
+                          border: productData.furnitureType === ft.id ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                          background: productData.furnitureType === ft.id ? '#8B5CF6' : 'white',
+                          color: productData.furnitureType === ft.id ? 'white' : '#374151'
+                        }}
+                      >
+                        {ft.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
-                <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona narożnika</label>
-                  <div style={{display:'flex',gap:'10px'}}>
-                    <button
-                      type="button"
-                      onClick={() => setProductData({...productData, cornerSide: 'left'})}
-                      style={{
-                        flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                        border: productData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
-                        background: productData.cornerSide === 'left' ? '#8B5CF6' : 'white',
-                        color: productData.cornerSide === 'left' ? 'white' : '#374151'
-                      }}
-                    >
-                      ⬅️ Lewy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProductData({...productData, cornerSide: 'right'})}
-                      style={{
-                        flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-                        border: productData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
-                        background: productData.cornerSide === 'right' ? '#8B5CF6' : 'white',
-                        color: productData.cornerSide === 'right' ? 'white' : '#374151'
-                      }}
-                    >
-                      ➡️ Prawy
-                    </button>
-                  </div>
-                </div>
+                {/* NAROŻNIK L */}
+                {productData.furnitureType === 'corner' && (
+                  <>
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
+                      🔲 Wymiary narożnika (L)
+                    </div>
+                    
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.customWidth}
+                          onChange={e => setProductData({...productData, customWidth: e.target.value})}
+                          placeholder="np. 250"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.customDepth}
+                          onChange={e => setProductData({...productData, customDepth: e.target.value})}
+                          placeholder="np. 150"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szezlong (cm)</label>
+                        <input
+                          type="number"
+                          value={productData.customArmrest}
+                          onChange={e => setProductData({...productData, customArmrest: e.target.value})}
+                          placeholder="opcjonalne"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Podłokietnik (cm)</label>
+                        <input
+                          type="number"
+                          value={productData.customChaise}
+                          onChange={e => setProductData({...productData, customChaise: e.target.value})}
+                          placeholder="opcjonalne"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{marginBottom:'12px'}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona narożnika</label>
+                      <div style={{display:'flex',gap:'10px'}}>
+                        <button
+                          type="button"
+                          onClick={() => setProductData({...productData, cornerSide: 'left'})}
+                          style={{
+                            flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                            border: productData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                            background: productData.cornerSide === 'left' ? '#8B5CF6' : 'white',
+                            color: productData.cornerSide === 'left' ? 'white' : '#374151'
+                          }}
+                        >
+                          ⬅️ Lewy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProductData({...productData, cornerSide: 'right'})}
+                          style={{
+                            flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                            border: productData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                            background: productData.cornerSide === 'right' ? '#8B5CF6' : 'white',
+                            color: productData.cornerSide === 'right' ? 'white' : '#374151'
+                          }}
+                        >
+                          ➡️ Prawy
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Podgląd wizualizacji L */}
+                    {productData.customWidth && productData.customDepth && (
+                      <FurnitureViz type="corner" data={productData} compact={true} />
+                    )}
+                  </>
+                )}
                 
-                {/* Podgląd wizualizacji */}
-                {productData.customWidth && productData.customDepth && (
-                  <CornerVisualization
-                    width={productData.customWidth}
-                    depth={productData.customDepth}
-                    armrest={productData.customArmrest}
-                    chaise={productData.customChaise}
-                    side={productData.cornerSide}
-                    compact={true}
-                  />
+                {/* SOFA */}
+                {productData.furnitureType === 'sofa' && (
+                  <>
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
+                      🛋️ Wymiary sofy
+                    </div>
+                    
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.sofaWidth}
+                          onChange={e => setProductData({...productData, sofaWidth: e.target.value})}
+                          placeholder="np. 200"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.sofaDepth}
+                          onChange={e => setProductData({...productData, sofaDepth: e.target.value})}
+                          placeholder="np. 90"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Podgląd wizualizacji sofy */}
+                    {productData.sofaWidth && productData.sofaDepth && (
+                      <FurnitureViz type="sofa" data={productData} compact={true} />
+                    )}
+                  </>
+                )}
+                
+                {/* NAROŻNIK U */}
+                {productData.furnitureType === 'u_shape' && (
+                  <>
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
+                      ⬛ Wymiary narożnika (U)
+                    </div>
+                    
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Lewa strona (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.uLeftWidth}
+                          onChange={e => setProductData({...productData, uLeftWidth: e.target.value})}
+                          placeholder="np. 150"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Środek (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.uMiddleWidth}
+                          onChange={e => setProductData({...productData, uMiddleWidth: e.target.value})}
+                          placeholder="np. 200"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Prawa strona (cm) *</label>
+                        <input
+                          type="number"
+                          value={productData.uRightWidth}
+                          onChange={e => setProductData({...productData, uRightWidth: e.target.value})}
+                          placeholder="np. 150"
+                          style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{marginBottom:'12px'}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość siedziska (cm) *</label>
+                      <input
+                        type="number"
+                        value={productData.uDepth}
+                        onChange={e => setProductData({...productData, uDepth: e.target.value})}
+                        placeholder="np. 90"
+                        style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                      />
+                    </div>
+                    
+                    {/* Podgląd wizualizacji U */}
+                    {productData.uLeftWidth && productData.uMiddleWidth && productData.uRightWidth && productData.uDepth && (
+                      <FurnitureViz type="u_shape" data={productData} compact={true} />
+                    )}
+                  </>
                 )}
               </div>
             )}
-            
-            {/* Zdjęcia */}
-            <div style={{marginTop:'16px'}}>
-              <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'8px'}}>
-                📸 Zdjęcia produktu (opcjonalne)
-              </label>
-              
-              {productData.photos.length > 0 && (
-                <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px'}}>
-                  {productData.photos.map((photo, idx) => (
-                    <div key={idx} style={{position:'relative'}}>
-                      <img src={photo} alt="" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} />
-                      <button
-                        onClick={() => removePhoto(idx)}
-                        style={{position:'absolute',top:'-6px',right:'-6px',width:'20px',height:'20px',borderRadius:'50%',background:'#EF4444',color:'white',border:'none',cursor:'pointer',fontSize:'12px'}}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <label style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',border:'2px dashed #E5E7EB',borderRadius:'10px',cursor:'pointer',background:'#F9FAFB'}}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoUpload}
-                  style={{display:'none'}}
-                  disabled={uploadingPhoto}
-                />
-                {uploadingPhoto ? (
-                  <span style={{color:'#6B7280'}}>⏳ Wysyłanie...</span>
-                ) : (
-                  <span style={{color:'#6B7280'}}>📷 Kliknij aby dodać zdjęcia</span>
-                )}
-              </label>
-            </div>
           </div>
 
           {/* SEKCJA 3: Płatność */}
@@ -16371,10 +16622,9 @@ const PublicOrderForm = () => {
                     onChange={e => setPaymentData({...paymentData, currency: e.target.value})}
                     style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box',background:'white'}}
                   >
-                    <option value="PLN">PLN</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="USD">USD</option>
+                    {currencies.map(c => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
