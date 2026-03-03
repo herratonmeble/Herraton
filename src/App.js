@@ -674,105 +674,6 @@ const USER_ROLES = [
 ];
 
 // ============================================
-// SYSTEM UPRAWNIEŃ - DEFINICJA WSZYSTKICH FUNKCJI
-// ============================================
-
-const ALL_PERMISSIONS = [
-  // ZAMÓWIENIA
-  { id: 'orders_view', name: 'Przeglądanie zamówień', category: 'Zamówienia', icon: '👁️' },
-  { id: 'orders_add', name: 'Dodawanie zamówień', category: 'Zamówienia', icon: '➕' },
-  { id: 'orders_edit', name: 'Edycja zamówień', category: 'Zamówienia', icon: '✏️' },
-  { id: 'orders_delete', name: 'Usuwanie zamówień', category: 'Zamówienia', icon: '🗑️' },
-  { id: 'orders_status', name: 'Zmiana statusów', category: 'Zamówienia', icon: '🔄' },
-  { id: 'orders_export', name: 'Eksport do Excel', category: 'Zamówienia', icon: '📊' },
-  
-  // PANELE
-  { id: 'panel_complaints', name: 'Panel reklamacji', category: 'Panele', icon: '📋' },
-  { id: 'panel_leads', name: 'Panel zainteresowanych', category: 'Panele', icon: '🎯' },
-  { id: 'panel_chats', name: 'Czaty z klientami', category: 'Panele', icon: '💬' },
-  { id: 'panel_tasks', name: 'Panel zadań', category: 'Panele', icon: '✅' },
-  { id: 'panel_statistics', name: 'Statystyki', category: 'Panele', icon: '📈' },
-  { id: 'panel_calendar', name: 'Kalendarz', category: 'Panele', icon: '📅' },
-  { id: 'panel_messenger', name: 'Komunikator wewnętrzny', category: 'Panele', icon: '💭' },
-  
-  // WYSYŁKA
-  { id: 'shipping_samples', name: 'Próbki materiałów', category: 'Wysyłka', icon: '🧪' },
-  { id: 'shipping_mail', name: 'Poczta', category: 'Wysyłka', icon: '✉️' },
-  
-  // USTAWIENIA
-  { id: 'settings_users', name: 'Zarządzanie użytkownikami', category: 'Ustawienia', icon: '👥' },
-  { id: 'settings_producers', name: 'Zarządzanie producentami', category: 'Ustawienia', icon: '🏭' },
-  { id: 'settings_pricelists', name: 'Cenniki', category: 'Ustawienia', icon: '💰' },
-  { id: 'settings_settlements', name: 'Rozliczenia transportowe', category: 'Ustawienia', icon: '🧾' },
-  { id: 'settings_contacts', name: 'Kontakty', category: 'Ustawienia', icon: '📇' },
-  { id: 'settings_tutorial', name: 'Konfiguracja samouczka', category: 'Ustawienia', icon: '📚' },
-  { id: 'settings_trash', name: 'Kosz (usunięte)', category: 'Ustawienia', icon: '🗑️' },
-  { id: 'settings_permissions', name: 'Zarządzanie uprawnieniami', category: 'Ustawienia', icon: '🔐' },
-  { id: 'settings_activity', name: 'Aktywność użytkowników', category: 'Ustawienia', icon: '📊' },
-  
-  // FINANSE
-  { id: 'finance_prices', name: 'Widoczność cen', category: 'Finanse', icon: '💵' },
-  { id: 'finance_discounts', name: 'Udzielanie rabatów', category: 'Finanse', icon: '🏷️' },
-  { id: 'finance_payments', name: 'Oznaczanie płatności', category: 'Finanse', icon: '💳' },
-  
-  // DOKUMENTY
-  { id: 'docs_contracts', name: 'Generowanie umów', category: 'Dokumenty', icon: '📄' },
-  { id: 'docs_protocols', name: 'Protokoły odbioru', category: 'Dokumenty', icon: '✍️' },
-  { id: 'docs_print', name: 'Drukowanie', category: 'Dokumenty', icon: '🖨️' },
-];
-
-// Domyślne uprawnienia dla każdej roli
-const DEFAULT_PERMISSIONS = {
-  admin: ALL_PERMISSIONS.map(p => p.id), // Admin ma wszystko
-  worker: [
-    'orders_view', 'orders_add', 'orders_edit', 'orders_status', 'orders_export',
-    'panel_complaints', 'panel_leads', 'panel_chats', 'panel_tasks', 'panel_statistics', 'panel_calendar', 'panel_messenger',
-    'shipping_samples', 'shipping_mail',
-    'settings_contacts', 'settings_trash',
-    'finance_prices', 'finance_discounts', 'finance_payments',
-    'docs_contracts', 'docs_protocols', 'docs_print'
-  ],
-  driver: [
-    'orders_view', 'orders_status',
-    'panel_tasks',
-    'finance_discounts', 'finance_payments',
-    'docs_protocols'
-  ],
-  contractor: [
-    'orders_view', 'orders_add',
-    'panel_statistics',
-    'finance_prices'
-  ]
-};
-
-// Funkcja sprawdzająca uprawnienie
-const hasPermission = (user, permissionId) => {
-  if (!user) return false;
-  
-  // Jeśli użytkownik ma własne uprawnienia (tablica) - użyj ich
-  // Nawet jeśli tablica jest pusta - to znaczy że celowo odebrano uprawnienia
-  if (user.permissions !== undefined && user.permissions !== null && Array.isArray(user.permissions)) {
-    return user.permissions.includes(permissionId);
-  }
-  
-  // Tylko jeśli permissions nie istnieje wcale - użyj domyślnych dla roli
-  const rolePermissions = DEFAULT_PERMISSIONS[user.role] || [];
-  return rolePermissions.includes(permissionId);
-};
-
-// Grupowanie uprawnień po kategoriach
-const getPermissionsByCategory = () => {
-  const categories = {};
-  ALL_PERMISSIONS.forEach(p => {
-    if (!categories[p.category]) {
-      categories[p.category] = [];
-    }
-    categories[p.category].push(p);
-  });
-  return categories;
-};
-
-// ============================================
 // FUNKCJE POMOCNICZE
 // ============================================
 
@@ -862,40 +763,16 @@ const playNotificationSound = () => {
 // EKRAN LOGOWANIA
 // ============================================
 
-const LoginScreen = ({ onLogin, users, loading, onUpdateLastLogin }) => {
+const LoginScreen = ({ onLogin, users, loading }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
-      // Zapisz czas logowania
-      const loginTime = new Date().toISOString();
-      
-      // Dodaj do historii logowań (max 50 ostatnich)
-      const loginHistory = user.loginHistory || [];
-      const newLoginEntry = {
-        time: loginTime,
-        userAgent: navigator.userAgent?.substring(0, 100) || 'Unknown',
-        platform: navigator.platform || 'Unknown'
-      };
-      const updatedHistory = [newLoginEntry, ...loginHistory].slice(0, 50);
-      
-      const updatedUser = { 
-        ...user, 
-        lastLogin: loginTime,
-        lastActivity: loginTime,
-        loginHistory: updatedHistory
-      };
-      
-      localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
-      onLogin(updatedUser);
-      
-      // Zaktualizuj w Firebase
-      if (onUpdateLastLogin) {
-        onUpdateLastLogin(user.id, loginTime, updatedHistory);
-      }
+      localStorage.setItem('herratonUser', JSON.stringify(user));
+      onLogin(user);
     } else {
       setError('Nieprawidłowy login lub hasło');
     }
@@ -1046,7 +923,7 @@ const HistoryPanel = ({ historia, utworzonePrzez }) => {
 // MODAL SZCZEGÓŁÓW ZAMÓWIENIA - Z POWIĘKSZANIEM ZDJĘĆ
 // ============================================
 
-const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor, selectedProductIndex, onUpdateOrder, currentUser }) => {
+const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isContractor, selectedProductIndex, onUpdateOrder }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [showDeliveryEmailModal, setShowDeliveryEmailModal] = useState(false);
@@ -1061,16 +938,6 @@ const OrderDetailModal = ({ order, onClose, producers, drivers, onDelete, isCont
   const [editingDiscount, setEditingDiscount] = useState(null); // { productIndex, rabat } lub { global: true, rabat }
   const [discountEditAmount, setDiscountEditAmount] = useState('');
   const [discountEditReason, setDiscountEditReason] = useState('');
-  
-  // Uprawnienia - currentUser może być undefined
-  // eslint-disable-next-line no-unused-vars
-  const canEditPrices = currentUser ? hasPermission(currentUser, 'finance_prices') : false;
-  // eslint-disable-next-line no-unused-vars
-  const canGiveDiscounts = currentUser ? hasPermission(currentUser, 'finance_discounts') : false;
-  // eslint-disable-next-line no-unused-vars
-  const canPrint = currentUser ? hasPermission(currentUser, 'docs_print') : false;
-  // eslint-disable-next-line no-unused-vars
-  const canGenerateContracts = currentUser ? hasPermission(currentUser, 'docs_contracts') : false;
   
   const status = getStatus(order.status);
   const country = getCountry(order.kraj);
@@ -5097,36 +4964,6 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
                       <div className="list-item-subtitle">@{u.username} • {role.name}</div>
                       {u.companyName && <div className="list-item-subtitle">🏢 {u.companyName}</div>}
                       {u.phone && <div className="list-item-subtitle">📞 {u.phone}</div>}
-                      {u.email && <div className="list-item-subtitle">✉️ {u.email}</div>}
-                      {/* Ostatnie logowanie */}
-                      {u.lastLogin && (
-                        <div className="list-item-subtitle" style={{color:'#3B82F6',fontSize:'11px',fontWeight:'500'}}>
-                          🟢 Ostatnie logowanie: {new Date(u.lastLogin).toLocaleString('pl-PL')}
-                        </div>
-                      )}
-                      {!u.lastLogin && (
-                        <div className="list-item-subtitle" style={{color:'#9CA3AF',fontSize:'11px'}}>
-                          ⚪ Nigdy się nie logował
-                        </div>
-                      )}
-                      {/* Hasło - widoczne dla admina */}
-                      {isAdmin && u.password && (
-                        <div className="list-item-subtitle" style={{color:'#8B5CF6',fontFamily:'monospace'}}>
-                          🔐 Hasło: {u.password}
-                        </div>
-                      )}
-                      {/* Data ostatniej zmiany hasła */}
-                      {u.lastPasswordChange && (
-                        <div className="list-item-subtitle" style={{color:'#059669',fontSize:'11px'}}>
-                          🕐 Hasło zmienione: {new Date(u.lastPasswordChange).toLocaleString('pl-PL')}
-                        </div>
-                      )}
-                      {/* Data ostatniej aktualizacji profilu */}
-                      {u.lastProfileUpdate && (
-                        <div className="list-item-subtitle" style={{color:'#64748B',fontSize:'11px'}}>
-                          📝 Profil zaktualizowany: {new Date(u.lastProfileUpdate).toLocaleString('pl-PL')}
-                        </div>
-                      )}
                       {/* Dodatkowe dane firmy kontrahenta */}
                       {u.role === 'contractor' && (u.nip || u.companyAddress || u.companyEmail) && (
                         <div className="contractor-details">
@@ -5169,701 +5006,6 @@ const UsersModal = ({ users, onSave, onClose, isAdmin, onEditContractor }) => {
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Anuluj</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? '⏳...' : '💾 Zapisz'}</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================
-// PANEL MÓJ PROFIL - ZMIANA HASŁA I DANYCH
-// ============================================
-
-const MyProfilePanel = ({ user, onSave, onClose }) => {
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    email: user?.email || '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const handleSave = async () => {
-    setError('');
-    setSuccess('');
-
-    // Walidacja hasła
-    if (formData.password) {
-      if (formData.password.length < 4) {
-        setError('Hasło musi mieć minimum 4 znaki');
-        return;
-      }
-      if (formData.password !== formData.confirmPassword) {
-        setError('Hasła nie są identyczne');
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const updateData = {
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        lastProfileUpdate: new Date().toISOString()
-      };
-
-      // Dodaj hasło tylko jeśli zostało zmienione
-      if (formData.password) {
-        updateData.password = formData.password;
-        updateData.lastPasswordChange = new Date().toISOString();
-      }
-
-      await onSave(user.id, updateData);
-      setSuccess('Dane zostały zapisane!');
-      setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Błąd zapisywania profilu:', err);
-      setError('Błąd podczas zapisywania');
-    }
-    setSaving(false);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'500px'}}>
-        <div className="modal-header" style={{background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',borderRadius:'12px 12px 0 0',padding:'20px'}}>
-          <h2 style={{margin:0,fontSize:'18px'}}>👤 Mój profil</h2>
-          <button className="btn-close" onClick={onClose} style={{color:'white'}}>×</button>
-        </div>
-        
-        <div className="modal-body" style={{padding:'24px'}}>
-          {/* Info o użytkowniku */}
-          <div style={{background:'#F8FAFC',padding:'16px',borderRadius:'12px',marginBottom:'24px',textAlign:'center'}}>
-            <div style={{fontSize:'48px',marginBottom:'8px'}}>
-              {user?.role === 'admin' ? '👑' : user?.role === 'worker' ? '👤' : user?.role === 'driver' ? '🚚' : '🏢'}
-            </div>
-            <div style={{fontWeight:'700',fontSize:'18px',color:'#1E293B'}}>{user?.name}</div>
-            <div style={{fontSize:'13px',color:'#64748B'}}>@{user?.username} • {getRole(user?.role).name}</div>
-          </div>
-
-          {/* Formularz */}
-          <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
-            <div>
-              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
-                Imię i nazwisko
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-              />
-            </div>
-
-            <div>
-              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
-                Telefon
-              </label>
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={e => setFormData({...formData, phone: e.target.value})}
-                placeholder="+48 123 456 789"
-                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-              />
-            </div>
-
-            <div>
-              <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={e => setFormData({...formData, email: e.target.value})}
-                placeholder="email@example.com"
-                style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-              />
-            </div>
-
-            <div style={{borderTop:'1px solid #E2E8F0',paddingTop:'16px',marginTop:'8px'}}>
-              <h4 style={{margin:'0 0 16px',fontSize:'14px',color:'#374151'}}>🔐 Zmiana hasła</h4>
-              
-              <div style={{marginBottom:'12px'}}>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
-                  Nowe hasło (zostaw puste jeśli nie chcesz zmieniać)
-                </label>
-                <div style={{position:'relative'}}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                    placeholder="••••••••"
-                    style={{width:'100%',padding:'12px',paddingRight:'45px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px'}}
-                  >
-                    {showPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label style={{display:'block',fontSize:'12px',fontWeight:'600',color:'#64748B',marginBottom:'6px'}}>
-                  Potwierdź nowe hasło
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                  placeholder="••••••••"
-                  style={{width:'100%',padding:'12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Komunikaty */}
-          {error && (
-            <div style={{marginTop:'16px',padding:'12px',background:'#FEF2F2',border:'1px solid #FEE2E2',borderRadius:'8px',color:'#DC2626',fontSize:'13px'}}>
-              ⚠️ {error}
-            </div>
-          )}
-          {success && (
-            <div style={{marginTop:'16px',padding:'12px',background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'8px',color:'#16A34A',fontSize:'13px'}}>
-              ✅ {success}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer" style={{padding:'16px 24px',borderTop:'1px solid #E2E8F0',display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-          <button 
-            onClick={onClose}
-            style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}
-          >
-            Anuluj
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}
-          >
-            {saving ? '⏳ Zapisywanie...' : '💾 Zapisz zmiany'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================
-// PANEL AKTYWNOŚCI UŻYTKOWNIKÓW
-// ============================================
-
-const UserActivityPanel = ({ users, onClose, onForceLogoutAll }) => {
-  const [filter, setFilter] = useState('all'); // all, online, today, week, never
-  const [sortBy, setSortBy] = useState('recent'); // recent, oldest, name
-  const [selectedUser, setSelectedUser] = useState(null); // Do pokazania historii logowań
-
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const getTimeSince = (dateStr) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Przed chwilą';
-    if (minutes < 60) return `${minutes} min temu`;
-    if (hours < 24) return `${hours} godz. temu`;
-    if (days === 1) return 'Wczoraj';
-    if (days < 7) return `${days} dni temu`;
-    if (days < 30) return `${Math.floor(days / 7)} tyg. temu`;
-    return `${Math.floor(days / 30)} mies. temu`;
-  };
-
-  // Status na podstawie lastActivity (heartbeat co 5 min)
-  const getStatusColor = (user) => {
-    const lastActivity = user.lastActivity || user.lastLogin;
-    if (!lastActivity) return { bg: '#F3F4F6', color: '#9CA3AF', label: 'Nigdy', icon: '⚪' };
-    
-    const date = new Date(lastActivity);
-    const diff = now - date;
-    const minutes = diff / 60000;
-    
-    // Online = aktywność w ciągu ostatnich 6 minut (heartbeat co 5 min + bufor)
-    if (minutes < 6) return { bg: '#D1FAE5', color: '#059669', label: 'Online', icon: '🟢' };
-    // Niedawno = ostatnia godzina
-    if (minutes < 60) return { bg: '#DBEAFE', color: '#2563EB', label: `${Math.floor(minutes)} min temu`, icon: '🔵' };
-    // Dziś
-    const hours = diff / 3600000;
-    if (hours < 24) return { bg: '#FEF3C7', color: '#D97706', label: `${Math.floor(hours)} godz. temu`, icon: '🟡' };
-    // Dawno
-    return { bg: '#FEE2E2', color: '#DC2626', label: 'Offline', icon: '🔴' };
-  };
-
-  // Sprawdź czy online (aktywność < 6 min)
-  const isOnline = (user) => {
-    const lastActivity = user.lastActivity || user.lastLogin;
-    if (!lastActivity) return false;
-    return (now - new Date(lastActivity)) < 360000; // 6 minut
-  };
-
-  let filteredUsers = [...users];
-  
-  // Filtrowanie
-  if (filter === 'online') {
-    filteredUsers = filteredUsers.filter(u => isOnline(u));
-  } else if (filter === 'today') {
-    filteredUsers = filteredUsers.filter(u => {
-      const last = u.lastActivity || u.lastLogin;
-      return last && new Date(last) >= todayStart;
-    });
-  } else if (filter === 'week') {
-    filteredUsers = filteredUsers.filter(u => {
-      const last = u.lastActivity || u.lastLogin;
-      return last && new Date(last) >= weekAgo;
-    });
-  } else if (filter === 'never') {
-    filteredUsers = filteredUsers.filter(u => !u.lastLogin && !u.lastActivity);
-  }
-
-  // Sortowanie
-  if (sortBy === 'recent') {
-    filteredUsers.sort((a, b) => {
-      const aLast = a.lastActivity || a.lastLogin;
-      const bLast = b.lastActivity || b.lastLogin;
-      if (!aLast && !bLast) return 0;
-      if (!aLast) return 1;
-      if (!bLast) return -1;
-      return new Date(bLast) - new Date(aLast);
-    });
-  } else if (sortBy === 'oldest') {
-    filteredUsers.sort((a, b) => {
-      const aLast = a.lastActivity || a.lastLogin;
-      const bLast = b.lastActivity || b.lastLogin;
-      if (!aLast && !bLast) return 0;
-      if (!aLast) return -1;
-      if (!bLast) return 1;
-      return new Date(aLast) - new Date(bLast);
-    });
-  } else if (sortBy === 'name') {
-    filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }
-
-  // Statystyki
-  const stats = {
-    total: users.length,
-    online: users.filter(u => isOnline(u)).length,
-    today: users.filter(u => {
-      const last = u.lastActivity || u.lastLogin;
-      return last && new Date(last) >= todayStart;
-    }).length,
-    never: users.filter(u => !u.lastLogin && !u.lastActivity).length
-  };
-
-  // Modal historii logowań
-  if (selectedUser) {
-    const history = selectedUser.loginHistory || [];
-    return (
-      <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'600px',maxHeight:'80vh',display:'flex',flexDirection:'column',padding:0}}>
-          <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#8B5CF6,#6D28D9)',color:'white',borderRadius:'12px 12px 0 0'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <h2 style={{margin:0,fontSize:'18px'}}>📜 Historia logowań - {selectedUser.name}</h2>
-              <button onClick={() => setSelectedUser(null)} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
-            </div>
-          </div>
-          <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
-            {history.length === 0 ? (
-              <div style={{textAlign:'center',padding:'40px',color:'#64748B'}}>
-                <div style={{fontSize:'48px',marginBottom:'12px'}}>📭</div>
-                <div>Brak historii logowań</div>
-              </div>
-            ) : (
-              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-                {history.map((entry, idx) => (
-                  <div key={idx} style={{padding:'12px 16px',background:'#F8FAFC',borderRadius:'8px',border:'1px solid #E2E8F0'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div style={{fontWeight:'600',color:'#1E293B'}}>
-                        {new Date(entry.time).toLocaleString('pl-PL')}
-                      </div>
-                      {idx === 0 && <span style={{background:'#D1FAE5',color:'#059669',padding:'2px 8px',borderRadius:'4px',fontSize:'10px',fontWeight:'600'}}>Ostatnie</span>}
-                    </div>
-                    <div style={{fontSize:'11px',color:'#64748B',marginTop:'4px'}}>
-                      {entry.platform} • {entry.userAgent?.substring(0, 50)}...
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white'}}>
-            <button onClick={() => setSelectedUser(null)} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}>Zamknij</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'800px',height:'85vh',display:'flex',flexDirection:'column',padding:0}}>
-        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#3B82F6,#1D4ED8)',color:'white',borderRadius:'12px 12px 0 0'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <h2 style={{margin:0,fontSize:'18px'}}>📊 Aktywność użytkowników</h2>
-            <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
-          </div>
-        </div>
-
-        {/* Statystyki */}
-        <div style={{padding:'16px 20px',background:'#F8FAFC',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',flexWrap:'wrap'}}>
-          <div style={{background:'white',padding:'12px 16px',borderRadius:'10px',border:'1px solid #E2E8F0',flex:'1',minWidth:'100px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#1E293B'}}>{stats.total}</div>
-            <div style={{fontSize:'11px',color:'#64748B'}}>Wszystkich</div>
-          </div>
-          <div style={{background:'#D1FAE5',padding:'12px 16px',borderRadius:'10px',border:'1px solid #A7F3D0',flex:'1',minWidth:'100px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#059669'}}>{stats.online}</div>
-            <div style={{fontSize:'11px',color:'#059669'}}>🟢 Online</div>
-          </div>
-          <div style={{background:'#DBEAFE',padding:'12px 16px',borderRadius:'10px',border:'1px solid #BFDBFE',flex:'1',minWidth:'100px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#2563EB'}}>{stats.today}</div>
-            <div style={{fontSize:'11px',color:'#2563EB'}}>Dziś aktywnych</div>
-          </div>
-          <div style={{background:'#FEE2E2',padding:'12px 16px',borderRadius:'10px',border:'1px solid #FECACA',flex:'1',minWidth:'100px',textAlign:'center'}}>
-            <div style={{fontSize:'24px',fontWeight:'700',color:'#DC2626'}}>{stats.never}</div>
-            <div style={{fontSize:'11px',color:'#DC2626'}}>Nigdy</div>
-          </div>
-        </div>
-
-        {/* Filtry */}
-        <div style={{padding:'12px 20px',background:'white',borderBottom:'1px solid #E2E8F0',display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap'}}>
-          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-            {[
-              { id: 'all', label: 'Wszyscy' },
-              { id: 'online', label: '🟢 Online' },
-              { id: 'today', label: 'Dziś' },
-              { id: 'week', label: 'Tydzień' },
-              { id: 'never', label: 'Nigdy' }
-            ].map(f => (
-              <button
-                key={f.id}
-                onClick={() => setFilter(f.id)}
-                style={{
-                  padding:'6px 12px',
-                  borderRadius:'6px',
-                  border: filter === f.id ? 'none' : '1px solid #E2E8F0',
-                  background: filter === f.id ? '#3B82F6' : 'white',
-                  color: filter === f.id ? 'white' : '#64748B',
-                  cursor:'pointer',
-                  fontSize:'12px',
-                  fontWeight:'500'
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px'}}>
-            <span style={{fontSize:'12px',color:'#64748B'}}>Sortuj:</span>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value)}
-              style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid #E2E8F0',fontSize:'12px'}}
-            >
-              <option value="recent">Ostatnio aktywni</option>
-              <option value="oldest">Najdawniej aktywni</option>
-              <option value="name">Alfabetycznie</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Lista użytkowników */}
-        <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
-          {filteredUsers.length === 0 ? (
-            <div style={{textAlign:'center',padding:'40px',color:'#64748B'}}>
-              <div style={{fontSize:'48px',marginBottom:'12px'}}>🔍</div>
-              <div>Brak użytkowników spełniających kryteria</div>
-            </div>
-          ) : (
-            <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-              {filteredUsers.map(u => {
-                const status = getStatusColor(u);
-                const role = getRole(u.role);
-                return (
-                  <div
-                    key={u.id}
-                    onClick={() => setSelectedUser(u)}
-                    style={{
-                      display:'flex',
-                      alignItems:'center',
-                      gap:'12px',
-                      padding:'12px 16px',
-                      background:'white',
-                      border:'1px solid #E2E8F0',
-                      borderRadius:'10px',
-                      cursor:'pointer',
-                      transition:'all 0.2s'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.background = '#F8FAFC'}
-                    onMouseOut={e => e.currentTarget.style.background = 'white'}
-                  >
-                    <div style={{position:'relative'}}>
-                      <div style={{
-                        width:'40px',
-                        height:'40px',
-                        borderRadius:'10px',
-                        background: status.bg,
-                        display:'flex',
-                        alignItems:'center',
-                        justifyContent:'center',
-                        fontSize:'20px'
-                      }}>
-                        {role.icon}
-                      </div>
-                      <div style={{
-                        position:'absolute',
-                        bottom:'-2px',
-                        right:'-2px',
-                        fontSize:'12px'
-                      }}>
-                        {status.icon}
-                      </div>
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{u.name}</div>
-                      <div style={{fontSize:'12px',color:'#64748B'}}>@{u.username} • {role.name}</div>
-                      {u.loginHistory?.length > 0 && (
-                        <div style={{fontSize:'10px',color:'#8B5CF6',marginTop:'2px'}}>
-                          📜 {u.loginHistory.length} logowań w historii
-                        </div>
-                      )}
-                    </div>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{
-                        display:'inline-block',
-                        padding:'4px 10px',
-                        borderRadius:'12px',
-                        background: status.bg,
-                        color: status.color,
-                        fontSize:'11px',
-                        fontWeight:'600'
-                      }}>
-                        {status.icon} {status.label}
-                      </div>
-                      <div style={{fontSize:'11px',color:'#64748B',marginTop:'4px'}}>
-                        Ostatnia aktywność: {getTimeSince(u.lastActivity || u.lastLogin) || 'Brak'}
-                      </div>
-                      {u.lastLogin && (
-                        <div style={{fontSize:'10px',color:'#94A3B8',marginTop:'2px'}}>
-                          Logowanie: {new Date(u.lastLogin).toLocaleString('pl-PL')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div style={{padding:'12px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
-          <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
-            <button 
-              onClick={() => {
-                if (window.confirm('⚠️ Czy na pewno chcesz wylogować WSZYSTKICH użytkowników?\n\nWszyscy (łącznie z Tobą) będą musieli zalogować się ponownie.')) {
-                  onForceLogoutAll();
-                }
-              }} 
-              style={{padding:'10px 16px',borderRadius:'8px',border:'none',background:'#DC2626',color:'white',cursor:'pointer',fontWeight:'600',fontSize:'13px'}}
-            >
-              🚪 Wyloguj wszystkich
-            </button>
-            <div style={{fontSize:'11px',color:'#64748B'}}>
-              💡 Kliknij użytkownika aby zobaczyć historię
-            </div>
-          </div>
-          <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'none',background:'#3B82F6',color:'white',cursor:'pointer',fontWeight:'600'}}>
-            Zamknij
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================
-// PANEL ZARZĄDZANIA UPRAWNIENIAMI
-// ============================================
-
-const PermissionsPanel = ({ users, onSave, onClose }) => {
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [userPermissions, setUserPermissions] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const editableUsers = users.filter(u => ['admin', 'worker'].includes(u.role));
-  const filteredUsers = editableUsers.filter(u => 
-    u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.username?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectUser = (user) => {
-    setSelectedUser(user);
-    if (user.permissions && Array.isArray(user.permissions)) {
-      setUserPermissions([...user.permissions]);
-    } else {
-      setUserPermissions([...(DEFAULT_PERMISSIONS[user.role] || [])]);
-    }
-  };
-
-  const togglePermission = (permId) => {
-    if (userPermissions.includes(permId)) {
-      setUserPermissions(userPermissions.filter(p => p !== permId));
-    } else {
-      setUserPermissions([...userPermissions, permId]);
-    }
-  };
-
-  const toggleCategory = (category) => {
-    const categoryPerms = ALL_PERMISSIONS.filter(p => p.category === category).map(p => p.id);
-    const allChecked = categoryPerms.every(p => userPermissions.includes(p));
-    if (allChecked) {
-      setUserPermissions(userPermissions.filter(p => !categoryPerms.includes(p)));
-    } else {
-      const newPerms = [...userPermissions];
-      categoryPerms.forEach(p => { if (!newPerms.includes(p)) newPerms.push(p); });
-      setUserPermissions(newPerms);
-    }
-  };
-
-  const resetToDefault = () => {
-    if (selectedUser) setUserPermissions([...(DEFAULT_PERMISSIONS[selectedUser.role] || [])]);
-  };
-
-  const selectAll = () => setUserPermissions(ALL_PERMISSIONS.map(p => p.id));
-  const deselectAll = () => setUserPermissions([]);
-
-  const handleSave = async () => {
-    if (!selectedUser) return;
-    setSaving(true);
-    try {
-      await onSave(selectedUser.id, userPermissions);
-      setSelectedUser({ ...selectedUser, permissions: userPermissions });
-    } catch (err) {
-      console.error('Błąd zapisywania uprawnień:', err);
-      alert('Błąd zapisywania');
-    }
-    setSaving(false);
-  };
-
-  const permissionsByCategory = getPermissionsByCategory();
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{width:'95%',maxWidth:'1100px',height:'90vh',display:'flex',flexDirection:'column',padding:0}}>
-        <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'linear-gradient(135deg,#1E293B,#334155)',color:'white',borderRadius:'12px 12px 0 0'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <h2 style={{margin:0,fontSize:'18px'}}>🔐 Zarządzanie uprawnieniami</h2>
-            <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',color:'white',width:'32px',height:'32px',borderRadius:'8px',cursor:'pointer',fontSize:'18px'}}>×</button>
-          </div>
-        </div>
-
-        <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-          <div style={{width:'280px',borderRight:'1px solid #E2E8F0',display:'flex',flexDirection:'column',background:'#F8FAFC'}}>
-            <div style={{padding:'12px'}}>
-              <input type="text" placeholder="🔍 Szukaj użytkownika..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{width:'100%',padding:'10px 12px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'13px',boxSizing:'border-box'}} />
-            </div>
-            <div style={{flex:1,overflow:'auto'}}>
-              {filteredUsers.map(u => (
-                <div key={u.id} onClick={() => selectUser(u)} style={{padding:'12px 16px',cursor:'pointer',background: selectedUser?.id === u.id ? '#EDE9FE' : 'white',borderBottom:'1px solid #E2E8F0',borderLeft: selectedUser?.id === u.id ? '3px solid #8B5CF6' : '3px solid transparent'}}>
-                  <div style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{getRole(u.role).icon} {u.name}</div>
-                  <div style={{fontSize:'12px',color:'#64748B',marginTop:'2px'}}>@{u.username} • {getRole(u.role).name}</div>
-                  {u.permissions && <div style={{fontSize:'10px',color:'#8B5CF6',marginTop:'4px'}}>✨ Własne uprawnienia ({u.permissions.length})</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-            {selectedUser ? (
-              <>
-                <div style={{padding:'16px 20px',borderBottom:'1px solid #E2E8F0',background:'white'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:'18px',fontWeight:'700',color:'#1E293B'}}>{getRole(selectedUser.role).icon} {selectedUser.name}</div>
-                      <div style={{fontSize:'13px',color:'#64748B',marginTop:'2px'}}>Rola: {getRole(selectedUser.role).name} • {userPermissions.length} z {ALL_PERMISSIONS.length} uprawnień</div>
-                    </div>
-                    <div style={{display:'flex',gap:'8px'}}>
-                      <button onClick={selectAll} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #10B981',background:'white',color:'#10B981',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>✓ Wszystko</button>
-                      <button onClick={deselectAll} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #EF4444',background:'white',color:'#EF4444',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>✗ Nic</button>
-                      <button onClick={resetToDefault} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid #64748B',background:'white',color:'#64748B',cursor:'pointer',fontSize:'12px',fontWeight:'500'}}>↺ Domyślne</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{flex:1,overflow:'auto',padding:'16px 20px'}}>
-                  {Object.entries(permissionsByCategory).map(([category, perms]) => {
-                    const categoryPerms = perms.map(p => p.id);
-                    const checkedCount = categoryPerms.filter(p => userPermissions.includes(p)).length;
-                    const allChecked = checkedCount === categoryPerms.length;
-                    const someChecked = checkedCount > 0 && checkedCount < categoryPerms.length;
-
-                    return (
-                      <div key={category} style={{marginBottom:'20px'}}>
-                        <div onClick={() => toggleCategory(category)} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#F1F5F9',borderRadius:'8px',cursor:'pointer',marginBottom:'8px'}}>
-                          <div style={{width:'20px',height:'20px',borderRadius:'4px',border: allChecked || someChecked ? 'none' : '2px solid #CBD5E1',background: allChecked ? '#8B5CF6' : someChecked ? '#C4B5FD' : 'white',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px'}}>
-                            {allChecked && '✓'}{someChecked && '−'}
-                          </div>
-                          <span style={{fontWeight:'600',fontSize:'14px',color:'#1E293B'}}>{category}</span>
-                          <span style={{fontSize:'12px',color:'#64748B'}}>({checkedCount}/{categoryPerms.length})</span>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(250px, 1fr))',gap:'8px',paddingLeft:'12px'}}>
-                          {perms.map(perm => {
-                            const isChecked = userPermissions.includes(perm.id);
-                            return (
-                              <div key={perm.id} onClick={() => togglePermission(perm.id)} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background: isChecked ? '#F5F3FF' : 'white',border: `1px solid ${isChecked ? '#C4B5FD' : '#E2E8F0'}`,borderRadius:'8px',cursor:'pointer'}}>
-                                <div style={{width:'18px',height:'18px',borderRadius:'4px',border: isChecked ? 'none' : '2px solid #CBD5E1',background: isChecked ? '#8B5CF6' : 'white',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'11px',flexShrink:0}}>{isChecked && '✓'}</div>
-                                <span style={{fontSize:'20px'}}>{perm.icon}</span>
-                                <span style={{fontSize:'13px',color: isChecked ? '#5B21B6' : '#374151'}}>{perm.name}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{padding:'16px 20px',borderTop:'1px solid #E2E8F0',background:'white',display:'flex',justifyContent:'flex-end',gap:'12px'}}>
-                  <button onClick={onClose} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}>Anuluj</button>
-                  <button onClick={handleSave} disabled={saving} style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#8B5CF6',color:'white',cursor:'pointer',fontWeight:'600'}}>{saving ? '⏳ Zapisywanie...' : '💾 Zapisz uprawnienia'}</button>
-                </div>
-              </>
-            ) : (
-              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#94A3B8'}}>
-                <div style={{textAlign:'center'}}>
-                  <div style={{fontSize:'64px',marginBottom:'16px'}}>👈</div>
-                  <div style={{fontSize:'16px'}}>Wybierz użytkownika z listy</div>
-                  <div style={{fontSize:'13px',marginTop:'8px'}}>aby edytować jego uprawnienia</div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -7917,11 +7059,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
   const days = getDaysUntilPickup(pickupDate);
 
   // Sprawdź czy użytkownik może usunąć zamówienie
-  const canDelete = hasPermission(currentUser, 'orders_delete') || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
-  // Sprawdź czy może edytować
-  const canEdit = hasPermission(currentUser, 'orders_edit') || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
-  // Sprawdź czy może zmieniać statusy
-  const canChangeStatus = hasPermission(currentUser, 'orders_status');
+  const canDelete = isAdmin || order.utworzonePrzez?.id === currentUser?.id || order.kontrahentId === currentUser?.id;
   // Nie pokazuj pilności dla zamówień w transporcie, dostarczonych, odebranych lub gotowych do odbioru
   const showUrgency = !['w_transporcie', 'dostarczone', 'odebrane', 'gotowe_do_odbioru'].includes(order.status);
   const urgency = showUrgency ? getUrgencyStyle(days) : null;
@@ -8095,7 +7233,6 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                       }}
                       className="status-select small"
                       style={{ background: prodStatus?.bgColor, color: prodStatus?.color }}
-                      disabled={!canChangeStatus}
                     >
                       {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
                     </select>
@@ -8146,7 +7283,6 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
                 onChange={e => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
                 className="status-select small"
                 style={{ background: status?.bgColor, color: status?.color }}
-                disabled={!canChangeStatus}
               >
                 {STATUSES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
               </select>
@@ -8259,9 +7395,7 @@ const OrderCard = ({ order, onEdit, onStatusChange, onEmailClick, onClick, produ
         <div className="order-card-footer order-date">
           <span className="order-creator">👤 {order.utworzonePrzez?.nazwa || '?'} • {formatDate(order.utworzonePrzez?.data)}</span>
           <div className="order-actions order-buttons">
-            {canEdit && (
-              <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
-            )}
+            <button onClick={e => { e.stopPropagation(); onEdit(order); }} className="btn-icon">✏️</button>
             {/* Przycisk email - obsługa wielu producentów */}
             {uniqueProducers.length > 0 && !isContractor && (
               <div className="email-btn-wrapper" style={{ position: 'relative' }}>
@@ -8366,9 +7500,6 @@ const DriverPanel = ({ user, orders, producers, onUpdateOrder, onAddNotification
   
   // Menu rozwijane kierowcy
   const [showDriverMenu, setShowDriverMenu] = useState(false);
-  
-  // Modal profilu kierowcy
-  const [showDriverProfileModal, setShowDriverProfileModal] = useState(false);
 
   // Planowane wyjazdy z profilu użytkownika
   const plannedTrips = user.plannedTrips || [];
@@ -10233,9 +9364,6 @@ ${t.team}`;
                   <button onClick={() => { setShowSettlementsModal(true); setShowDriverMenu(false); }}>
                     💰 Moje rozliczenia
                   </button>
-                  <button onClick={() => { setShowDriverProfileModal(true); setShowDriverMenu(false); }}>
-                    👤 Mój profil
-                  </button>
                 </div>
               )}
             </div>
@@ -11559,125 +10687,6 @@ ${t.team}`;
           onClose={() => setShowSettlementsModal(false)}
         />
       )}
-
-      {/* Modal Mój Profil - kierowca */}
-      {showDriverProfileModal && (
-        <DriverProfileModal
-          user={user}
-          onSave={onUpdateUser}
-          onClose={() => setShowDriverProfileModal(false)}
-        />
-      )}
-    </div>
-  );
-};
-
-// Komponent modala profilu kierowcy
-const DriverProfileModal = ({ user, onSave, onClose }) => {
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    email: user?.email || '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const handleSave = async () => {
-    setError('');
-    setSuccess('');
-
-    if (formData.password) {
-      if (formData.password.length < 4) {
-        setError('Hasło musi mieć minimum 4 znaki');
-        return;
-      }
-      if (formData.password !== formData.confirmPassword) {
-        setError('Hasła nie są identyczne');
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const updateData = {
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        lastProfileUpdate: new Date().toISOString()
-      };
-
-      if (formData.password) {
-        updateData.password = formData.password;
-        updateData.lastPasswordChange = new Date().toISOString();
-      }
-
-      await onSave(user.id, updateData);
-      setSuccess('Dane zostały zapisane!');
-      setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Błąd zapisywania profilu:', err);
-      setError('Błąd podczas zapisywania');
-    }
-    setSaving(false);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:'450px'}}>
-        <div className="modal-header" style={{background:'linear-gradient(135deg,#F59E0B,#D97706)',color:'white'}}>
-          <h2>👤 Mój profil</h2>
-          <button className="btn-close" onClick={onClose} style={{color:'white'}}>×</button>
-        </div>
-        
-        <div className="modal-body" style={{padding:'20px'}}>
-          <div style={{background:'#FEF3C7',padding:'16px',borderRadius:'12px',marginBottom:'20px',textAlign:'center'}}>
-            <div style={{fontSize:'40px',marginBottom:'8px'}}>🚚</div>
-            <div style={{fontWeight:'700',fontSize:'16px',color:'#92400E'}}>{user?.name}</div>
-            <div style={{fontSize:'12px',color:'#B45309'}}>@{user?.username} • Kierowca</div>
-          </div>
-
-          <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
-            <div>
-              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Imię i nazwisko</label>
-              <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
-            </div>
-            <div>
-              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Telefon</label>
-              <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+48 123 456 789" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
-            </div>
-            <div>
-              <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Email</label>
-              <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="email@example.com" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
-            </div>
-
-            <div style={{borderTop:'1px solid #E2E8F0',paddingTop:'14px',marginTop:'6px'}}>
-              <h4 style={{margin:'0 0 12px',fontSize:'13px',color:'#374151'}}>🔐 Zmiana hasła</h4>
-              <div style={{marginBottom:'10px',position:'relative'}}>
-                <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Nowe hasło</label>
-                <input type={showPassword ? 'text' : 'password'} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" style={{width:'100%',padding:'10px',paddingRight:'40px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{position:'absolute',right:'10px',top:'26px',background:'none',border:'none',cursor:'pointer'}}>{showPassword ? '🙈' : '👁️'}</button>
-              </div>
-              <div>
-                <label style={{display:'block',fontSize:'11px',fontWeight:'600',color:'#64748B',marginBottom:'4px'}}>Potwierdź hasło</label>
-                <input type={showPassword ? 'text' : 'password'} value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} placeholder="••••••••" style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #E2E8F0',fontSize:'14px',boxSizing:'border-box'}} />
-              </div>
-            </div>
-          </div>
-
-          {error && <div style={{marginTop:'14px',padding:'10px',background:'#FEF2F2',border:'1px solid #FEE2E2',borderRadius:'8px',color:'#DC2626',fontSize:'12px'}}>⚠️ {error}</div>}
-          {success && <div style={{marginTop:'14px',padding:'10px',background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'8px',color:'#16A34A',fontSize:'12px'}}>✅ {success}</div>}
-        </div>
-
-        <div className="modal-footer" style={{padding:'14px 20px',borderTop:'1px solid #E2E8F0',display:'flex',gap:'10px',justifyContent:'flex-end'}}>
-          <button onClick={onClose} style={{padding:'8px 16px',borderRadius:'8px',border:'1px solid #E2E8F0',background:'white',cursor:'pointer',fontWeight:'500'}}>Anuluj</button>
-          <button onClick={handleSave} disabled={saving} style={{padding:'8px 20px',borderRadius:'8px',border:'none',background:'#F59E0B',color:'white',cursor:'pointer',fontWeight:'600'}}>{saving ? '⏳...' : '💾 Zapisz'}</button>
-        </div>
-      </div>
     </div>
   );
 };
@@ -16598,6 +15607,762 @@ const PublicChat = () => {
 };
 
 // ============================================
+// PUBLICZNY PANEL ZAMÓWIEŃ DLA KLIENTA
+// ============================================
+
+const PublicOrderForm = () => {
+  const [step, setStep] = useState('form'); // 'form', 'preview', 'success'
+  const [submitting, setSubmitting] = useState(false);
+  const [orderToken, setOrderToken] = useState(null);
+  
+  // Dane klienta
+  const [clientData, setClientData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    country: 'PL',
+    address: '',
+    city: '',
+    postCode: ''
+  });
+  
+  // Dane produktu
+  const [productData, setProductData] = useState({
+    type: 'standard', // 'standard' lub 'custom' (meble na wymiar)
+    description: '',
+    quantity: 1,
+    // Meble na wymiar
+    customWidth: '',
+    customDepth: '',
+    customArmrest: '',
+    customChaise: '',
+    cornerSide: 'left',
+    // Zdjęcia
+    photos: []
+  });
+  
+  // Płatności
+  const [paymentData, setPaymentData] = useState({
+    totalPrice: '',
+    currency: 'PLN',
+    paidAmount: '',
+    paymentMethod: 'przelew'
+  });
+  
+  // Dodatkowe
+  const [notes, setNotes] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const countries = [
+    { code: 'PL', name: '🇵🇱 Polska' },
+    { code: 'DE', name: '🇩🇪 Niemcy' },
+    { code: 'NL', name: '🇳🇱 Holandia' },
+    { code: 'GB', name: '🇬🇧 Wielka Brytania' },
+    { code: 'FR', name: '🇫🇷 Francja' },
+    { code: 'BE', name: '🇧🇪 Belgia' },
+    { code: 'AT', name: '🇦🇹 Austria' },
+    { code: 'CZ', name: '🇨🇿 Czechy' },
+    { code: 'CH', name: '🇨🇭 Szwajcaria' },
+    { code: 'OTHER', name: '🌍 Inny' }
+  ];
+
+  const paymentMethods = [
+    { id: 'przelew', name: '🏦 Przelew bankowy' },
+    { id: 'gotowka', name: '💵 Gotówka przy odbiorze' },
+    { id: 'karta', name: '💳 Karta płatnicza' },
+    { id: 'raty', name: '📅 Raty' }
+  ];
+
+  // Komponent wizualizacji narożnika
+  const CornerVisualization = ({ width, depth, armrest, chaise, side, compact = false }) => {
+    const w = parseInt(width) || 250;
+    const d = parseInt(depth) || 150;
+    const arm = parseInt(armrest) || 0;
+    const ch = parseInt(chaise) || 0;
+    const size = compact ? 160 : 220;
+    const padding = 50;
+    const scale = Math.min((size - padding) / Math.max(w, d), 1);
+    const scaledW = w * scale;
+    const scaledD = d * scale;
+    const scaledArm = arm ? arm * scale : scaledD * 0.4;
+    const scaledCh = ch ? ch * scale : scaledD * 0.35;
+
+    return (
+      <div style={{background:'#F8FAFC',borderRadius:'12px',padding: compact ? '12px' : '16px'}}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+          <svg width={size + 40} height={size + 20} viewBox={`0 0 ${size + 40} ${size + 20}`}>
+            {side === 'left' ? (
+              <>
+                <path 
+                  d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledD} L 35 ${35 + scaledD} Z`}
+                  fill="#8B5CF6"
+                  stroke="#6D28D9"
+                  strokeWidth="2"
+                />
+                <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                <line x1="20" y1="35" x2="20" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{depth} cm</text>
+                {armrest && (
+                  <text x={35 + scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">szezl. {armrest}cm</text>
+                )}
+                {chaise && (
+                  <text x={55 + scaledW} y={35 + scaledCh/2 + 4} textAnchor="start" fontSize="9" fill="#10B981" fontWeight="600">podr. {chaise}cm</text>
+                )}
+              </>
+            ) : (
+              <>
+                <path 
+                  d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledCh} L 35 ${35 + scaledCh} Z`}
+                  fill="#8B5CF6"
+                  stroke="#6D28D9"
+                  strokeWidth="2"
+                />
+                <line x1="35" y1="20" x2={35 + scaledW} y2="20" stroke="#374151" strokeWidth="1"/>
+                <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700">{width} cm</text>
+                <line x1={45 + scaledW} y1="35" x2={45 + scaledW} y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+                <text x={55 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="11" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${55 + scaledW}, ${35 + scaledD/2})`}>{depth} cm</text>
+                {armrest && (
+                  <text x={35 + scaledW - scaledArm/2} y={58 + scaledD} textAnchor="middle" fontSize="9" fill="#F59E0B" fontWeight="600">szezl. {armrest}cm</text>
+                )}
+                {chaise && (
+                  <text x="10" y={35 + scaledCh/2 + 4} textAnchor="middle" fontSize="9" fill="#10B981" fontWeight="600" transform={`rotate(-90, 10, ${35 + scaledCh/2})`}>podr. {chaise}cm</text>
+                )}
+              </>
+            )}
+          </svg>
+        </div>
+        <div style={{marginTop:'8px',display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',fontSize:'10px'}}>
+          <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 8px',borderRadius:'4px'}}>
+            {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
+          </span>
+          <span style={{color:'#374151'}}><strong>{width}</strong>×<strong>{depth}</strong> cm</span>
+          {armrest && <span style={{color:'#F59E0B'}}>szezl. <strong>{armrest}</strong>cm</span>}
+          {chaise && <span style={{color:'#10B981'}}>podr. <strong>{chaise}</strong>cm</span>}
+        </div>
+      </div>
+    );
+  };
+
+  // Upload zdjęcia
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    setUploadingPhoto(true);
+    
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Plik ' + file.name + ' jest za duży (max 5MB)');
+        continue;
+      }
+      
+      try {
+        const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+        const { storage } = await import('./firebase');
+        
+        const fileName = `order_photos/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, fileName);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        
+        setProductData(prev => ({
+          ...prev,
+          photos: [...prev.photos, url]
+        }));
+      } catch (err) {
+        console.error('Błąd uploadu:', err);
+        alert('Błąd podczas wysyłania zdjęcia');
+      }
+    }
+    
+    setUploadingPhoto(false);
+    e.target.value = '';
+  };
+
+  // Usuń zdjęcie
+  const removePhoto = (index) => {
+    setProductData(prev => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Walidacja formularza
+  const validateForm = () => {
+    if (!clientData.name.trim()) return 'Podaj imię i nazwisko';
+    if (!clientData.phone.trim()) return 'Podaj numer telefonu';
+    if (!clientData.email.trim()) return 'Podaj adres email';
+    if (!productData.description.trim()) return 'Podaj opis produktu';
+    if (!paymentData.totalPrice) return 'Podaj cenę całkowitą';
+    
+    if (productData.type === 'custom') {
+      if (!productData.customWidth) return 'Podaj szerokość mebla';
+      if (!productData.customDepth) return 'Podaj głębokość mebla';
+    }
+    
+    return null;
+  };
+
+  // Wyślij zamówienie
+  const handleSubmit = async () => {
+    const error = validateForm();
+    if (error) {
+      alert(error);
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      
+      // Generuj token do śledzenia
+      const token = 'ORD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      
+      const orderData = {
+        // Dane klienta
+        klient: {
+          imie: clientData.name,
+          telefon: clientData.phone,
+          email: clientData.email,
+          adres: `${clientData.address}, ${clientData.postCode} ${clientData.city}`,
+          ulica: clientData.address,
+          miasto: clientData.city,
+          kodPocztowy: clientData.postCode
+        },
+        kraj: clientData.country,
+        
+        // Produkt
+        towar: productData.description,
+        produkty: [{
+          towar: productData.description,
+          ilosc: productData.quantity,
+          nrPodzamowienia: '1',
+          status: 'nowe',
+          zdjecia: productData.photos,
+          // Meble na wymiar
+          ...(productData.type === 'custom' && {
+            mebleNaWymiar: true,
+            wymiary: {
+              szerokosc: productData.customWidth,
+              glebokosc: productData.customDepth,
+              szezlong: productData.customArmrest,
+              podlokietnik: productData.customChaise,
+              strona: productData.cornerSide
+            }
+          })
+        }],
+        
+        // Płatności
+        platnosci: {
+          cenaCalkowita: parseFloat(paymentData.totalPrice) || 0,
+          waluta: paymentData.currency,
+          zaliczka: parseFloat(paymentData.paidAmount) || 0,
+          sposobPlatnosci: paymentData.paymentMethod,
+          statusPlatnosci: parseFloat(paymentData.paidAmount) >= parseFloat(paymentData.totalPrice) ? 'oplacone' : 
+                          parseFloat(paymentData.paidAmount) > 0 ? 'zaliczka' : 'nieoplacone'
+        },
+        
+        // Status i metadane
+        status: 'nowe',
+        uwagi: notes,
+        clientToken: token,
+        zrodlo: 'formularz_klienta',
+        
+        // Timestamps
+        dataZlecenia: new Date().toISOString().split('T')[0],
+        utworzonePrzez: {
+          id: 'client_form',
+          nazwa: clientData.name,
+          data: new Date().toISOString()
+        },
+        createdAt: serverTimestamp()
+      };
+      
+      await addDoc(collection(db, 'orders'), orderData);
+      
+      setOrderToken(token);
+      setStep('success');
+      
+    } catch (err) {
+      console.error('Błąd wysyłania zamówienia:', err);
+      alert('Wystąpił błąd podczas wysyłania zamówienia. Spróbuj ponownie.');
+    }
+    
+    setSubmitting(false);
+  };
+
+  // EKRAN SUKCESU
+  if (step === 'success') {
+    return (
+      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#059669 0%,#10B981 100%)',padding:'20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{width:'100%',maxWidth:'500px',background:'white',borderRadius:'20px',padding:'40px',textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
+          <div style={{fontSize:'80px',marginBottom:'20px'}}>✅</div>
+          <h1 style={{color:'#059669',margin:'0 0 16px',fontSize:'28px'}}>Zamówienie wysłane!</h1>
+          <p style={{color:'#6B7280',marginBottom:'24px',fontSize:'16px',lineHeight:'1.6'}}>
+            Twoje zamówienie zostało przyjęte do realizacji. Wkrótce skontaktujemy się z Tobą.
+          </p>
+          
+          <div style={{background:'#F0FDF4',borderRadius:'12px',padding:'20px',marginBottom:'24px'}}>
+            <div style={{fontSize:'12px',color:'#059669',marginBottom:'8px',fontWeight:'600'}}>NUMER ŚLEDZENIA</div>
+            <div style={{fontSize:'24px',fontWeight:'700',color:'#047857',fontFamily:'monospace',letterSpacing:'2px'}}>{orderToken}</div>
+          </div>
+          
+          <p style={{fontSize:'13px',color:'#9CA3AF',marginBottom:'24px'}}>
+            Zapisz ten numer - możesz użyć go do śledzenia statusu zamówienia.
+          </p>
+          
+          <div style={{display:'flex',gap:'12px',flexDirection:'column'}}>
+            <a 
+              href={`/zamowienie/${orderToken}`}
+              style={{display:'block',padding:'14px',background:'#059669',color:'white',borderRadius:'10px',textDecoration:'none',fontWeight:'600'}}
+            >
+              📦 Śledź zamówienie
+            </a>
+            <button
+              onClick={() => {
+                setStep('form');
+                setClientData({ name:'',phone:'',email:'',country:'PL',address:'',city:'',postCode:'' });
+                setProductData({ type:'standard',description:'',quantity:1,customWidth:'',customDepth:'',customArmrest:'',customChaise:'',cornerSide:'left',photos:[] });
+                setPaymentData({ totalPrice:'',currency:'PLN',paidAmount:'',paymentMethod:'przelew' });
+                setNotes('');
+              }}
+              style={{padding:'14px',background:'#F3F4F6',color:'#374151',borderRadius:'10px',border:'none',cursor:'pointer',fontWeight:'600'}}
+            >
+              ➕ Złóż kolejne zamówienie
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // FORMULARZ
+  return (
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1E293B 0%,#334155 100%)',padding:'20px'}}>
+      <div style={{maxWidth:'600px',margin:'0 auto'}}>
+        
+        {/* Header */}
+        <div style={{textAlign:'center',marginBottom:'24px',paddingTop:'20px'}}>
+          <h1 style={{color:'white',margin:'0 0 8px',fontSize:'28px',fontWeight:'700'}}>🛋️ Herraton Meble</h1>
+          <p style={{color:'#94A3B8',margin:0,fontSize:'14px'}}>Formularz zamówienia</p>
+        </div>
+
+        {/* Formularz */}
+        <div style={{background:'white',borderRadius:'20px',padding:'24px',boxShadow:'0 10px 40px rgba(0,0,0,0.2)'}}>
+          
+          {/* SEKCJA 1: Dane klienta */}
+          <div style={{marginBottom:'24px'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>1</span>
+              Dane kontaktowe
+            </h3>
+            
+            <div style={{display:'grid',gap:'12px'}}>
+              <div>
+                <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Imię i nazwisko *</label>
+                <input
+                  type="text"
+                  value={clientData.name}
+                  onChange={e => setClientData({...clientData, name: e.target.value})}
+                  placeholder="Jan Kowalski"
+                  style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Telefon *</label>
+                  <input
+                    type="tel"
+                    value={clientData.phone}
+                    onChange={e => setClientData({...clientData, phone: e.target.value})}
+                    placeholder="+48 123 456 789"
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Kraj *</label>
+                  <select
+                    value={clientData.country}
+                    onChange={e => setClientData({...clientData, country: e.target.value})}
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box',background:'white'}}
+                  >
+                    {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Email *</label>
+                <input
+                  type="email"
+                  value={clientData.email}
+                  onChange={e => setClientData({...clientData, email: e.target.value})}
+                  placeholder="jan@example.com"
+                  style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div>
+                <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Adres dostawy</label>
+                <input
+                  type="text"
+                  value={clientData.address}
+                  onChange={e => setClientData({...clientData, address: e.target.value})}
+                  placeholder="ul. Przykładowa 123"
+                  style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:'12px'}}>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Kod pocztowy</label>
+                  <input
+                    type="text"
+                    value={clientData.postCode}
+                    onChange={e => setClientData({...clientData, postCode: e.target.value})}
+                    placeholder="00-000"
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Miasto</label>
+                  <input
+                    type="text"
+                    value={clientData.city}
+                    onChange={e => setClientData({...clientData, city: e.target.value})}
+                    placeholder="Warszawa"
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SEKCJA 2: Produkt */}
+          <div style={{marginBottom:'24px'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>2</span>
+              Produkt
+            </h3>
+            
+            {/* Typ produktu */}
+            <div style={{display:'flex',gap:'10px',marginBottom:'16px'}}>
+              <button
+                type="button"
+                onClick={() => setProductData({...productData, type: 'standard'})}
+                style={{
+                  flex:1,padding:'12px',borderRadius:'10px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                  border: productData.type === 'standard' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
+                  background: productData.type === 'standard' ? '#F5F3FF' : 'white',
+                  color: productData.type === 'standard' ? '#8B5CF6' : '#6B7280'
+                }}
+              >
+                🛋️ Produkt standardowy
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductData({...productData, type: 'custom'})}
+                style={{
+                  flex:1,padding:'12px',borderRadius:'10px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                  border: productData.type === 'custom' ? '2px solid #8B5CF6' : '2px solid #E5E7EB',
+                  background: productData.type === 'custom' ? '#F5F3FF' : 'white',
+                  color: productData.type === 'custom' ? '#8B5CF6' : '#6B7280'
+                }}
+              >
+                📐 Meble na wymiar
+              </button>
+            </div>
+            
+            <div>
+              <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Opis produktu *</label>
+              <textarea
+                value={productData.description}
+                onChange={e => setProductData({...productData, description: e.target.value})}
+                placeholder="Opisz zamówiony produkt (nazwa, kolor, materiał, itp.)"
+                rows={3}
+                style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',resize:'vertical',boxSizing:'border-box'}}
+              />
+            </div>
+            
+            {/* Meble na wymiar - wymiary */}
+            {productData.type === 'custom' && (
+              <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',marginTop:'16px',border:'1px solid #C4B5FD'}}>
+                <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'12px'}}>
+                  📐 Wymiary narożnika
+                </div>
+                
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                  <div>
+                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szerokość (cm) *</label>
+                    <input
+                      type="number"
+                      value={productData.customWidth}
+                      onChange={e => setProductData({...productData, customWidth: e.target.value})}
+                      placeholder="np. 250"
+                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Głębokość (cm) *</label>
+                    <input
+                      type="number"
+                      value={productData.customDepth}
+                      onChange={e => setProductData({...productData, customDepth: e.target.value})}
+                      placeholder="np. 150"
+                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Szezlong (cm)</label>
+                    <input
+                      type="number"
+                      value={productData.customArmrest}
+                      onChange={e => setProductData({...productData, customArmrest: e.target.value})}
+                      placeholder="opcjonalne"
+                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Podłokietnik (cm)</label>
+                    <input
+                      type="number"
+                      value={productData.customChaise}
+                      onChange={e => setProductData({...productData, customChaise: e.target.value})}
+                      placeholder="opcjonalne"
+                      style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid #C4B5FD',fontSize:'14px',boxSizing:'border-box'}}
+                    />
+                  </div>
+                </div>
+                
+                <div style={{marginBottom:'12px'}}>
+                  <label style={{display:'block',fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>Strona narożnika</label>
+                  <div style={{display:'flex',gap:'10px'}}>
+                    <button
+                      type="button"
+                      onClick={() => setProductData({...productData, cornerSide: 'left'})}
+                      style={{
+                        flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                        border: productData.cornerSide === 'left' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                        background: productData.cornerSide === 'left' ? '#8B5CF6' : 'white',
+                        color: productData.cornerSide === 'left' ? 'white' : '#374151'
+                      }}
+                    >
+                      ⬅️ Lewy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductData({...productData, cornerSide: 'right'})}
+                      style={{
+                        flex:1,padding:'10px',borderRadius:'8px',cursor:'pointer',fontWeight:'600',fontSize:'13px',
+                        border: productData.cornerSide === 'right' ? '2px solid #8B5CF6' : '1px solid #C4B5FD',
+                        background: productData.cornerSide === 'right' ? '#8B5CF6' : 'white',
+                        color: productData.cornerSide === 'right' ? 'white' : '#374151'
+                      }}
+                    >
+                      ➡️ Prawy
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Podgląd wizualizacji */}
+                {productData.customWidth && productData.customDepth && (
+                  <CornerVisualization
+                    width={productData.customWidth}
+                    depth={productData.customDepth}
+                    armrest={productData.customArmrest}
+                    chaise={productData.customChaise}
+                    side={productData.cornerSide}
+                    compact={true}
+                  />
+                )}
+              </div>
+            )}
+            
+            {/* Zdjęcia */}
+            <div style={{marginTop:'16px'}}>
+              <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'8px'}}>
+                📸 Zdjęcia produktu (opcjonalne)
+              </label>
+              
+              {productData.photos.length > 0 && (
+                <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px'}}>
+                  {productData.photos.map((photo, idx) => (
+                    <div key={idx} style={{position:'relative'}}>
+                      <img src={photo} alt="" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} />
+                      <button
+                        onClick={() => removePhoto(idx)}
+                        style={{position:'absolute',top:'-6px',right:'-6px',width:'20px',height:'20px',borderRadius:'50%',background:'#EF4444',color:'white',border:'none',cursor:'pointer',fontSize:'12px'}}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <label style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',border:'2px dashed #E5E7EB',borderRadius:'10px',cursor:'pointer',background:'#F9FAFB'}}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  style={{display:'none'}}
+                  disabled={uploadingPhoto}
+                />
+                {uploadingPhoto ? (
+                  <span style={{color:'#6B7280'}}>⏳ Wysyłanie...</span>
+                ) : (
+                  <span style={{color:'#6B7280'}}>📷 Kliknij aby dodać zdjęcia</span>
+                )}
+              </label>
+            </div>
+          </div>
+
+          {/* SEKCJA 3: Płatność */}
+          <div style={{marginBottom:'24px'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>3</span>
+              Płatność
+            </h3>
+            
+            <div style={{display:'grid',gap:'12px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'12px'}}>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Cena całkowita *</label>
+                  <input
+                    type="number"
+                    value={paymentData.totalPrice}
+                    onChange={e => setPaymentData({...paymentData, totalPrice: e.target.value})}
+                    placeholder="0.00"
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+                <div>
+                  <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Waluta</label>
+                  <select
+                    value={paymentData.currency}
+                    onChange={e => setPaymentData({...paymentData, currency: e.target.value})}
+                    style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box',background:'white'}}
+                  >
+                    <option value="PLN">PLN</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'4px'}}>Kwota już wpłacona (zaliczka)</label>
+                <input
+                  type="number"
+                  value={paymentData.paidAmount}
+                  onChange={e => setPaymentData({...paymentData, paidAmount: e.target.value})}
+                  placeholder="0.00"
+                  style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div>
+                <label style={{display:'block',fontSize:'12px',color:'#6B7280',marginBottom:'8px'}}>Sposób płatności</label>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+                  {paymentMethods.map(method => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setPaymentData({...paymentData, paymentMethod: method.id})}
+                      style={{
+                        padding:'10px',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontWeight:'500',
+                        border: paymentData.paymentMethod === method.id ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                        background: paymentData.paymentMethod === method.id ? '#F5F3FF' : 'white',
+                        color: paymentData.paymentMethod === method.id ? '#8B5CF6' : '#6B7280'
+                      }}
+                    >
+                      {method.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Podsumowanie płatności */}
+              {paymentData.totalPrice && (
+                <div style={{background:'#F0FDF4',borderRadius:'10px',padding:'12px',marginTop:'8px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+                    <span style={{color:'#6B7280',fontSize:'13px'}}>Cena całkowita:</span>
+                    <span style={{fontWeight:'600',color:'#1E293B'}}>{paymentData.totalPrice} {paymentData.currency}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+                    <span style={{color:'#6B7280',fontSize:'13px'}}>Wpłacono:</span>
+                    <span style={{fontWeight:'600',color:'#059669'}}>{paymentData.paidAmount || 0} {paymentData.currency}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #BBF7D0',paddingTop:'8px',marginTop:'8px'}}>
+                    <span style={{color:'#374151',fontSize:'13px',fontWeight:'600'}}>Do zapłaty:</span>
+                    <span style={{fontWeight:'700',color:'#DC2626',fontSize:'16px'}}>
+                      {((parseFloat(paymentData.totalPrice) || 0) - (parseFloat(paymentData.paidAmount) || 0)).toFixed(2)} {paymentData.currency}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SEKCJA 4: Uwagi */}
+          <div style={{marginBottom:'24px'}}>
+            <h3 style={{margin:'0 0 16px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>4</span>
+              Dodatkowe uwagi
+            </h3>
+            
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Dodatkowe informacje, uwagi, preferencje dostawy..."
+              rows={3}
+              style={{width:'100%',padding:'12px',borderRadius:'10px',border:'2px solid #E5E7EB',fontSize:'14px',resize:'vertical',boxSizing:'border-box'}}
+            />
+          </div>
+
+          {/* Przycisk Wyślij */}
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            style={{
+              width:'100%',
+              padding:'16px',
+              borderRadius:'12px',
+              border:'none',
+              background: submitting ? '#9CA3AF' : 'linear-gradient(135deg,#8B5CF6,#6D28D9)',
+              color:'white',
+              fontSize:'16px',
+              fontWeight:'700',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              boxShadow:'0 4px 15px rgba(139,92,246,0.3)'
+            }}
+          >
+            {submitting ? '⏳ Wysyłanie...' : '📤 Wyślij zamówienie'}
+          </button>
+          
+          <p style={{textAlign:'center',fontSize:'11px',color:'#9CA3AF',marginTop:'16px'}}>
+            Wysyłając zamówienie akceptujesz regulamin sklepu
+          </p>
+        </div>
+        
+        {/* Stopka */}
+        <div style={{textAlign:'center',marginTop:'24px',paddingBottom:'20px'}}>
+          <p style={{color:'#64748B',fontSize:'12px'}}>
+            🛋️ Herraton Meble © 2024
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // PUBLICZNY FORMULARZ REKLAMACJI DLA KLIENTA
 // ============================================
 
@@ -19072,9 +18837,6 @@ const App = () => {
   const [showSamplesPanel, setShowSamplesPanel] = useState(false); // Próbki
   const [showMailPanel, setShowMailPanel] = useState(false); // Poczta
   const [showPriceListManager, setShowPriceListManager] = useState(false); // Cenniki
-  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false); // Uprawnienia
-  const [showMyProfilePanel, setShowMyProfilePanel] = useState(false); // Mój profil
-  const [showUserActivityPanel, setShowUserActivityPanel] = useState(false); // Aktywność użytkowników
   const [showProductSearch, setShowProductSearch] = useState(false); // Wyszukiwarka produktów
   const [showDriverTripsDetail, setShowDriverTripsDetail] = useState(null); // Szczegóły wyjazdów kierowcy
   const [editingContractor, setEditingContractor] = useState(null); // Do edycji danych kontrahenta przez admina
@@ -19156,46 +18918,6 @@ const App = () => {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // HEARTBEAT - aktualizacja aktywności użytkownika co 5 minut
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    // Funkcja aktualizująca aktywność
-    const updateActivity = async () => {
-      try {
-        const now = new Date().toISOString();
-        await updateUser(user.id, { lastActivity: now });
-        console.log('Aktywność zaktualizowana:', now);
-      } catch (err) {
-        console.error('Błąd aktualizacji aktywności:', err);
-      }
-    };
-    
-    // Aktualizuj od razu przy zalogowaniu
-    updateActivity();
-    
-    // Aktualizuj co 5 minut (300000 ms)
-    const heartbeatInterval = setInterval(updateActivity, 300000);
-    
-    // Aktualizuj też przy aktywności użytkownika (kliknięcie, pisanie)
-    let activityTimeout;
-    const handleUserActivity = () => {
-      clearTimeout(activityTimeout);
-      activityTimeout = setTimeout(updateActivity, 1000); // Debounce 1s
-    };
-    
-    // Nasłuchuj na aktywność
-    window.addEventListener('click', handleUserActivity);
-    window.addEventListener('keydown', handleUserActivity);
-    
-    return () => {
-      clearInterval(heartbeatInterval);
-      clearTimeout(activityTimeout);
-      window.removeEventListener('click', handleUserActivity);
-      window.removeEventListener('keydown', handleUserActivity);
-    };
-  }, [user?.id]);
-
   // Zamknij menu po kliknięciu poza nim
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -19263,43 +18985,6 @@ const App = () => {
       if (!usersLoaded && data.length > 0) {
         usersLoaded = true;
         setLoading(false);
-      }
-      
-      // ZAWSZE synchronizuj uprawnienia aktualnie zalogowanego użytkownika z Firebase
-      const savedUser = localStorage.getItem('herratonUser');
-      if (savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          const freshUserData = data.find(u => u.id === parsedUser.id);
-          if (freshUserData) {
-            // Sprawdź czy admin wymusił wylogowanie
-            if (freshUserData.forceLogout && parsedUser.lastLogin) {
-              const forceLogoutTime = new Date(freshUserData.forceLogout).getTime();
-              const lastLoginTime = new Date(parsedUser.lastLogin).getTime();
-              
-              // Jeśli forceLogout jest nowsze niż ostatnie logowanie - wyloguj
-              if (forceLogoutTime > lastLoginTime) {
-                console.log('Wymuszono wylogowanie przez administratora');
-                localStorage.removeItem('herratonUser');
-                setUser(null);
-                alert('🔒 Administrator wylogował wszystkich użytkowników. Zaloguj się ponownie.');
-                return;
-              }
-            }
-            
-            // Zawsze aktualizuj uprawnienia z Firebase (niezależnie czy się zmieniły)
-            const updatedUser = { 
-              ...parsedUser, 
-              permissions: freshUserData.permissions || null,
-              role: freshUserData.role,
-              name: freshUserData.name
-            };
-            localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
-            setUser(updatedUser);
-          }
-        } catch (e) {
-          console.error('Błąd synchronizacji uprawnień:', e);
-        }
       }
     });
     const unsubProducers = subscribeToProducers(setProducers);
@@ -20341,18 +20026,7 @@ Zespół obsługi zamówień
   }
 
   if (!user) {
-    return <LoginScreen 
-      onLogin={setUser} 
-      users={users} 
-      loading={loading} 
-      onUpdateLastLogin={async (userId, loginTime, loginHistory) => {
-        await updateUser(userId, { 
-          lastLogin: loginTime,
-          lastActivity: loginTime,
-          loginHistory: loginHistory
-        });
-      }}
-    />;
+    return <LoginScreen onLogin={setUser} users={users} loading={loading} />;
   }
 
   const unresolvedNotifs = visibleNotifications.filter(n => !n.resolved).length;
@@ -20375,18 +20049,16 @@ Zespół obsługi zamówień
             </button>
 
             {/* Przycisk czatów klientów */}
-            {hasPermission(user, 'panel_chats') && (
-              <button 
-                className="btn-secondary" 
-                onClick={() => setShowClientChats(true)}
-                style={{background: clientChats.filter(c => c.unreadByStaff && (!c.assignedTo || c.assignedTo === user?.id)).length > 0 ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : undefined, color: clientChats.filter(c => c.unreadByStaff).length > 0 ? 'white' : undefined}}
-              >
-                💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
-              </button>
-            )}
+            <button 
+              className="btn-secondary" 
+              onClick={() => setShowClientChats(true)}
+              style={{background: clientChats.filter(c => c.unreadByStaff && (!c.assignedTo || c.assignedTo === user?.id)).length > 0 ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)' : undefined, color: clientChats.filter(c => c.unreadByStaff).length > 0 ? 'white' : undefined}}
+            >
+              💬 Czaty ({clientChats.filter(c => c.status !== 'closed').length})
+            </button>
 
             {/* Przycisk zadań */}
-            {hasPermission(user, 'panel_tasks') && (
+            {(isAdmin || user?.role === 'worker') && (
               <button 
                 className="btn-secondary" 
                 onClick={() => setShowTasksPanel(true)}
@@ -20396,20 +20068,18 @@ Zespół obsługi zamówień
               </button>
             )}
 
-            {hasPermission(user, 'panel_complaints') && (
-              <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
-                📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
-              </button>
-            )}
+            <button className="btn-secondary complaint-btn" onClick={() => setShowComplaintsPanel(true)}>
+              📋 Reklamacje ({visibleComplaints.filter(c => c.status !== 'rozwiazana' && c.status !== 'odrzucona').length})
+            </button>
 
-            {hasPermission(user, 'panel_leads') && (
+            {(isAdmin || user?.role === 'worker') && (
               <button className="btn-secondary leads-btn" onClick={() => setShowLeadsPanel(true)}>
                 🎯 Zainteresowani ({leads.filter(l => !['zamowil', 'rezygnacja'].includes(l.status)).length})
               </button>
             )}
 
-            {/* Menu rozwijane Wysyłka */}
-            {(hasPermission(user, 'shipping_samples') || hasPermission(user, 'shipping_mail')) && (
+            {/* Menu rozwijane Wysyłka - dla admina i pracownika */}
+            {(isAdmin || user?.role === 'worker') && (
               <div className="settings-dropdown" ref={shippingMenuRef}>
                 <button 
                   className="btn-secondary shipping-btn" 
@@ -20419,33 +20089,26 @@ Zespół obsługi zamówień
                 </button>
                 {showShippingMenu && (
                   <div className="settings-menu">
-                    {hasPermission(user, 'shipping_samples') && (
-                      <button onClick={() => { setShowSamplesPanel(true); setShowShippingMenu(false); }}>
-                        🧪 Próbki ({samples.filter(s => s.status !== 'wyslane').length})
-                      </button>
-                    )}
-                    {hasPermission(user, 'shipping_mail') && (
-                      <button onClick={() => { setShowMailPanel(true); setShowShippingMenu(false); }}>
-                        ✉️ Poczta ({mailItems.filter(m => m.status !== 'wyslane').length})
-                      </button>
-                    )}
+                    <button onClick={() => { setShowSamplesPanel(true); setShowShippingMenu(false); }}>
+                      🧪 Próbki ({samples.filter(s => s.status !== 'wyslane').length})
+                    </button>
+                    <button onClick={() => { setShowMailPanel(true); setShowShippingMenu(false); }}>
+                      ✉️ Poczta ({mailItems.filter(m => m.status !== 'wyslane').length})
+                    </button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Kosz */}
-            {hasPermission(user, 'settings_trash') && (
+            {/* Kosz - dla admina i pracownika */}
+            {(isAdmin || user?.role === 'worker') && (
               <button className="btn-secondary trash-btn" onClick={() => setShowTrashPanel(true)}>
                 🗑️ Kosz {trashedOrders.length > 0 && <span className="trash-count">({trashedOrders.length})</span>}
               </button>
             )}
 
-            {/* Menu rozwijane Ustawienia - dla wszystkich z uprawnieniami */}
-            {(hasPermission(user, 'panel_statistics') || hasPermission(user, 'settings_settlements') || 
-              hasPermission(user, 'settings_contacts') || hasPermission(user, 'settings_users') || 
-              hasPermission(user, 'settings_permissions') || hasPermission(user, 'settings_producers') || 
-              hasPermission(user, 'settings_pricelists') || hasPermission(user, 'orders_export')) && (
+            {/* Menu rozwijane Ustawienia - dla admina */}
+            {isAdmin && (
               <div className="settings-dropdown" ref={settingsMenuRef}>
                 <button 
                   className="btn-secondary settings-btn" 
@@ -20455,66 +20118,38 @@ Zespół obsługi zamówień
                 </button>
                 {showSettingsMenu && (
                   <div className="settings-menu">
-                    {hasPermission(user, 'panel_statistics') && (
-                      <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
-                        📊 Statystyki
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_settlements') && (
-                      <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
-                        💰 Rozliczenia transportowe
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_contacts') && (
-                      <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
-                        📇 Kontakty
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_users') && (
-                      <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
-                        👥 Użytkownicy
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_permissions') && (
-                      <button onClick={() => { setShowPermissionsPanel(true); setShowSettingsMenu(false); }}>
-                        🔐 Uprawnienia
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_activity') && (
-                      <button onClick={() => { setShowUserActivityPanel(true); setShowSettingsMenu(false); }}>
-                        📊 Aktywność użytkowników
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_producers') && (
-                      <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
-                        🏭 Producenci
-                      </button>
-                    )}
-                    {hasPermission(user, 'settings_pricelists') && (
-                      <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
-                        📋 Cenniki produktów
-                      </button>
-                    )}
-                    {hasPermission(user, 'orders_export') && (
-                      <>
-                        <div className="settings-menu-divider"></div>
-                        <button onClick={() => { exportToExcel(filteredOrders); setShowSettingsMenu(false); }}>
-                          📥 Export Excel
-                        </button>
-                        <button onClick={() => { autoSyncToGoogleSheets(filteredOrders); setShowSettingsMenu(false); }}>
-                          🔄 Sync Google Sheets
-                        </button>
-                      </>
-                    )}
-                    {hasPermission(user, 'settings_tutorial') && (
-                      <>
-                        <div className="settings-menu-divider"></div>
-                        <button onClick={() => { setShowTutorialConfig(true); setShowSettingsMenu(false); }}>
-                          🎓 Konfiguracja samouczka
-                        </button>
-                      </>
-                    )}
+                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
+                      📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowSettlementsPanel(true); setShowSettingsMenu(false); }}>
+                      💰 Rozliczenia transportowe
+                    </button>
+                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
+                      📇 Kontakty
+                    </button>
+                    <button onClick={() => { setShowUsersModal(true); setShowSettingsMenu(false); }}>
+                      👥 Użytkownicy
+                    </button>
+                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
+                      🏭 Producenci
+                    </button>
+                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
+                      📋 Cenniki produktów
+                    </button>
+                    <button onClick={() => { setShowSettingsModal(true); setShowSettingsMenu(false); }}>
+                      🔧 Konfiguracja
+                    </button>
                     <div className="settings-menu-divider"></div>
+                    <button onClick={() => { exportToExcel(filteredOrders); setShowSettingsMenu(false); }}>
+                      📥 Export Excel
+                    </button>
+                    <button onClick={() => { autoSyncToGoogleSheets(filteredOrders); setShowSettingsMenu(false); }}>
+                      🔄 Sync Google Sheets
+                    </button>
+                    <div className="settings-menu-divider"></div>
+                    <button onClick={() => { setShowTutorialConfig(true); setShowSettingsMenu(false); }}>
+                      🎓 Konfiguracja samouczka
+                    </button>
                     <button onClick={() => { 
                       localStorage.removeItem(`herratonTutorialSeen_${user?.id}`);
                       setShowTutorial(true);
@@ -20529,9 +20164,48 @@ Zespół obsługi zamówień
                     }}>
                       📖 Instrukcja PDF
                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Menu dla pracownika */}
+            {user?.role === 'worker' && (
+              <div className="settings-dropdown" ref={settingsMenuRef}>
+                <button 
+                  className="btn-secondary settings-btn" 
+                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                >
+                  ⚙️ Ustawienia {showSettingsMenu ? '▲' : '▼'}
+                </button>
+                {showSettingsMenu && (
+                  <div className="settings-menu">
+                    <button onClick={() => { setShowStatistics(true); setShowSettingsMenu(false); }}>
+                      📊 Statystyki
+                    </button>
+                    <button onClick={() => { setShowContactsPanel(true); setShowSettingsMenu(false); }}>
+                      📇 Kontakty
+                    </button>
+                    <button onClick={() => { setShowProducersModal(true); setShowSettingsMenu(false); }}>
+                      🏭 Producenci
+                    </button>
+                    <button onClick={() => { setShowPriceListManager(true); setShowSettingsMenu(false); }}>
+                      📋 Cenniki produktów
+                    </button>
                     <div className="settings-menu-divider"></div>
-                    <button onClick={() => { setShowMyProfilePanel(true); setShowSettingsMenu(false); }}>
-                      👤 Mój profil
+                    <button onClick={() => { 
+                      localStorage.removeItem(`herratonTutorialSeen_${user?.id}`);
+                      setShowTutorial(true);
+                      setTutorialStep(0);
+                      setShowSettingsMenu(false);
+                    }}>
+                      🎓 Uruchom samouczek
+                    </button>
+                    <button onClick={() => { 
+                      window.open('/instrukcja.pdf', '_blank');
+                      setShowSettingsMenu(false);
+                    }}>
+                      📖 Instrukcja PDF
                     </button>
                   </div>
                 )}
@@ -20546,7 +20220,6 @@ Zespół obsługi zamówień
                 </button>
                 <button className="btn-secondary stats-btn" onClick={() => setShowStatistics(true)}>📊 Moje statystyki</button>
                 <button className="btn-secondary" onClick={() => setShowCompanyModal(true)}>🏢 Dane firmy</button>
-                <button className="btn-secondary" onClick={() => setShowMyProfilePanel(true)}>👤 Mój profil</button>
               </>
             )}
 
@@ -20572,7 +20245,7 @@ Zespół obsługi zamówień
 
       <main className="main">
         {/* Kompaktowy slider harmonogramu spotkań */}
-        {hasPermission(user, 'panel_calendar') && (() => {
+        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
           const now = new Date();
           const upcomingMeetings = meetings
             .filter(m => new Date(m.dateTime) >= now)
@@ -20646,7 +20319,7 @@ Zespół obsługi zamówień
         })()}
 
         {/* Kompaktowy slider planowanych wyjazdów kierowców */}
-        {hasPermission(user, 'panel_calendar') && (() => {
+        {(user?.role === 'admin' || user?.role === 'worker') && (() => {
           const driversWithTrips = users
             .filter(u => u.role === 'driver' && u.plannedTrips && u.plannedTrips.length > 0)
             .map(driver => {
@@ -20728,11 +20401,9 @@ Zespół obsługi zamówień
 
         <div className="top-bar">
           <div className="top-left">
-            {hasPermission(user, 'orders_add') && (
-              <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
-                ➕ Nowe zamówienie
-              </button>
-            )}
+            <button className="btn-primary btn-add-order" onClick={() => { setEditingOrder(null); setShowOrderModal(true); }}>
+              ➕ Nowe zamówienie
+            </button>
             <input
               className="search-input search-box"
               placeholder="🔍 Szukaj (nr, klient, adres, tel...)"
@@ -21039,64 +20710,6 @@ Zespół obsługi zamówień
         />
       )}
 
-      {/* Panel uprawnień */}
-      {showPermissionsPanel && (
-        <PermissionsPanel
-          users={users}
-          onSave={async (userId, permissions) => {
-            await updateUser(userId, { permissions });
-            if (user?.id === userId) {
-              const updatedUser = { ...user, permissions };
-              setUser(updatedUser);
-              localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
-            }
-          }}
-          onClose={() => setShowPermissionsPanel(false)}
-        />
-      )}
-
-      {/* Panel Mój Profil */}
-      {showMyProfilePanel && (
-        <MyProfilePanel
-          user={user}
-          onSave={async (userId, data) => {
-            await updateUser(userId, data);
-            // Aktualizuj lokalnego użytkownika
-            const updatedUser = { ...user, ...data };
-            setUser(updatedUser);
-            localStorage.setItem('herratonUser', JSON.stringify(updatedUser));
-          }}
-          onClose={() => setShowMyProfilePanel(false)}
-        />
-      )}
-
-      {/* Panel Aktywności Użytkowników */}
-      {showUserActivityPanel && (
-        <UserActivityPanel
-          users={users}
-          onClose={() => setShowUserActivityPanel(false)}
-          onForceLogoutAll={async () => {
-            try {
-              // Ustaw flagę forceLogout dla wszystkich użytkowników
-              const logoutTime = new Date().toISOString();
-              for (const u of users) {
-                await updateUser(u.id, { 
-                  forceLogout: logoutTime,
-                  lastActivity: null 
-                });
-              }
-              // Wyloguj też siebie
-              localStorage.removeItem('herratonUser');
-              setUser(null);
-              alert('✅ Wszyscy użytkownicy zostali wylogowani');
-            } catch (err) {
-              console.error('Błąd wylogowywania:', err);
-              alert('❌ Błąd podczas wylogowywania');
-            }
-          }}
-        />
-      )}
-
       {/* Wyszukiwarka produktów z cennika */}
       {showProductSearch && (
         <ProductSearchModal
@@ -21237,7 +20850,6 @@ Zespół obsługi zamówień
             onDelete={handleDeleteOrder}
             isContractor={isContractor}
             onUpdateOrder={updateOrder}
-            currentUser={user}
           />
         );
       })()}
@@ -21383,27 +20995,25 @@ Zespół obsługi zamówień
       )}
 
       {/* MESSENGER */}
-      {hasPermission(user, 'panel_messenger') && (
-        <Messenger
-          currentUser={user}
-          users={users}
-          messages={messages}
-          orders={orders}
-          onSendMessage={handleSendMessage}
-          onMarkAsRead={handleMarkMessageAsRead}
-          isOpen={showMessenger}
-          onClose={(open) => setShowMessenger(open)}
-          selectedChat={selectedChat}
-          setSelectedChat={setSelectedChat}
-          onViewOrder={(order) => {
-            setShowMessenger(false);
-            setViewingOrder(order);
-          }}
-        />
-      )}
+      <Messenger
+        currentUser={user}
+        users={users}
+        messages={messages}
+        orders={orders}
+        onSendMessage={handleSendMessage}
+        onMarkAsRead={handleMarkMessageAsRead}
+        isOpen={showMessenger}
+        onClose={(open) => setShowMessenger(open)}
+        selectedChat={selectedChat}
+        setSelectedChat={setSelectedChat}
+        onViewOrder={(order) => {
+          setShowMessenger(false);
+          setViewingOrder(order);
+        }}
+      />
 
       {/* POPUP NOWEJ WIADOMOŚCI */}
-      {hasPermission(user, 'panel_messenger') && newMessagePopup && !showMessenger && (
+      {newMessagePopup && !showMessenger && (
         <div className="message-popup" onClick={() => { setNewMessagePopup(null); setShowMessenger(true); }}>
           <div className="message-popup-icon">💬</div>
           <div className="message-popup-content">
@@ -23874,6 +23484,11 @@ const AppRouter = () => {
   // Publiczny czat - nie wymaga logowania
   if (currentPath === '/czat') {
     return <PublicChat />;
+  }
+  
+  // Publiczny formularz zamówienia - nie wymaga logowania
+  if (currentPath === '/zamow') {
+    return <PublicOrderForm />;
   }
   
   // Panel śledzenia zamówienia - nie wymaga logowania
