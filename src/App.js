@@ -542,6 +542,71 @@ const createWFirmaInvoice = async (orderData, invoiceType = 'normal') => {
 
 
 // ============================================
+// WIZUALIZACJA MEBLI NA WYMIAR
+// ============================================
+
+const FurnitureVisualization = ({ wymiary, compact = false }) => {
+  if (!wymiary) return null;
+  
+  const w = parseInt(wymiary.szerokosc) || 250;
+  const d = parseInt(wymiary.glebokosc) || 150;
+  const arm = parseInt(wymiary.szezlong) || 0;
+  const ch = parseInt(wymiary.podlokietnik) || 0;
+  const side = wymiary.strona || 'left';
+  const size = compact ? 140 : 200;
+  const padding = 50;
+  const scale = Math.min((size - padding) / Math.max(w, d), 1);
+  const scaledW = w * scale;
+  const scaledD = d * scale;
+  const scaledArm = arm ? arm * scale : scaledD * 0.4;
+  const scaledCh = ch ? ch * scale : scaledD * 0.35;
+
+  return (
+    <div style={{background:'#F8FAFC',borderRadius:'10px',padding: compact ? '10px' : '14px'}}>
+      <div style={{display:'flex',justifyContent:'center',alignItems:'center'}}>
+        <svg width={size + 40} height={size + 20} viewBox={`0 0 ${size + 40} ${size + 20}`}>
+          {side === 'left' ? (
+            <>
+              <path 
+                d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledCh} L ${35 + scaledArm} ${35 + scaledD} L 35 ${35 + scaledD} Z`}
+                fill="#8B5CF6"
+                stroke="#6D28D9"
+                strokeWidth="2"
+              />
+              <line x1="35" y1="18" x2={35 + scaledW} y2="18" stroke="#374151" strokeWidth="1"/>
+              <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{w} cm</text>
+              <line x1="18" y1="35" x2="18" y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+              <text x="10" y={35 + scaledD/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(-90, 10, ${35 + scaledD/2})`}>{d} cm</text>
+            </>
+          ) : (
+            <>
+              <path 
+                d={`M 35 35 L ${35 + scaledW} 35 L ${35 + scaledW} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledD} L ${35 + scaledW - scaledArm} ${35 + scaledCh} L 35 ${35 + scaledCh} Z`}
+                fill="#8B5CF6"
+                stroke="#6D28D9"
+                strokeWidth="2"
+              />
+              <line x1="35" y1="18" x2={35 + scaledW} y2="18" stroke="#374151" strokeWidth="1"/>
+              <text x={35 + scaledW/2} y="12" textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700">{w} cm</text>
+              <line x1={48 + scaledW} y1="35" x2={48 + scaledW} y2={35 + scaledD} stroke="#374151" strokeWidth="1"/>
+              <text x={56 + scaledW} y={35 + scaledD/2} textAnchor="middle" fontSize="10" fill="#1E293B" fontWeight="700" transform={`rotate(90, ${56 + scaledW}, ${35 + scaledD/2})`}>{d} cm</text>
+            </>
+          )}
+        </svg>
+      </div>
+      <div style={{marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',fontSize: compact ? '9px' : '10px'}}>
+        <span style={{background:'#EDE9FE',color:'#5B21B6',padding:'2px 6px',borderRadius:'4px',fontWeight:'600'}}>
+          {side === 'left' ? '⬅️ Lewy' : '➡️ Prawy'}
+        </span>
+        <span style={{color:'#374151'}}><strong>{w}</strong>×<strong>{d}</strong> cm</span>
+        {arm > 0 && <span style={{color:'#F59E0B'}}>szezl. <strong>{arm}</strong>cm</span>}
+        {ch > 0 && <span style={{color:'#10B981'}}>podr. <strong>{ch}</strong>cm</span>}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // KONFIGURACJA
 // ============================================
 
@@ -1946,6 +2011,13 @@ Zespół obsługi zamówień`;
                             </span>
                           </div>
                           <p className="product-detail-desc">{prod.towar}</p>
+                          {/* Wizualizacja mebli na wymiar */}
+                          {prod.mebleNaWymiar && prod.wymiary && (
+                            <div style={{background:'#F5F3FF',borderRadius:'10px',padding:'12px',marginTop:'8px',border:'1px solid #C4B5FD'}}>
+                              <div style={{fontSize:'12px',fontWeight:'600',color:'#5B21B6',marginBottom:'8px'}}>📐 Meble na wymiar</div>
+                              <FurnitureVisualization wymiary={prod.wymiary} compact={true} />
+                            </div>
+                          )}
                           <div className="product-detail-tags">
                             {prodDriver && <span className="mini-tag">🚚 {prodDriver.name}</span>}
                             {prod.dataOdbioru && <span className="mini-tag">📅 {formatDate(prod.dataOdbioru)}</span>}
@@ -1956,6 +2028,14 @@ Zespół obsługi zamówień`;
                   </div>
                 ) : (
                   <p>{order.towar}</p>
+                )}
+                
+                {/* Wizualizacja mebli na wymiar - główne zamówienie */}
+                {(order.mebleNaWymiar || order.wymiary) && order.wymiary && (
+                  <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',marginTop:'12px',border:'1px solid #C4B5FD'}}>
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'10px'}}>📐 Meble na wymiar - wizualizacja klienta</div>
+                    <FurnitureVisualization wymiary={order.wymiary} compact={false} />
+                  </div>
                 )}
               </div>
             </>
@@ -1979,6 +2059,14 @@ Zespół obsługi zamówień`;
                   </div>
                   <label>📦 TOWAR</label>
                   <p>{prod.towar}</p>
+                  
+                  {/* Wizualizacja mebli na wymiar */}
+                  {prod.mebleNaWymiar && prod.wymiary && (
+                    <div style={{background:'#F5F3FF',borderRadius:'12px',padding:'16px',marginTop:'12px',border:'1px solid #C4B5FD'}}>
+                      <div style={{fontSize:'13px',fontWeight:'600',color:'#5B21B6',marginBottom:'10px'}}>📐 Meble na wymiar - wizualizacja</div>
+                      <FurnitureVisualization wymiary={prod.wymiary} compact={false} />
+                    </div>
+                  )}
                 </div>
 
                 <div className="detail-grid">
@@ -15815,19 +15903,40 @@ const PublicOrderForm = () => {
     setSubmitting(true);
     
     try {
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } = await import('firebase/firestore');
       const { db } = await import('./firebase');
       
       // Generuj token do śledzenia
       const token = 'ORD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       
+      // Generuj automatyczny numer zamówienia (pobierz ostatni i dodaj 1)
+      let nrWlasny = '1';
+      try {
+        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1));
+        const lastOrderSnap = await getDocs(ordersQuery);
+        if (!lastOrderSnap.empty) {
+          const lastOrder = lastOrderSnap.docs[0].data();
+          const lastNr = parseInt(lastOrder.nrWlasny) || 0;
+          nrWlasny = String(lastNr + 1);
+        }
+      } catch (e) {
+        // Jeśli błąd - użyj timestamp jako nr
+        nrWlasny = String(Date.now()).slice(-6);
+      }
+      
+      const paidAmount = parseFloat(paymentData.paidAmount) || 0;
+      const totalPrice = parseFloat(paymentData.totalPrice) || 0;
+      
       const orderData = {
+        // Numer zamówienia
+        nrWlasny: nrWlasny,
+        
         // Dane klienta
         klient: {
           imie: clientData.name,
           telefon: clientData.phone,
           email: clientData.email,
-          adres: `${clientData.address}, ${clientData.postCode} ${clientData.city}`,
+          adres: `${clientData.address}${clientData.address ? ', ' : ''}${clientData.postCode} ${clientData.city}`.trim(),
           ulica: clientData.address,
           miasto: clientData.city,
           kodPocztowy: clientData.postCode
@@ -15842,27 +15951,41 @@ const PublicOrderForm = () => {
           nrPodzamowienia: '1',
           status: 'nowe',
           zdjecia: productData.photos,
+          cenaKlienta: totalPrice,
           // Meble na wymiar
           ...(productData.type === 'custom' && {
             mebleNaWymiar: true,
             wymiary: {
-              szerokosc: productData.customWidth,
-              glebokosc: productData.customDepth,
-              szezlong: productData.customArmrest,
-              podlokietnik: productData.customChaise,
+              szerokosc: parseInt(productData.customWidth) || 0,
+              glebokosc: parseInt(productData.customDepth) || 0,
+              szezlong: parseInt(productData.customArmrest) || 0,
+              podlokietnik: parseInt(productData.customChaise) || 0,
               strona: productData.cornerSide
             }
           })
         }],
         
+        // Meble na wymiar - dane główne (do łatwego dostępu w panelu)
+        ...(productData.type === 'custom' && {
+          mebleNaWymiar: true,
+          wymiary: {
+            szerokosc: parseInt(productData.customWidth) || 0,
+            glebokosc: parseInt(productData.customDepth) || 0,
+            szezlong: parseInt(productData.customArmrest) || 0,
+            podlokietnik: parseInt(productData.customChaise) || 0,
+            strona: productData.cornerSide
+          }
+        }),
+        
         // Płatności
         platnosci: {
-          cenaCalkowita: parseFloat(paymentData.totalPrice) || 0,
+          cenaCalkowita: totalPrice,
           waluta: paymentData.currency,
-          zaliczka: parseFloat(paymentData.paidAmount) || 0,
+          zaliczka: paidAmount,
+          zaplacono: paidAmount, // Dodane - to pole jest używane w panelu
           sposobPlatnosci: paymentData.paymentMethod,
-          statusPlatnosci: parseFloat(paymentData.paidAmount) >= parseFloat(paymentData.totalPrice) ? 'oplacone' : 
-                          parseFloat(paymentData.paidAmount) > 0 ? 'zaliczka' : 'nieoplacone'
+          statusPlatnosci: paidAmount >= totalPrice ? 'oplacone' : 
+                          paidAmount > 0 ? 'zaliczka' : 'nieoplacone'
         },
         
         // Status i metadane
