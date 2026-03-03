@@ -16376,9 +16376,21 @@ const PublicOrderForm = () => {
       <div style={{maxWidth:'600px',margin:'0 auto'}}>
         
         {/* Header */}
-        <div style={{textAlign:'center',marginBottom:'24px',paddingTop:'20px'}}>
+        <div style={{textAlign:'center',marginBottom:'20px',paddingTop:'20px'}}>
           <h1 style={{color:'white',margin:'0 0 8px',fontSize:'28px',fontWeight:'700'}}>🛋️ Herraton Meble</h1>
           <p style={{color:'#94A3B8',margin:0,fontSize:'14px'}}>Formularz zamówienia</p>
+        </div>
+        
+        {/* Informacja o bezpieczeństwie */}
+        <div style={{background:'linear-gradient(135deg,#065F46 0%,#047857 100%)',borderRadius:'16px',padding:'16px 20px',marginBottom:'20px',boxShadow:'0 4px 15px rgba(5,150,105,0.3)'}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:'12px'}}>
+            <div style={{fontSize:'24px',flexShrink:0}}>🔒</div>
+            <div>
+              <div style={{color:'#D1FAE5',fontSize:'13px',lineHeight:'1.5'}}>
+                <strong style={{color:'white'}}>Bezpieczny formularz</strong> — nie wymaga podawania numeru karty płatniczej ani danych konta bankowego. Służy wyłącznie do prawidłowego złożenia zamówienia — umożliwia poprawne wprowadzenie adresu oraz szczegółów zamówienia, dzięki czemu minimalizujemy ryzyko błędów i zapewniamy sprawną realizację.
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Formularz */}
@@ -16475,10 +16487,13 @@ const PublicOrderForm = () => {
 
           {/* SEKCJA 2: Produkt */}
           <div style={{marginBottom:'24px'}}>
-            <h3 style={{margin:'0 0 16px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
+            <h3 style={{margin:'0 0 6px',fontSize:'16px',color:'#1E293B',display:'flex',alignItems:'center',gap:'8px'}}>
               <span style={{background:'#8B5CF6',color:'white',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>2</span>
               Produkt
             </h3>
+            <p style={{margin:'0 0 16px',fontSize:'12px',color:'#6B7280',paddingLeft:'32px'}}>
+              💡 <em>Stronę narożnika określamy stojąc przodem do narożnika</em>
+            </p>
             
             {/* Typ produktu */}
             <div style={{display:'flex',gap:'10px',marginBottom:'16px'}}>
