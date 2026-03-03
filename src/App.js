@@ -15963,9 +15963,8 @@ const PublicOrderForm = () => {
     if (productData.type === 'custom') {
       const dimensionDesc = generateDimensionDescription();
       if (dimensionDesc) {
-        // Zachowaj istniejący opis użytkownika (po przecinku lub nowej linii) jeśli istnieje
+        // Zachowaj istniejący opis użytkownika jeśli nie jest automatyczny
         const currentDesc = productData.description;
-        const hasUserText = currentDesc && !currentDesc.startsWith('Narożnik') && !currentDesc.startsWith('Sofa');
         
         // Jeśli opis jest pusty lub zaczyna się od automatycznego tekstu - zastąp
         if (!currentDesc || currentDesc.startsWith('Narożnik') || currentDesc.startsWith('Sofa')) {
@@ -15973,6 +15972,7 @@ const PublicOrderForm = () => {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     productData.type,
     productData.furnitureType,
