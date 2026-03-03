@@ -15983,12 +15983,12 @@ const PublicOrderForm = () => {
   };
 
   // Automatyczna aktualizacja opisu przy zmianie wymiarów aktywnego produktu
+  const currentProductForEffect = products[activeProductIndex];
   React.useEffect(() => {
-    const product = products[activeProductIndex];
-    if (product && product.type === 'custom') {
-      const dimensionDesc = generateDimensionDescription(product);
+    if (currentProductForEffect && currentProductForEffect.type === 'custom') {
+      const dimensionDesc = generateDimensionDescription(currentProductForEffect);
       if (dimensionDesc) {
-        const currentDesc = product.description;
+        const currentDesc = currentProductForEffect.description;
         
         if (!currentDesc || currentDesc.startsWith('Narożnik') || currentDesc.startsWith('Sofa')) {
           updateProduct(activeProductIndex, { description: dimensionDesc });
@@ -15998,18 +15998,18 @@ const PublicOrderForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeProductIndex,
-    products[activeProductIndex]?.type,
-    products[activeProductIndex]?.furnitureType,
-    products[activeProductIndex]?.customWidth,
-    products[activeProductIndex]?.customDepth,
-    products[activeProductIndex]?.customArmrest,
-    products[activeProductIndex]?.customChaise,
-    products[activeProductIndex]?.cornerSide,
-    products[activeProductIndex]?.sofaWidth,
-    products[activeProductIndex]?.sofaDepth,
-    products[activeProductIndex]?.uLeftWidth,
-    products[activeProductIndex]?.uMiddleWidth,
-    products[activeProductIndex]?.uRightWidth
+    currentProductForEffect?.type,
+    currentProductForEffect?.furnitureType,
+    currentProductForEffect?.customWidth,
+    currentProductForEffect?.customDepth,
+    currentProductForEffect?.customArmrest,
+    currentProductForEffect?.customChaise,
+    currentProductForEffect?.cornerSide,
+    currentProductForEffect?.sofaWidth,
+    currentProductForEffect?.sofaDepth,
+    currentProductForEffect?.uLeftWidth,
+    currentProductForEffect?.uMiddleWidth,
+    currentProductForEffect?.uRightWidth
   ]);
 
   // Komponent wizualizacji - uniwersalny dla różnych typów mebli
